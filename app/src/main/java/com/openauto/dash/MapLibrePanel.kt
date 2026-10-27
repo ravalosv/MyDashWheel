@@ -6,6 +6,7 @@ import android.content.ComponentCallbacks2
 import android.content.Context
 import android.content.res.Configuration
 import android.content.pm.PackageManager
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.horizontalScroll
@@ -586,8 +587,9 @@ private fun enableLocation(
 ) {
     if (!hasLocationPerm(context)) return
     val lc = map.locationComponent
-    runCatching {
-        if (!lc.isLocationComponentActivated) {
+    try {
+        val needsLocationUpdates = !lc.isLocationComponentActivated
+        if (needsLocationUpdates) {
             // Tracking gestures management: a two-finger pinch zooms around the
             // car and keeps following it, instead of counting as a pan.
             // The fixes are Dashwheel's own ([LocationFeed]), not a second GPS
@@ -604,16 +606,6 @@ private fun enableLocation(
                     .useDefaultLocationEngine(false)
                     .build()
             )
-            scope.launch {
-                var last: android.location.Location? = null
-                LocationFeed.location.collect { loc ->
-                    if (loc == null) return@collect
-                    val l = last
-                    if (l != null && still() && loc.distanceTo(l) < STILL_WANDER_M) return@collect
-                    last = loc
-                    runCatching { lc.forceLocationUpdate(loc) }
-                }
-            }
             // The zoom the driver picks by hand is the one tracking comes back
             // to; route previews and search hits don't change it.
             var byGesture = false
@@ -647,21 +639,29 @@ private fun enableLocation(
         // Directional puck; the camera follows position AND heading (map rotates
         // with the car) at a close zoom with pitch for the driving-nav look.
         lc.renderMode = RenderMode.COMPASS
-        followVehicle(lc, wallpaper, userZooms[map])
-    }
-    // TRACKING_GPS only re-centres on a FRESH fix; with only a last-known
-    // location the camera stays at the default world view. Once any fix exists,
-    // fly to it *through* the component: a plain animateCamera here would
-    // count as a developer move and cancel tracking straight away.
-    scope.launch {
-        repeat(15) {
-            val loc = runCatching { lc.lastKnownLocation }.getOrNull()
-            if (loc != null) {
-                followVehicle(lc, wallpaper, userZooms[map])
-                return@launch
+        if (needsLocationUpdates) {
+            scope.launch {
+                var last: android.location.Location? = null
+                LocationFeed.location.collect { loc ->
+                    if (loc == null) return@collect
+                    val l = last
+                    if (l != null && still() && loc.distanceTo(l) < STILL_WANDER_M) return@collect
+                    try {
+                        lc.forceLocationUpdate(loc)
+                        // MapLibre applies the initial zoom only on entering tracking
+                        // with a location; repeating the same mode later does nothing.
+                        if (l == null) followVehicle(lc, wallpaper, userZooms[map])
+                        last = loc
+                    } catch (e: RuntimeException) {
+                        Log.e("MapLibrePanel", "Could not update the map location", e)
+                    }
+                }
             }
-            delay(800)
+        } else {
+            followVehicle(lc, wallpaper, userZooms[map])
         }
+    } catch (e: RuntimeException) {
+        Log.e("MapLibrePanel", "Could not enable the map location", e)
     }
 }
 
@@ -676,15 +676,17 @@ private val userZooms = java.util.WeakHashMap<MapLibreMap, Double>()
 
 /** Follow position and heading with the driving-nav zoom and pitch, keeping tracking on. */
 private fun followVehicle(lc: LocationComponent, wallpaper: MapView? = null, zoom: Double? = null) {
-    if (wallpaper == null) {
-        runCatching { lc.setCameraMode(CameraMode.TRACKING_GPS, 1000L, zoom ?: 16.5, null, 45.0, null) }
-        return
-    }
-    // A wallpaper looks further ahead: steeper, a little closer, and the car
-    // pushed down to the lower part of the screen, between the panels.
-    runCatching {
-        lc.setCameraMode(CameraMode.TRACKING_GPS, 1000L, zoom ?: 17.0, null, 60.0, null)
-        lc.paddingWhileTracking(doubleArrayOf(0.0, wallpaper.height * 0.42, 0.0, 0.0))
+    try {
+        if (lc.lastKnownLocation == null) return
+        if (wallpaper == null) {
+            lc.setCameraMode(CameraMode.TRACKING_GPS, 1000L, zoom ?: 16.5, null, 45.0, null)
+        } else {
+            // A wallpaper looks further ahead, with the car lower on screen.
+            lc.setCameraMode(CameraMode.TRACKING_GPS, 1000L, zoom ?: 17.0, null, 60.0, null)
+            lc.paddingWhileTracking(doubleArrayOf(0.0, wallpaper.height * 0.42, 0.0, 0.0))
+        }
+    } catch (e: RuntimeException) {
+        Log.e("MapLibrePanel", "Could not follow the vehicle on the map", e)
     }
 }
 

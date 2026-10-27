@@ -206,6 +206,7 @@
     <string name="about_description">Dashwheel is a launcher for Android car head units: a map, music and live car data on one calm screen, with dashboards you arrange yourself. Free to use.</string>
     <string name="about_author_name" translatable="false">Alexandre Leblanc</string>
     <string name="about_author_role">Creator and developer</string>
+    <string name="about_custom_version">Custom version — modified by %1$s</string>
     <string name="about_support_section">Support Dashwheel</string>
     <string name="about_support_text">Dashwheel is free. If you like it, a coffee helps keep it going.</string>
     <string name="about_kofi">Buy me a coffee on Ko-fi</string>

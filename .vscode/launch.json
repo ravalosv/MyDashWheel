@@ -1,0 +1,53 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Dashwheel → tablet CP20 (install + launch)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        ".\\gradlew.bat :app:installGithubDebug; if ($LASTEXITCODE -eq 0) { adb -s ZCSI4IK2RP shell am start -n com.openauto.dash/.MainActivity }"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
+    },
+    {
+      "name": "Dashwheel → device por defecto (install + launch)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        ".\\gradlew.bat :app:installGithubDebug; if ($LASTEXITCODE -eq 0) { adb shell am start -n com.openauto.dash/.MainActivity }"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
+    },
+    {
+      "name": "Dashwheel → solo abrir (sin rebuild)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "adb -s ZCSI4IK2RP shell am start -n com.openauto.dash/.MainActivity"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
+    }
+  ]
+}

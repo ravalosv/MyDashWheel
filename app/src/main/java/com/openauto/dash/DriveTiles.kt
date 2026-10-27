@@ -155,8 +155,9 @@ internal fun TitleWithTrailing(
 @Composable
 internal fun UseLocationFeed() {
     val context = LocalContext.current
-    DisposableEffect(Unit) {
-        val acquired = LocationFeed.acquire(context)
+    val hasPermission = hasLocationPermission(context)
+    DisposableEffect(hasPermission) {
+        val acquired = hasPermission && LocationFeed.acquire(context)
         onDispose { if (acquired) LocationFeed.release() }
     }
 }
@@ -784,4 +785,3 @@ internal fun formatAgo(epochMs: Long): String {
         else -> stringResource(R.string.info_ago_days, mins / (24 * 60))
     }
 }
-

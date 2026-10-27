@@ -204,6 +204,7 @@
     <string name="about_author_section">Автор</string>
     <string name="about_description">Dashwheel: лаунчер для автомагнитол на Android. Карта, музыка и данные автомобиля на одном спокойном экране, с панелями, которые вы настраиваете сами. Бесплатный.</string>
     <string name="about_author_role">Создатель и разработчик</string>
+    <string name="about_custom_version">Пользовательская версия — изменена %1$s</string>
     <string name="about_support_section">Поддержать Dashwheel</string>
     <string name="about_support_text">Dashwheel бесплатен. Если он вам нравится, чашка кофе помогает его развивать.</string>
     <string name="about_kofi">Угостить кофе на Ko-fi</string>
