@@ -91,7 +91,11 @@ import com.openauto.dash.roadwatch.RoadWarning
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import androidx.lifecycle.lifecycleScope
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import kotlin.math.atan
@@ -248,7 +252,22 @@ class RoadWatchActivity : ComponentActivity() {
             }
             val bound = camera ?: return@addListener
             fieldOfView(bound, zoom(bound))?.let { (wide, tall) -> watch.fieldOfView(wide, tall) }
+            lifecycleScope.launch { watch.view.map { it.dark }.distinctUntilChanged().collect { dark -> exposure(bound, dark) } }
         }, ContextCompat.getMainExecutor(this))
+    }
+
+    /**
+     * At night the camera exposes [NIGHT_EV] less than it would: the auto
+     * exposure opens up for the dark road and oncoming headlights then wash
+     * out the car ahead's tail lights and the lane's lines. By day, as it is.
+     */
+    private fun exposure(camera: Camera, dark: Boolean) {
+        val state = camera.cameraInfo.exposureState
+        if (!state.isExposureCompensationSupported) return
+        val step = state.exposureCompensationStep.toFloat()
+        if (step <= 0f) return
+        val index = if (dark) (NIGHT_EV / step).roundToInt().coerceIn(state.exposureCompensationRange.lower, state.exposureCompensationRange.upper) else 0
+        runCatching { camera.cameraControl.setExposureCompensationIndex(index) }
     }
 
     /**
@@ -609,7 +628,20 @@ private fun RoadDrawing(watch: RoadWatch, onTap: () -> Unit) {
             }
         }
         warn?.let { RoadWarningBanner(it, Modifier.align(Alignment.Center)) }
-        view.signKmh?.let { SignBadge(it, Modifier.align(Alignment.TopEnd).padding(12.dp)) }
+        val limit = view.signKmh
+        when {
+            limit != null -> SignBadge(limit, Modifier.align(Alignment.TopEnd).padding(12.dp))
+            view.signEnd -> EndBadge(Modifier.align(Alignment.TopEnd).padding(12.dp))
+        }
+    }
+}
+
+/** The sign that ended the limit, drawn as the sign: a bar across an empty face. */
+@Composable
+private fun EndBadge(modifier: Modifier) {
+    Canvas(modifier.size(64.dp).background(Color.White, CircleShape).border(3.dp, Color.Black, CircleShape)) {
+        val inset = size.minDimension * 0.18f
+        drawLine(Color.Black, Offset(inset, size.height - inset), Offset(size.width - inset, inset), strokeWidth = size.minDimension * 0.11f)
     }
 }
 
@@ -741,3 +773,5 @@ private fun RoadControls(
  * worse on others.
  */
 private const val ROAD_ZOOM = 1.3f
+/** How much less the camera exposes at night, in EV (stops). */
+private const val NIGHT_EV = -0.5f

@@ -145,7 +145,10 @@ private fun PlaceEditor(title: String, place: Place?, onSet: (Place?) -> Unit) {
         busy = true
         problem = null
         scope.launch {
-            val found = withContext(Dispatchers.IO) { runCatching { PlaceSearch.find(q) } }
+            val here = HandsFree.position(context)
+            val found = withContext(Dispatchers.IO) {
+                runCatching { PlaceSearch.find(q, here?.latitude, here?.longitude) }
+            }
             busy = false
             val hit = found.getOrNull()
             if (hit == null) {

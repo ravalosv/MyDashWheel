@@ -203,10 +203,12 @@ fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = false) {
         destination = dest
         info = null
         val map = mapRef
-        // The component throws until it's switched on (style loaded, location
-        // allowed): a destination picked before that is "GPS not ready", not a crash.
+        // Prefer the shared GPS feed: the map puck may not have the first fix yet
+        // (LocationComponent is filled asynchronously), which used to look like a
+        // routing failure or a route from a stale/default position.
         @SuppressLint("MissingPermission")
-        val loc = runCatching { map?.locationComponent?.lastKnownLocation }.getOrNull()
+        val loc = LocationFeed.location.value
+            ?: runCatching { map?.locationComponent?.lastKnownLocation }.getOrNull()
         if (map == null || loc == null) {
             loading = false
             error = context.getString(R.string.info_map_gps_not_ready)
@@ -241,7 +243,13 @@ fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = false) {
         if (q.isEmpty() || loading) return
         error = null; info = null; loading = true
         scope.launch {
-            val found = withContext(Dispatchers.IO) { runCatching { PlaceSearch.find(q) } }
+            // Bias Nominatim toward the car: without it, a short street name can
+            // resolve on another continent, and the public Valhalla then answers
+            // HTTP 400 (DistanceExceeded).
+            val here = LocationFeed.location.value
+            val found = withContext(Dispatchers.IO) {
+                runCatching { PlaceSearch.find(q, here?.latitude, here?.longitude) }
+            }
             val place = found.getOrNull()
             if (place == null) {
                 loading = false
@@ -766,22 +774,27 @@ private fun PlaceChips(places: Places, onPick: (Place) -> Unit) {
     }
 }
 
+/** Meters around each pin to snap onto a road (parked off-street, building centroid). */
+private const val SNAP_RADIUS_M = 200
+
 /** Fetches a driving route from a free Valhalla server (OSRM-format response). */
 internal fun valhallaRoute(origin: Point, dest: Point, language: String): DirectionsResponse {
+    fun loc(lon: Double, lat: Double) = mapOf(
+        "lon" to lon, "lat" to lat, "type" to "break", "radius" to SNAP_RADIUS_M
+    )
     val body = mapOf(
         "format" to "osrm",
         "costing" to "auto",
         "banner_instructions" to true,
         "voice_instructions" to true,
         "language" to language,
-        // The spoken and written instructions in the driver's unit; the route's own figures stay in metres.
-        "directions_options" to mapOf("units" to if (Units.current.value.imperial) "miles" else "kilometers"),
-        "locations" to listOf(
-            mapOf("lon" to origin.longitude(), "lat" to origin.latitude(), "type" to "break"),
-            mapOf("lon" to dest.longitude(), "lat" to dest.latitude(), "type" to "break")
-        )
+        // Top-level units (directions_options is deprecated and some servers reject it).
+        "units" to if (Units.current.value.imperial) "miles" else "kilometers",
+        "locations" to listOf(loc(origin.longitude(), origin.latitude()), loc(dest.longitude(), dest.latitude()))
     )
     val json = Gson().toJson(body)
+    android.util.Log.d("MapLibrePanel", "Routing request: origin=(${origin.latitude()},${origin.longitude()}) dest=(${dest.latitude()},${dest.longitude()})")
+    android.util.Log.d("MapLibrePanel", "Request body: $json")
     val routingUrl = MapServers.current.value.routing
     val request = Request.Builder()
         .header("User-Agent", USER_AGENT)
@@ -789,7 +802,11 @@ internal fun valhallaRoute(origin: Point, dest: Point, language: String): Direct
         .post(json.toRequestBody("application/json; charset=utf-8".toMediaType()))
         .build()
     Http.client.newCall(request).execute().use { resp ->
-        if (!resp.isSuccessful) error("HTTP ${resp.code}")
+        if (!resp.isSuccessful) {
+            val errBody = resp.body?.string().orEmpty()
+            android.util.Log.e("MapLibrePanel", "Routing failed: HTTP ${resp.code} - Response: $errBody")
+            error(valhallaFailure(resp.code, errBody))
+        }
         val rb = resp.body?.string() ?: error("Empty routing response")
         // Valhalla doesn't echo the request back, and the navigation refuses a
         // route without it (its spoken turns need voice and banner instructions).
@@ -807,6 +824,20 @@ internal fun valhallaRoute(origin: Point, dest: Point, language: String): Direct
         val parsed = DirectionsResponse.fromJson(rb)
         return parsed.copy(routes = parsed.routes.map { it.copy(routeOptions = options) })
     }
+}
+
+/**
+ * Valhalla's refusal, for the map's error line: its own message when the body
+ * has one (DistanceExceeded, NoSegment, …), else just the HTTP status.
+ */
+internal fun valhallaFailure(code: Int, body: String): String {
+    val detail = runCatching {
+        val o = com.google.gson.JsonParser.parseString(body).asJsonObject
+        sequenceOf("message", "error").mapNotNull { key ->
+            o.get(key)?.takeIf { it.isJsonPrimitive }?.asString?.trim()?.takeIf { it.isNotEmpty() }
+        }.firstOrNull()
+    }.getOrNull()
+    return if (detail != null) "$detail (HTTP $code)" else "HTTP $code"
 }
 
 private fun formatEta(context: Context, distanceMeters: Double?, durationSeconds: Double?): String {

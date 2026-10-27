@@ -5,6 +5,7 @@ import com.openauto.dash.roadwatch.Detection
 import com.openauto.dash.roadwatch.RoadBand
 import com.openauto.dash.roadwatch.SignFinder
 import com.openauto.dash.roadwatch.VehicleKind
+import com.openauto.dash.roadwatch.horizonLookAt
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.floatOrNull
@@ -81,7 +82,7 @@ fun main(args: Array<String>) {
     val dump = o["dump"]?.let { File(it).also { d -> d.mkdirs() } }
     val every = o["every"]?.toInt() ?: 30
     val signs = o["signs"]?.let { File(it).also { d -> d.mkdirs() } }
-    val signRows = StringBuilder("frame,left,top,right,bottom,side_px\n")
+    val signRows = StringBuilder("frame,kind,left,top,right,bottom,side_px\n")
 
     val (width, height, fps) = probe(video)
     System.err.println("$video: ${width}x$height at $fps fps")
@@ -107,7 +108,9 @@ fun main(args: Array<String>) {
             }
             val timeMs = (index * 1000L / fps)
             val telemetry = telemetryAt(notes, timeMs, steady)
-            val result = session.frame(index, timeMs, ByteBuffer.wrap(bytes), width, height, width * 4, detections[index] ?: emptyList(), telemetry, lanes?.at(index))
+            // detect.py with both looks a frame: the look the phone would take on this frame.
+            val found = detections[index]?.let { d -> if (d.tagged && horizonLookAt(index.toLong())) d.horizon else d.square } ?: emptyList()
+            val result = session.frame(index, timeMs, ByteBuffer.wrap(bytes), width, height, width * 4, found, telemetry, lanes?.at(index))
             if (signs != null && index % SIGN_EVERY == 0) findSigns(bytes, width, height, index, signs, signRows)
             if (sink != null || (dump != null && index % every == 0)) {
                 toImage(bytes, pixels, image)
@@ -145,18 +148,27 @@ private fun probe(video: File): Triple<Int, Int, Int> {
     return Triple(parts[0].toInt(), parts[1].toInt(), Math.round(rate).toInt().coerceAtLeast(1))
 }
 
-/** detect.py's lines: {"frame": n, "boxes": [[left, top, right, bottom, class, score], ...]}, fractions of the frame, COCO classes. */
-private fun readDetections(file: File): Map<Int, List<Detection>> {
-    val out = HashMap<Int, List<Detection>>()
+/** One frame's boxes from detect.py: one look's ([square], untagged), or both looks' when [tagged] (--looks both). */
+private class Looks(val square: List<Detection>, val horizon: List<Detection>, val tagged: Boolean)
+
+/** detect.py's lines: {"frame": n, "boxes": [[left, top, right, bottom, class, score(, look)], ...]}, fractions of the frame, COCO classes. */
+private fun readDetections(file: File): Map<Int, Looks> {
+    val out = HashMap<Int, Looks>()
     file.forEachLine { line ->
         if (line.isBlank()) return@forEachLine
         val obj = Json.parseToJsonElement(line).jsonObject
         val frame = obj["frame"]!!.jsonPrimitive.int
-        out[frame] = obj["boxes"]!!.jsonArray.mapNotNull { b ->
+        val square = ArrayList<Detection>()
+        val horizon = ArrayList<Detection>()
+        var tagged = false
+        for (b in obj["boxes"]!!.jsonArray) {
             val a = b.jsonArray.map { it.jsonPrimitive.floatOrNull ?: 0f }
-            val kind = VehicleKind.ofCoco(a[4].toInt()) ?: return@mapNotNull null
-            Detection(Box(a[0], a[1], a[2], a[3]), kind, a[5])
+            val kind = VehicleKind.ofCoco(a[4].toInt()) ?: continue
+            val d = Detection(Box(a[0], a[1], a[2], a[3]), kind, a[5])
+            if (a.size > 6) tagged = true
+            if (a.size > 6 && a[6] == 1f) horizon += d else square += d
         }
+        out[frame] = Looks(square, horizon, tagged)
     }
     return out
 }
@@ -259,13 +271,14 @@ private fun reportJson(r: Report): String = buildString {
 }
 
 private fun timelineCsv(results: List<FrameResult>): String = buildString {
-    appendLine("frame,time_s,speed_kmh,lines,offset,left_x,right_x,lead_m,closing_mps,ttc_s,warning,lanes,lane,horizon,car_x")
+    appendLine("frame,time_s,speed_kmh,lines,offset,left_x,right_x,lead_m,closing_mps,ttc_s,warning,lanes,lane,horizon,car_x,lead_kind")
     for (r in results) {
         appendLine(
             listOf(
                 r.index, "%.3f".format(Locale.ROOT, r.timeMs / 1000.0), r.speedKmh ?: "", r.lane.lines, r.lane.offset ?: "",
                 r.lane.left?.bottomX ?: "", r.lane.right?.bottomX ?: "",
-                r.lead?.distanceM ?: "", r.lead?.closingMps ?: "", r.lead?.ttcS ?: "", r.warning ?: "", r.place?.lanes ?: "", r.place?.lane ?: "", r.horizonY ?: "", r.carX ?: ""
+                r.lead?.distanceM ?: "", r.lead?.closingMps ?: "", r.lead?.ttcS ?: "", r.warning ?: "", r.place?.lanes ?: "", r.place?.lane ?: "", r.horizonY ?: "", r.carX ?: "",
+                r.lead?.kind ?: ""
             ).joinToString(",")
         )
     }
@@ -277,8 +290,9 @@ private const val SIGN_EVERY = 3
 private const val PHONE_WIDTH = 1280
 
 /**
- * The round red signs in a frame, found as the phone finds them: the frame shrunk to the phone's width,
- * [SignFinder] on it, and each sign's square written out four times bigger, to look at.
+ * The round signs in a frame (red rings, and the struck-through discs that end a limit), found as the
+ * phone finds them: the frame shrunk to the phone's width, [SignFinder] on it, and each sign's square
+ * written out four times bigger, to look at.
  */
 private fun findSigns(rgba: ByteArray, width: Int, height: Int, index: Int, dir: File, rows: StringBuilder) {
     val pw = min(PHONE_WIDTH, width)
@@ -290,7 +304,7 @@ private fun findSigns(rgba: ByteArray, width: Int, height: Int, index: Int, dir:
     }
     for (spot in SignFinder.find(ByteBuffer.wrap(small), pw, ph, pw * 4, 0, bottomY = 0.85f)) {
         val b = spot.box
-        rows.append("$index,${b.left},${b.top},${b.right},${b.bottom},${spot.sidePx}\n")
+        rows.append("$index,${spot.kind.name.lowercase()},${b.left},${b.top},${b.right},${b.bottom},${spot.sidePx}\n")
         val x0 = (b.left * pw).toInt().coerceIn(0, pw - 1)
         val y0 = (b.top * ph).toInt().coerceIn(0, ph - 1)
         val side = spot.sidePx.coerceAtMost(min(pw - x0, ph - y0))
@@ -299,6 +313,6 @@ private fun findSigns(rgba: ByteArray, width: Int, height: Int, index: Int, dir:
             val i = ((y0 + y / 4) * pw + x0 + x / 4) * 4
             img.setRGB(x, y, (small[i].toInt() and 0xFF shl 16) or (small[i + 1].toInt() and 0xFF shl 8) or (small[i + 2].toInt() and 0xFF))
         }
-        ImageIO.write(img, "png", File(dir, "f%05d-%d.png".format(index, (b.left * 1000).toInt())))
+        ImageIO.write(img, "png", File(dir, "f%05d-%d-%s.png".format(index, (b.left * 1000).toInt(), spot.kind.name.lowercase())))
     }
 }
