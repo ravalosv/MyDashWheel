@@ -1,0 +1,11 @@
+# Revisión de seguridad por issue
+- [ ] Validación de entrada en APIs y contratos entre módulos.
+- [ ] Permisos Android solicitados y verificados en runtime cuando aplique.
+- [ ] Sin secretos, tokens de API o claves de Gemini en código o logs.
+- [ ] PII no registrada innecesariamente; cumplimiento con política de privacidad.
+- [ ] Comunicaciones de red usan HTTPS/TLS.
+- [ ] Datos sensibles en SharedPreferences/Room cifrados o protegidos.
+- [ ] Exported components (Activities, Services, Receivers) revisados por exposición.
+- [ ] Intents y PendingIntents validados contra inyección.
+- [ ] Dependencias revisadas por vulnerabilidades conocidas.
+- [ ] Feature flags y flags de edición (github/play) no exponen funcionalidad sensible.
