@@ -215,6 +215,15 @@ fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = false) {
             return
         }
         val origin = Point.fromLngLat(loc.longitude, loc.latitude)
+        
+        // Validate destination is reasonable (not in ocean or extremely far)
+        val distanceToDest = calculateDistanceKm(loc.latitude, loc.longitude, dest.latitude(), dest.longitude())
+        if (distanceToDest > 5000) { // More than 5000 km is suspicious
+            error = context.getString(R.string.info_map_address_not_found)
+            android.util.Log.w("MapLibrePanel", "Destination seems invalid: ${"%.0f".format(distanceToDest)} km away at (${dest.latitude()}, ${dest.longitude()})")
+            return
+        }
+        
         error = null; loading = true
         scope.launch {
             val result = withContext(Dispatchers.IO) {
@@ -268,6 +277,15 @@ fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = false) {
 
     /** A saved place or a last destination, tapped: its route, ready to start. */
     fun routeToPlace(place: Place) {
+        android.util.Log.d("MapLibrePanel", "routeToPlace: name='${place.name}' lat=${place.lat} lng=${place.lng}")
+        
+        // Validate place is within Mexico bounds (roughly 14-33°N, 118-86°W)
+        if (place.lat < 14.0 || place.lat > 33.0 || place.lng < -118.0 || place.lng > -86.0) {
+            android.util.Log.w("MapLibrePanel", "Place '${place.name}' is outside Mexico bounds")
+            error = context.getString(R.string.info_map_address_not_found)
+            return
+        }
+        
         clearRoute()
         val ll = LatLng(place.lat, place.lng)
         mapRef?.addMarker(MarkerOptions().position(ll))
@@ -516,6 +534,20 @@ fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = false) {
                             text = currentInfo ?: currentError ?: stringResource(R.string.info_map_ready),
                             color = if (currentError != null) Color(0xFFF28B82) else Color.White
                         )
+                        // Close button to dismiss error messages
+                        if (currentError != null) {
+                            IconButton(
+                                onClick = { error = null },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Close,
+                                    contentDescription = "Cerrar",
+                                    tint = Color(0xFFF28B82),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
                         if (hasDest) {
                             Button(
                                 onClick = { destination?.let { startGuidance(it) } },
@@ -776,6 +808,18 @@ private fun PlaceChips(places: Places, onPick: (Place) -> Unit) {
 
 /** Meters around each pin to snap onto a road (parked off-street, building centroid). */
 private const val SNAP_RADIUS_M = 200
+
+/** Calculates distance in km between two points using Haversine formula. */
+private fun calculateDistanceKm(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+    val R = 6371.0 // Earth's radius in km
+    val dLat = Math.toRadians(lat2 - lat1)
+    val dLon = Math.toRadians(lon2 - lon1)
+    val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2)
+    val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+    return R * c
+}
 
 /** Fetches a driving route from a free Valhalla server (OSRM-format response). */
 internal fun valhallaRoute(origin: Point, dest: Point, language: String): DirectionsResponse {

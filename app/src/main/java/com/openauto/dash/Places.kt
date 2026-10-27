@@ -135,16 +135,21 @@ internal object PlaceSearch {
      */
     fun find(query: String, nearLat: Double? = null, nearLng: Double? = null): Place? {
         val around = if (nearLat != null && nearLng != null) {
-            String.format(java.util.Locale.US, "&viewbox=%.4f,%.4f,%.4f,%.4f&bounded=0", nearLng - 1.0, nearLat + 0.7, nearLng + 1.0, nearLat - 0.7)
+            // Larger viewbox (about 5km radius) and bounded=1 to restrict results to nearby area
+            String.format(java.util.Locale.US, "&viewbox=%.4f,%.4f,%.4f,%.4f&bounded=1", nearLng - 0.05, nearLat + 0.035, nearLng + 0.05, nearLat - 0.035)
         } else ""
-        val url = "$SEARCH_URL?format=json&limit=1&q=" + URLEncoder.encode(query, "UTF-8") + around
+        val url = "$SEARCH_URL?format=json&limit=1&countrycodes=mx&q=" + URLEncoder.encode(query, "UTF-8") + around
+        android.util.Log.d("PlaceSearch", "Searching: query='$query' near=($nearLat, $nearLng) url=$url")
         val request = Request.Builder().url(url).header("User-Agent", USER_AGENT).build()
         Http.client.newCall(request).execute().use { resp ->
             if (!resp.isSuccessful) return null
             val arr = JsonParser.parseString(resp.body?.string() ?: return null).asJsonArray
             if (arr.size() == 0) return null
             val o = arr[0].asJsonObject
-            return Place(query, o.get("lat").asString.toDouble(), o.get("lon").asString.toDouble())
+            val lat = o.get("lat").asString.toDouble()
+            val lon = o.get("lon").asString.toDouble()
+            android.util.Log.d("PlaceSearch", "Found: lat=$lat, lon=$lon")
+            return Place(query, lat, lon)
         }
     }
 
