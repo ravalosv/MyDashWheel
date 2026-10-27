@@ -9,6 +9,7 @@ import android.content.pm.PackageManager
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,6 +33,7 @@ import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Work
@@ -71,6 +73,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
@@ -190,6 +193,7 @@ fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = false) {
     var info by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(false) }
+    var searchResults by remember { mutableStateOf<List<Place>>(emptyList()) }
 
     fun clearRoute() {
         route = null; destination = null; destinationName = null; info = null; error = null
@@ -245,6 +249,46 @@ fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = false) {
                     ?: context.getString(R.string.info_map_routing_failed)
             }
         }
+    }
+
+    fun searchPlaces() {
+        val q = query.trim()
+        if (q.isEmpty() || loading) return
+        error = null; info = null; loading = true; searchResults = emptyList()
+        scope.launch {
+            val here = LocationFeed.location.value
+            val found = withContext(Dispatchers.IO) {
+                runCatching { PlaceSearch.findAll(q, here?.latitude, here?.longitude, limit = 5) }
+            }
+            val places = found.getOrDefault(emptyList())
+            loading = false
+            if (places.isEmpty()) {
+                error = context.getString(if (found.isFailure) R.string.places_offline else R.string.info_map_address_not_found)
+                return@launch
+            }
+            // If only one result, route directly
+            if (places.size == 1) {
+                val place = places[0]
+                val ll = LatLng(place.lat, place.lng)
+                mapRef?.addMarker(MarkerOptions().position(ll))
+                mapRef?.animateCamera(CameraUpdateFactory.newLatLngZoom(ll, 14.0))
+                routeTo(Point.fromLngLat(place.lng, place.lat))
+                destinationName = place.name
+                searchResults = emptyList()
+            } else {
+                // Show list for user to pick
+                searchResults = places
+            }
+        }
+    }
+
+    fun pickSearchResult(place: Place) {
+        searchResults = emptyList()
+        val ll = LatLng(place.lat, place.lng)
+        mapRef?.addMarker(MarkerOptions().position(ll))
+        mapRef?.animateCamera(CameraUpdateFactory.newLatLngZoom(ll, 14.0))
+        routeTo(Point.fromLngLat(place.lng, place.lat))
+        destinationName = place.name
     }
 
     fun searchAndRoute() {
@@ -445,7 +489,7 @@ fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = false) {
             fun submitSearch() {
                 keyboard?.hide()
                 focusManager.clearFocus()
-                searchAndRoute()
+                searchPlaces()
             }
             val places by PlacesStore.places.collectAsState()
             LaunchedEffect(Unit) { PlacesStore.load(context) }
@@ -506,8 +550,42 @@ fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = false) {
                     }
                 }
             }
+            // Search results list
+            if (searchResults.isNotEmpty()) {
+                Surface(
+                    color = OverlayBg,
+                    shape = DashShape.Medium,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(8.dp)) {
+                        searchResults.forEach { place ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { pickSearchResult(place) }
+                                    .padding(vertical = 8.dp, horizontal = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Filled.LocationOn,
+                                    contentDescription = null,
+                                    tint = Accent,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    text = place.name,
+                                    color = Color.White,
+                                    fontSize = 14.sp,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
             // Out of the way once a destination is set: the route is what matters then.
-            if (destination == null) PlaceChips(places, onPick = { routeToPlace(it) })
+            if (destination == null && searchResults.isEmpty()) PlaceChips(places, onPick = { routeToPlace(it) })
             }
 
             val guiding = guidance
