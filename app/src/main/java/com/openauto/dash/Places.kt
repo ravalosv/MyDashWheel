@@ -134,17 +134,33 @@ internal object PlaceSearch {
      * come first (a shop's name alone would otherwise find the one in another town).
      */
     fun find(query: String, nearLat: Double? = null, nearLng: Double? = null): Place? {
+        return findAll(query, nearLat, nearLng).firstOrNull()
+    }
+
+    /**
+     * Returns up to [limit] places found for [query]. Throws when offline.
+     * With [nearLat]/[nearLng], places around there come first.
+     */
+    fun findAll(query: String, nearLat: Double? = null, nearLng: Double? = null, limit: Int = 5): List<Place> {
         val around = if (nearLat != null && nearLng != null) {
-            String.format(java.util.Locale.US, "&viewbox=%.4f,%.4f,%.4f,%.4f&bounded=0", nearLng - 1.0, nearLat + 0.7, nearLng + 1.0, nearLat - 0.7)
+            // Larger viewbox (about 5km radius) and bounded=1 to restrict results to nearby area
+            String.format(java.util.Locale.US, "&viewbox=%.4f,%.4f,%.4f,%.4f&bounded=1", nearLng - 0.05, nearLat + 0.035, nearLng + 0.05, nearLat - 0.035)
         } else ""
-        val url = "$SEARCH_URL?format=json&limit=1&q=" + URLEncoder.encode(query, "UTF-8") + around
+        val url = "$SEARCH_URL?format=json&limit=$limit&countrycodes=mx&q=" + URLEncoder.encode(query, "UTF-8") + around
+        android.util.Log.d("PlaceSearch", "Searching: query='$query' near=($nearLat, $nearLng) url=$url")
         val request = Request.Builder().url(url).header("User-Agent", USER_AGENT).build()
         Http.client.newCall(request).execute().use { resp ->
-            if (!resp.isSuccessful) return null
-            val arr = JsonParser.parseString(resp.body?.string() ?: return null).asJsonArray
-            if (arr.size() == 0) return null
-            val o = arr[0].asJsonObject
-            return Place(query, o.get("lat").asString.toDouble(), o.get("lon").asString.toDouble())
+            if (!resp.isSuccessful) return emptyList()
+            val arr = JsonParser.parseString(resp.body?.string() ?: return emptyList()).asJsonArray
+            if (arr.size() == 0) return emptyList()
+            return arr.map { o ->
+                val obj = o.asJsonObject
+                val lat = obj.get("lat").asString.toDouble()
+                val lon = obj.get("lon").asString.toDouble()
+                val displayName = obj.get("display_name")?.asString ?: query
+                android.util.Log.d("PlaceSearch", "Found: '$displayName' lat=$lat, lon=$lon")
+                Place(displayName, lat, lon)
+            }
         }
     }
 

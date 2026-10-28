@@ -203,6 +203,7 @@
     <string name="about_author_section">Erstellt von</string>
     <string name="about_description">Dashwheel ist ein Launcher für Android-Autoradios: Karte, Musik und Fahrzeugdaten auf einem ruhigen Bildschirm, mit Dashboards, die du selbst anordnest. Kostenlos nutzbar.</string>
     <string name="about_author_role">Entwickler</string>
+    <string name="about_custom_version">Angepasste Version — geändert von %1$s</string>
     <string name="about_support_section">Dashwheel unterstützen</string>
     <string name="about_support_text">Dashwheel ist kostenlos. Wenn es dir gefällt, hilft ein Kaffee weiter.</string>
     <string name="about_kofi">Spendiere mir einen Kaffee auf Ko-fi</string>

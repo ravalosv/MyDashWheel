@@ -1,0 +1,36 @@
+{
+  "project": "Dashwheel",
+  "last_updated": "2026-10-27",
+  "rules": {
+    "single_active_feature": true,
+    "passing_requires_evidence": true,
+    "do_not_skip_verification": true
+  },
+  "status_legend": {
+    "not_started": "Work has not begun.",
+    "in_progress": "The feature is the current active task.",
+    "blocked": "Work cannot continue until a documented blocker is resolved.",
+    "passing": "Required verification has passed and evidence is recorded."
+  },
+  "features": [
+    {
+      "id": "harness-setup",
+      "priority": 1,
+      "area": "infrastructure",
+      "title": "Implement Anthropic harness for agent-driven development",
+      "user_visible_behavior": "Repository includes complete harness structure for AI agent workflows with quality gates, workflows, checklists, and templates adapted to Android/Kotlin/Gradle architecture.",
+      "status": "passing",
+      "verification": [
+        "Verify AGENTS.md exists at repo root.",
+        "Verify docs/harness/ directory contains quality-gates.md, workflows/, checklists/, and templates/.",
+        "Verify init.sh and init.ps1 scripts exist and are executable.",
+        "Verify claude-progress.md and feature_list.json exist.",
+        "Verify .claude/ directory contains agents/ and commands/ with appropriate configurations."
+      ],
+      "evidence": [
+        "Files created on 2026-10-27"
+      ],
+      "notes": "Initial harness setup based on learn-harness-engineering methodology, adapted for Dashwheel's Android/Kotlin/Gradle multi-module architecture."
+    }
+  ]
+}

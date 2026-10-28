@@ -6,8 +6,10 @@ import android.content.ComponentCallbacks2
 import android.content.Context
 import android.content.res.Configuration
 import android.content.pm.PackageManager
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,6 +33,7 @@ import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Work
@@ -70,6 +73,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
@@ -189,6 +193,7 @@ fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = false) {
     var info by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(false) }
+    var searchResults by remember { mutableStateOf<List<Place>>(emptyList()) }
 
     fun clearRoute() {
         route = null; destination = null; destinationName = null; info = null; error = null
@@ -202,16 +207,27 @@ fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = false) {
         destination = dest
         info = null
         val map = mapRef
-        // The component throws until it's switched on (style loaded, location
-        // allowed): a destination picked before that is "GPS not ready", not a crash.
+        // Prefer the shared GPS feed: the map puck may not have the first fix yet
+        // (LocationComponent is filled asynchronously), which used to look like a
+        // routing failure or a route from a stale/default position.
         @SuppressLint("MissingPermission")
-        val loc = runCatching { map?.locationComponent?.lastKnownLocation }.getOrNull()
+        val loc = LocationFeed.location.value
+            ?: runCatching { map?.locationComponent?.lastKnownLocation }.getOrNull()
         if (map == null || loc == null) {
             loading = false
             error = context.getString(R.string.info_map_gps_not_ready)
             return
         }
         val origin = Point.fromLngLat(loc.longitude, loc.latitude)
+        
+        // Validate destination is reasonable (not in ocean or extremely far)
+        val distanceToDest = calculateDistanceKm(loc.latitude, loc.longitude, dest.latitude(), dest.longitude())
+        if (distanceToDest > 5000) { // More than 5000 km is suspicious
+            error = context.getString(R.string.info_map_address_not_found)
+            android.util.Log.w("MapLibrePanel", "Destination seems invalid: ${"%.0f".format(distanceToDest)} km away at (${dest.latitude()}, ${dest.longitude()})")
+            return
+        }
+        
         error = null; loading = true
         scope.launch {
             val result = withContext(Dispatchers.IO) {
@@ -235,12 +251,58 @@ fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = false) {
         }
     }
 
+    fun searchPlaces() {
+        val q = query.trim()
+        if (q.isEmpty() || loading) return
+        error = null; info = null; loading = true; searchResults = emptyList()
+        scope.launch {
+            val here = LocationFeed.location.value
+            val found = withContext(Dispatchers.IO) {
+                runCatching { PlaceSearch.findAll(q, here?.latitude, here?.longitude, limit = 5) }
+            }
+            val places = found.getOrDefault(emptyList())
+            loading = false
+            if (places.isEmpty()) {
+                error = context.getString(if (found.isFailure) R.string.places_offline else R.string.info_map_address_not_found)
+                return@launch
+            }
+            // If only one result, route directly
+            if (places.size == 1) {
+                val place = places[0]
+                val ll = LatLng(place.lat, place.lng)
+                mapRef?.addMarker(MarkerOptions().position(ll))
+                mapRef?.animateCamera(CameraUpdateFactory.newLatLngZoom(ll, 14.0))
+                routeTo(Point.fromLngLat(place.lng, place.lat))
+                destinationName = place.name
+                searchResults = emptyList()
+            } else {
+                // Show list for user to pick
+                searchResults = places
+            }
+        }
+    }
+
+    fun pickSearchResult(place: Place) {
+        searchResults = emptyList()
+        val ll = LatLng(place.lat, place.lng)
+        mapRef?.addMarker(MarkerOptions().position(ll))
+        mapRef?.animateCamera(CameraUpdateFactory.newLatLngZoom(ll, 14.0))
+        routeTo(Point.fromLngLat(place.lng, place.lat))
+        destinationName = place.name
+    }
+
     fun searchAndRoute() {
         val q = query.trim()
         if (q.isEmpty() || loading) return
         error = null; info = null; loading = true
         scope.launch {
-            val found = withContext(Dispatchers.IO) { runCatching { PlaceSearch.find(q) } }
+            // Bias Nominatim toward the car: without it, a short street name can
+            // resolve on another continent, and the public Valhalla then answers
+            // HTTP 400 (DistanceExceeded).
+            val here = LocationFeed.location.value
+            val found = withContext(Dispatchers.IO) {
+                runCatching { PlaceSearch.find(q, here?.latitude, here?.longitude) }
+            }
             val place = found.getOrNull()
             if (place == null) {
                 loading = false
@@ -259,6 +321,15 @@ fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = false) {
 
     /** A saved place or a last destination, tapped: its route, ready to start. */
     fun routeToPlace(place: Place) {
+        android.util.Log.d("MapLibrePanel", "routeToPlace: name='${place.name}' lat=${place.lat} lng=${place.lng}")
+        
+        // Validate place is within Mexico bounds (roughly 14-33°N, 118-86°W)
+        if (place.lat < 14.0 || place.lat > 33.0 || place.lng < -118.0 || place.lng > -86.0) {
+            android.util.Log.w("MapLibrePanel", "Place '${place.name}' is outside Mexico bounds")
+            error = context.getString(R.string.info_map_address_not_found)
+            return
+        }
+        
         clearRoute()
         val ll = LatLng(place.lat, place.lng)
         mapRef?.addMarker(MarkerOptions().position(ll))
@@ -418,7 +489,7 @@ fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = false) {
             fun submitSearch() {
                 keyboard?.hide()
                 focusManager.clearFocus()
-                searchAndRoute()
+                searchPlaces()
             }
             val places by PlacesStore.places.collectAsState()
             LaunchedEffect(Unit) { PlacesStore.load(context) }
@@ -479,8 +550,42 @@ fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = false) {
                     }
                 }
             }
+            // Search results list
+            if (searchResults.isNotEmpty()) {
+                Surface(
+                    color = OverlayBg,
+                    shape = DashShape.Medium,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(8.dp)) {
+                        searchResults.forEach { place ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { pickSearchResult(place) }
+                                    .padding(vertical = 8.dp, horizontal = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Filled.LocationOn,
+                                    contentDescription = null,
+                                    tint = Accent,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    text = place.name,
+                                    color = Color.White,
+                                    fontSize = 14.sp,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
             // Out of the way once a destination is set: the route is what matters then.
-            if (destination == null) PlaceChips(places, onPick = { routeToPlace(it) })
+            if (destination == null && searchResults.isEmpty()) PlaceChips(places, onPick = { routeToPlace(it) })
             }
 
             val guiding = guidance
@@ -507,6 +612,20 @@ fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = false) {
                             text = currentInfo ?: currentError ?: stringResource(R.string.info_map_ready),
                             color = if (currentError != null) Color(0xFFF28B82) else Color.White
                         )
+                        // Close button to dismiss error messages
+                        if (currentError != null) {
+                            IconButton(
+                                onClick = { error = null },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Close,
+                                    contentDescription = "Cerrar",
+                                    tint = Color(0xFFF28B82),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
                         if (hasDest) {
                             Button(
                                 onClick = { destination?.let { startGuidance(it) } },
@@ -586,8 +705,9 @@ private fun enableLocation(
 ) {
     if (!hasLocationPerm(context)) return
     val lc = map.locationComponent
-    runCatching {
-        if (!lc.isLocationComponentActivated) {
+    try {
+        val needsLocationUpdates = !lc.isLocationComponentActivated
+        if (needsLocationUpdates) {
             // Tracking gestures management: a two-finger pinch zooms around the
             // car and keeps following it, instead of counting as a pan.
             // The fixes are Dashwheel's own ([LocationFeed]), not a second GPS
@@ -604,16 +724,6 @@ private fun enableLocation(
                     .useDefaultLocationEngine(false)
                     .build()
             )
-            scope.launch {
-                var last: android.location.Location? = null
-                LocationFeed.location.collect { loc ->
-                    if (loc == null) return@collect
-                    val l = last
-                    if (l != null && still() && loc.distanceTo(l) < STILL_WANDER_M) return@collect
-                    last = loc
-                    runCatching { lc.forceLocationUpdate(loc) }
-                }
-            }
             // The zoom the driver picks by hand is the one tracking comes back
             // to; route previews and search hits don't change it.
             var byGesture = false
@@ -647,21 +757,29 @@ private fun enableLocation(
         // Directional puck; the camera follows position AND heading (map rotates
         // with the car) at a close zoom with pitch for the driving-nav look.
         lc.renderMode = RenderMode.COMPASS
-        followVehicle(lc, wallpaper, userZooms[map])
-    }
-    // TRACKING_GPS only re-centres on a FRESH fix; with only a last-known
-    // location the camera stays at the default world view. Once any fix exists,
-    // fly to it *through* the component: a plain animateCamera here would
-    // count as a developer move and cancel tracking straight away.
-    scope.launch {
-        repeat(15) {
-            val loc = runCatching { lc.lastKnownLocation }.getOrNull()
-            if (loc != null) {
-                followVehicle(lc, wallpaper, userZooms[map])
-                return@launch
+        if (needsLocationUpdates) {
+            scope.launch {
+                var last: android.location.Location? = null
+                LocationFeed.location.collect { loc ->
+                    if (loc == null) return@collect
+                    val l = last
+                    if (l != null && still() && loc.distanceTo(l) < STILL_WANDER_M) return@collect
+                    try {
+                        lc.forceLocationUpdate(loc)
+                        // MapLibre applies the initial zoom only on entering tracking
+                        // with a location; repeating the same mode later does nothing.
+                        if (l == null) followVehicle(lc, wallpaper, userZooms[map])
+                        last = loc
+                    } catch (e: RuntimeException) {
+                        Log.e("MapLibrePanel", "Could not update the map location", e)
+                    }
+                }
             }
-            delay(800)
+        } else {
+            followVehicle(lc, wallpaper, userZooms[map])
         }
+    } catch (e: RuntimeException) {
+        Log.e("MapLibrePanel", "Could not enable the map location", e)
     }
 }
 
@@ -676,15 +794,17 @@ private val userZooms = java.util.WeakHashMap<MapLibreMap, Double>()
 
 /** Follow position and heading with the driving-nav zoom and pitch, keeping tracking on. */
 private fun followVehicle(lc: LocationComponent, wallpaper: MapView? = null, zoom: Double? = null) {
-    if (wallpaper == null) {
-        runCatching { lc.setCameraMode(CameraMode.TRACKING_GPS, 1000L, zoom ?: 16.5, null, 45.0, null) }
-        return
-    }
-    // A wallpaper looks further ahead: steeper, a little closer, and the car
-    // pushed down to the lower part of the screen, between the panels.
-    runCatching {
-        lc.setCameraMode(CameraMode.TRACKING_GPS, 1000L, zoom ?: 17.0, null, 60.0, null)
-        lc.paddingWhileTracking(doubleArrayOf(0.0, wallpaper.height * 0.42, 0.0, 0.0))
+    try {
+        if (lc.lastKnownLocation == null) return
+        if (wallpaper == null) {
+            lc.setCameraMode(CameraMode.TRACKING_GPS, 1000L, zoom ?: 16.5, null, 45.0, null)
+        } else {
+            // A wallpaper looks further ahead, with the car lower on screen.
+            lc.setCameraMode(CameraMode.TRACKING_GPS, 1000L, zoom ?: 17.0, null, 60.0, null)
+            lc.paddingWhileTracking(doubleArrayOf(0.0, wallpaper.height * 0.42, 0.0, 0.0))
+        }
+    } catch (e: RuntimeException) {
+        Log.e("MapLibrePanel", "Could not follow the vehicle on the map", e)
     }
 }
 
@@ -764,22 +884,39 @@ private fun PlaceChips(places: Places, onPick: (Place) -> Unit) {
     }
 }
 
+/** Meters around each pin to snap onto a road (parked off-street, building centroid). */
+private const val SNAP_RADIUS_M = 200
+
+/** Calculates distance in km between two points using Haversine formula. */
+private fun calculateDistanceKm(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+    val R = 6371.0 // Earth's radius in km
+    val dLat = Math.toRadians(lat2 - lat1)
+    val dLon = Math.toRadians(lon2 - lon1)
+    val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2)
+    val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+    return R * c
+}
+
 /** Fetches a driving route from a free Valhalla server (OSRM-format response). */
 internal fun valhallaRoute(origin: Point, dest: Point, language: String): DirectionsResponse {
+    fun loc(lon: Double, lat: Double) = mapOf(
+        "lon" to lon, "lat" to lat, "type" to "break", "radius" to SNAP_RADIUS_M
+    )
     val body = mapOf(
         "format" to "osrm",
         "costing" to "auto",
         "banner_instructions" to true,
         "voice_instructions" to true,
         "language" to language,
-        // The spoken and written instructions in the driver's unit; the route's own figures stay in metres.
-        "directions_options" to mapOf("units" to if (Units.current.value.imperial) "miles" else "kilometers"),
-        "locations" to listOf(
-            mapOf("lon" to origin.longitude(), "lat" to origin.latitude(), "type" to "break"),
-            mapOf("lon" to dest.longitude(), "lat" to dest.latitude(), "type" to "break")
-        )
+        // Top-level units (directions_options is deprecated and some servers reject it).
+        "units" to if (Units.current.value.imperial) "miles" else "kilometers",
+        "locations" to listOf(loc(origin.longitude(), origin.latitude()), loc(dest.longitude(), dest.latitude()))
     )
     val json = Gson().toJson(body)
+    android.util.Log.d("MapLibrePanel", "Routing request: origin=(${origin.latitude()},${origin.longitude()}) dest=(${dest.latitude()},${dest.longitude()})")
+    android.util.Log.d("MapLibrePanel", "Request body: $json")
     val routingUrl = MapServers.current.value.routing
     val request = Request.Builder()
         .header("User-Agent", USER_AGENT)
@@ -787,7 +924,11 @@ internal fun valhallaRoute(origin: Point, dest: Point, language: String): Direct
         .post(json.toRequestBody("application/json; charset=utf-8".toMediaType()))
         .build()
     Http.client.newCall(request).execute().use { resp ->
-        if (!resp.isSuccessful) error("HTTP ${resp.code}")
+        if (!resp.isSuccessful) {
+            val errBody = resp.body?.string().orEmpty()
+            android.util.Log.e("MapLibrePanel", "Routing failed: HTTP ${resp.code} - Response: $errBody")
+            error(valhallaFailure(resp.code, errBody))
+        }
         val rb = resp.body?.string() ?: error("Empty routing response")
         // Valhalla doesn't echo the request back, and the navigation refuses a
         // route without it (its spoken turns need voice and banner instructions).
@@ -805,6 +946,20 @@ internal fun valhallaRoute(origin: Point, dest: Point, language: String): Direct
         val parsed = DirectionsResponse.fromJson(rb)
         return parsed.copy(routes = parsed.routes.map { it.copy(routeOptions = options) })
     }
+}
+
+/**
+ * Valhalla's refusal, for the map's error line: its own message when the body
+ * has one (DistanceExceeded, NoSegment, …), else just the HTTP status.
+ */
+internal fun valhallaFailure(code: Int, body: String): String {
+    val detail = runCatching {
+        val o = com.google.gson.JsonParser.parseString(body).asJsonObject
+        sequenceOf("message", "error").mapNotNull { key ->
+            o.get(key)?.takeIf { it.isJsonPrimitive }?.asString?.trim()?.takeIf { it.isNotEmpty() }
+        }.firstOrNull()
+    }.getOrNull()
+    return if (detail != null) "$detail (HTTP $code)" else "HTTP $code"
 }
 
 private fun formatEta(context: Context, distanceMeters: Double?, durationSeconds: Double?): String {

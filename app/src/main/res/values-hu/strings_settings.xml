@@ -204,6 +204,7 @@
     <string name="about_author_section">Készítette</string>
     <string name="about_description">A Dashwheel indítóalkalmazás Android autós fejegységekhez: térkép, zene és élő autóadatok egyetlen nyugodt képernyőn, saját kezűleg elrendezett műszerfalakkal. Ingyenesen használható.</string>
     <string name="about_author_role">Alkotó és fejlesztő</string>
+    <string name="about_custom_version">Egyéni verzió — módosította: %1$s</string>
     <string name="about_support_section">A Dashwheel támogatása</string>
     <string name="about_support_text">A Dashwheel ingyenes. Ha tetszik, egy kávé segít a folytatásban.</string>
     <string name="about_kofi">Hívjon meg egy kávéra a Ko-fin</string>

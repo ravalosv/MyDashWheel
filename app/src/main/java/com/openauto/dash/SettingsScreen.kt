@@ -1486,6 +1486,7 @@ private fun AboutBody(m: TopBarModel) {
         Column {
             Text(stringResource(R.string.app_name), color = DashColors.TextPrimary, style = MaterialTheme.typography.headlineSmall)
             Text(stringResource(R.string.settings_version, m.versionName), color = DashColors.TextSecondary, style = MaterialTheme.typography.bodyMedium)
+            Text(stringResource(R.string.about_custom_version, "Raval"), color = DashColors.TextSecondary, style = MaterialTheme.typography.bodySmall)
         }
     }
     Spacer(Modifier.height(12.dp))
