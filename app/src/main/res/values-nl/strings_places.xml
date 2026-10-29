@@ -18,4 +18,28 @@
     <!-- Spoken when a steering wheel button asks for a place that isn't set -->
     <string name="places_no_home">Thuis is niet ingesteld. Stel het in bij Instellingen, Rijden, Mijn plaatsen.</string>
     <string name="places_no_work">Werk is niet ingesteld. Stel het in bij Instellingen, Rijden, Mijn plaatsen.</string>
+    <!-- Custom places (places-personalizados-plan.md) -->
+    <string name="places_custom_title">Je eigen plaatsen</string>
+    <string name="places_custom_empty">Nog geen. Voeg de plaatsen toe waar je naartoe rijdt.</string>
+    <string name="places_name">Naam</string>
+    <string name="places_custom_rename">Hernoemen</string>
+    <string name="places_custom_location_set">Locatie ingesteld</string>
+    <string name="places_custom_location_missing">Nog geen locatie: zoek een adres of gebruik waar de auto staat</string>
+    <string name="places_custom_widget_title">Op de kaarttegel</string>
+    <string name="places_custom_widget_hint">Vink maximaal %1$d plaatsen aan</string>
+    <string name="places_custom_widget_empty">Stel eerst Thuis, Werk of een eigen plaats in</string>
+    <string name="places_custom_add">Eigen plaats toevoegen</string>
+    <string name="places_custom_edit">Plaats bewerken</string>
+    <string name="places_custom_delete">Verwijderen</string>
+    <string name="places_custom_category">Categorie</string>
+    <string name="places_custom_category_generic">Algemeen</string>
+    <string name="places_custom_category_gym">Sportschool</string>
+    <string name="places_custom_category_school">School</string>
+    <string name="places_custom_category_hospital">Ziekenhuis</string>
+    <string name="places_custom_category_restaurant">Restaurant</string>
+    <string name="places_custom_category_store">Winkel</string>
+    <string name="places_custom_max_reached">Maximaal 4 eigen plaatsen bereikt</string>
+    <string name="places_custom_confirm_delete">Deze plaats verwijderen?</string>
+    <string name="places_custom_save">Opslaan</string>
+    <string name="places_custom_cancel">Annuleren</string>
 </resources>

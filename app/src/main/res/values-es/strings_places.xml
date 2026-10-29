@@ -18,4 +18,29 @@
     <!-- Spoken when a steering wheel button asks for a place that isn't set -->
     <string name="places_no_home">Casa no está definida. Ajústala en Ajustes, Conducción, Mis lugares.</string>
     <string name="places_no_work">Trabajo no está definido. Ajústalo en Ajustes, Conducción, Mis lugares.</string>
+    <!-- Custom places (places-personalizados-plan.md) -->
+    <string name="places_custom_title">Lugares propios</string>
+    <string name="places_custom_empty">Aún no hay ninguno. Añade los lugares a los que conduces.</string>
+    <string name="places_name">Nombre</string>
+    <string name="places_custom_rename">Cambiar nombre</string>
+    <string name="places_custom_location_set">Ubicación definida</string>
+    <string name="places_custom_location_missing">Falta la ubicación: busca una dirección o usa dónde está el coche</string>
+    <string name="places_custom_widget_title">En el mosaico del mapa</string>
+    <string name="places_custom_widget_hint">Marca hasta %1$d lugares</string>
+    <string name="places_custom_widget_empty">Define antes Casa, Trabajo o un lugar propio</string>
+    <string name="places_custom_add">Añadir lugar personalizado</string>
+    <string name="places_custom_edit">Editar lugar</string>
+    <string name="places_custom_delete">Eliminar</string>
+    <string name="places_custom_category">Categoría</string>
+    <string name="places_custom_category_generic">Genérico</string>
+    <string name="places_custom_category_gym">Gimnasio</string>
+    <string name="places_custom_category_school">Escuela</string>
+    <string name="places_custom_category_hospital">Hospital</string>
+    <string name="places_custom_category_restaurant">Restaurante</string>
+    <string name="places_custom_category_store">Tienda</string>
+    <string name="places_custom_max_reached">Se alcanzó el máximo de 4 lugares personalizados</string>
+    <string name="places_custom_confirm_delete">¿Eliminar este lugar?</string>
+    <string name="places_custom_save">Guardar</string>
+    <string name="places_custom_cancel">Cancelar</string>
 </resources>
+

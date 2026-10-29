@@ -18,4 +18,28 @@
     <!-- Spoken when a steering wheel button asks for a place that isn't set -->
     <string name="places_no_home">Casa não está definida. Defina-a em Definições, Condução, Os meus locais.</string>
     <string name="places_no_work">Trabalho não está definido. Defina-o em Definições, Condução, Os meus locais.</string>
+    <!-- Custom places (places-personalizados-plan.md) -->
+    <string name="places_custom_title">Os teus lugares</string>
+    <string name="places_custom_empty">Ainda nenhum. Adiciona os lugares para onde vais.</string>
+    <string name="places_name">Nome</string>
+    <string name="places_custom_rename">Mudar o nome</string>
+    <string name="places_custom_location_set">Localização definida</string>
+    <string name="places_custom_location_missing">Ainda sem localização: procura um endereço ou usa onde o carro está</string>
+    <string name="places_custom_widget_title">No mosaico do mapa</string>
+    <string name="places_custom_widget_hint">Marca até %1$d lugares</string>
+    <string name="places_custom_widget_empty">Define primeiro Casa, Trabalho ou um lugar teu</string>
+    <string name="places_custom_add">Adicionar lugar personalizado</string>
+    <string name="places_custom_edit">Editar lugar</string>
+    <string name="places_custom_delete">Eliminar</string>
+    <string name="places_custom_category">Categoria</string>
+    <string name="places_custom_category_generic">Genérico</string>
+    <string name="places_custom_category_gym">Ginásio</string>
+    <string name="places_custom_category_school">Escola</string>
+    <string name="places_custom_category_hospital">Hospital</string>
+    <string name="places_custom_category_restaurant">Restaurante</string>
+    <string name="places_custom_category_store">Loja</string>
+    <string name="places_custom_max_reached">Atingiste o máximo de 4 lugares personalizados</string>
+    <string name="places_custom_confirm_delete">Eliminar este lugar?</string>
+    <string name="places_custom_save">Guardar</string>
+    <string name="places_custom_cancel">Cancelar</string>
 </resources>

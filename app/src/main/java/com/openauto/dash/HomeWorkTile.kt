@@ -9,11 +9,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -51,8 +51,9 @@ private suspend fun minutesTo(context: Context, fromLat: Double, fromLng: Double
 }
 
 /**
- * Home and work, one tap each: the time to drive there from where the car is
- * (no traffic: the free router has none), and a tap starts the guidance.
+ * The places the driver ticked in Settings, one tap each: the time to drive
+ * there from where the car is (no traffic: the free router has none), and a
+ * tap starts the guidance. Home and work stand in until they tick some.
  */
 @Composable
 internal fun HomeWorkCard(modifier: Modifier = Modifier) {
@@ -60,14 +61,17 @@ internal fun HomeWorkCard(modifier: Modifier = Modifier) {
     val places by PlacesStore.places.collectAsState()
     // Only whether there is a fix: the loop reads the position itself, so the tile doesn't follow each fix.
     val hasFix by LocationFeed.hasFix.collectAsState()
-    var homeMin by remember { mutableStateOf<Int?>(null) }
-    var workMin by remember { mutableStateOf<Int?>(null) }
-    LaunchedEffect(places.home, places.work, hasFix) {
+    val shown = places.widgetPlaces().ifEmpty { places.allPlaces().filter { it.isBuiltIn } }
+    // The id and the spot: a place moved in Settings is timed again, not after the next refresh.
+    val shownSpots = shown.map { Triple(it.id, it.lat, it.lng) }
+    var minutes by remember { mutableStateOf<Map<String, Int?>>(emptyMap()) }
+    LaunchedEffect(shownSpots, hasFix) {
         while (true) {
             val loc = LocationFeed.location.value
             if (loc != null) {
-                places.home?.let { homeMin = minutesTo(context, loc.latitude, loc.longitude, it) }
-                places.work?.let { workMin = minutesTo(context, loc.latitude, loc.longitude, it) }
+                minutes = shown.associate { place ->
+                    place.id to minutesTo(context, loc.latitude, loc.longitude, place.asPlace())
+                }
             }
             delay(REFRESH_MS)
         }
@@ -76,36 +80,70 @@ internal fun HomeWorkCard(modifier: Modifier = Modifier) {
     // seconds), as on every tile that changes the route: a finger that meant
     // the other button, or nothing, takes it back.
     val pending = rememberPendingAction()
-    val homeName = stringResource(R.string.widgets_hw_home)
-    val workName = stringResource(R.string.widgets_hw_work)
-    fun go(name: String, place: Place) = pending.arm(context.getString(R.string.phone_guidance_to, name)) { NavHandoff.start(context, place) }
+    fun go(name: String, place: SavedPlace) =
+        pending.arm(context.getString(R.string.phone_guidance_to, name)) { NavHandoff.start(context, place.asPlace()) }
     Card(modifier = modifier) {
-        if (places.home == null && places.work == null) {
+        if (shown.isEmpty()) {
             Box(Modifier.fillMaxSize().padding(DashSpace.Lg), contentAlignment = Alignment.Center) {
                 Text(stringResource(R.string.widgets_hw_empty), color = DashColors.TextSecondary, style = MaterialTheme.typography.bodyMedium)
             }
             return@Card
         }
         Box(Modifier.fillMaxSize()) {
-            Row(modifier = Modifier.fillMaxSize().padding(DashSpace.Md), horizontalArrangement = Arrangement.spacedBy(DashSpace.Md)) {
-                places.home?.let { PlaceButton(Icons.Filled.Home, homeName, homeMin, Modifier.weight(1f)) { go(homeName, it) } }
-                places.work?.let { PlaceButton(Icons.Filled.Work, workName, workMin, Modifier.weight(1f)) { go(workName, it) } }
+            // One place takes the tile, two share a line, three and four take two
+            // lines with the odd one out on top (T-01 in places-personalizados-plan.md).
+            Column(
+                modifier = Modifier.fillMaxSize().padding(DashSpace.Md),
+                verticalArrangement = Arrangement.spacedBy(DashSpace.Md)
+            ) {
+                when (shown.size) {
+                    1 -> PlaceButton(shown[0], places, minutes[shown[0].id], Modifier.weight(1f).fillMaxWidth(), ::go)
+                    2 -> Row(
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(DashSpace.Md)
+                    ) { shown.forEach { PlaceButton(it, places, minutes[it.id], Modifier.weight(1f), ::go) } }
+                    3 -> {
+                        PlaceButton(shown[0], places, minutes[shown[0].id], Modifier.weight(1f).fillMaxWidth(), ::go)
+                        Row(
+                            modifier = Modifier.weight(1f).fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(DashSpace.Md)
+                        ) { shown.drop(1).forEach { PlaceButton(it, places, minutes[it.id], Modifier.weight(1f), ::go) } }
+                    }
+                    else -> {
+                        Row(
+                            modifier = Modifier.weight(1f).fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(DashSpace.Md)
+                        ) { shown.take(2).forEach { PlaceButton(it, places, minutes[it.id], Modifier.weight(1f), ::go) } }
+                        Row(
+                            modifier = Modifier.weight(1f).fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(DashSpace.Md)
+                        ) { shown.drop(2).forEach { PlaceButton(it, places, minutes[it.id], Modifier.weight(1f), ::go) } }
+                    }
+                }
             }
             PendingActionStrip(pending, Modifier.align(Alignment.BottomCenter).padding(DashSpace.Sm))
         }
     }
 }
 
+/** One place on the tile: its icon, what it is called, and how long the drive is. */
 @Composable
-private fun PlaceButton(icon: ImageVector, name: String, minutes: Int?, modifier: Modifier, onClick: () -> Unit) {
+private fun PlaceButton(
+    place: SavedPlace,
+    places: Places,
+    minutes: Int?,
+    modifier: Modifier,
+    onTap: (String, SavedPlace) -> Unit
+) {
+    val name = savedPlaceTitle(place, places)
     val tap = rememberTapFeedback()
     Box(
         modifier = modifier.fillMaxHeight().clip(DashShape.Medium).background(DashColors.CardHi)
-            .clickable(role = Role.Button, onClickLabel = name) { tap(); onClick() }.padding(DashSpace.Md),
+            .clickable(role = Role.Button, onClickLabel = name) { tap(); onTap(name, place) }.padding(DashSpace.Md),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(icon, contentDescription = null, tint = DashColors.Accent, modifier = Modifier.size(30.dp))
+            Icon(placeIcon(place.category), contentDescription = null, tint = DashColors.Accent, modifier = Modifier.size(30.dp))
             Text(name, color = DashColors.TextPrimary, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
                 minutes?.let { formatMinutes(it) } ?: "--",
@@ -123,22 +161,21 @@ private fun formatMinutes(min: Int): String =
 internal fun homeWorkFace(): WidgetFace {
     val context = LocalContext.current
     val places by PlacesStore.places.collectAsState()
-    val home = places.home
-    val work = places.work
-    val homeName = stringResource(R.string.widgets_hw_home)
-    val workName = stringResource(R.string.widgets_hw_work)
+    val shown = places.widgetPlaces().ifEmpty { places.allPlaces().filter { it.isBuiltIn } }
     // The same held step as the standard card, in the designed tile's strip.
     val pending = LocalPendingAction.current
-    fun go(name: String, place: Place) = pending.arm(context.getString(R.string.phone_guidance_to, name)) { NavHandoff.start(context, place) }
+    fun go(name: String, place: SavedPlace) =
+        pending.arm(context.getString(R.string.phone_guidance_to, name)) { NavHandoff.start(context, place.asPlace()) }
+    val firstIcon: ImageVector = shown.firstOrNull()?.let { placeIcon(it.category) } ?: Icons.Filled.Home
     return WidgetFace(
-        icon = Icons.Filled.Home,
+        icon = firstIcon,
         title = BuiltinKind.HOME_WORK.label,
-        value = homeName,
+        value = shown.firstOrNull()?.let { savedPlaceTitle(it, places) } ?: stringResource(R.string.widgets_hw_home),
         textValue = true,
-        caption = if (home == null && work == null) stringResource(R.string.widgets_hw_empty) else "",
-        actions = listOfNotNull(
-            home?.let { FaceAction(Icons.Filled.Home, homeName, onClick = { go(homeName, it) }, primary = true) },
-            work?.let { FaceAction(Icons.Filled.Work, workName, onClick = { go(workName, it) }) }
-        )
+        caption = if (shown.isEmpty()) stringResource(R.string.widgets_hw_empty) else "",
+        actions = shown.mapIndexed { index, place ->
+            val name = savedPlaceTitle(place, places)
+            FaceAction(placeIcon(place.category), name, onClick = { go(name, place) }, primary = index == 0)
+        }
     )
 }

@@ -1,7 +1,7 @@
 # Plan: Lugares Personalizados en "Mis Lugares"
 
 **Fecha:** 2026-10-27  
-**Estado:** Propuesto (pendiente de aprobación)  
+**Estado:** Autorizada (aprobada el 2026-10-28)  
 
 **Issue:** Feature solicitada por usuario  
 **GitHub Ticket:** [#1](https://github.com/ravalosv/MyDashWheel/issues/1) en `ravalosv/MyDashWheel`
@@ -65,9 +65,33 @@ Actualmente la sección "Mis Lugares" ([`Places.kt`](app/src/main/java/com/opena
 - **Pasos:**
   1. Tocar "Agregar lugar personalizado"
   2. Ingresar nombre "Gimnasio"
-  3. Tocar "Buscar" o "El coche está aquí"
-  4. Verificar que aparece en la lista de lugares personalizados
-- **Resultado esperado:** "Gimnasio" aparece en la lista con coordenadas válidas
+  3. Escribir una dirección y tocar "Buscar"
+  4. Si hay varias coincidencias, elegir la correcta en la lista (como en el widget del mapa)
+  5. Guardar
+  6. Verificar que aparece en la lista de lugares personalizados
+- **Resultado esperado:** "Gimnasio" aparece en la lista con las coordenadas de la coincidencia elegida
+
+> **Ampliación de spec (2026-10-28, ticket #1):** la búsqueda debe mostrar hasta 5 coincidencias para elegir,
+> igual que el widget del mapa. Con una sola coincidencia se toma directamente.
+> *(Superado por la ampliación 3: el listado aplica también a Casa/Trabajo.)*
+>
+> **Ampliación de spec 2 (2026-10-29, ticket #1):** la búsqueda debe encontrar también negocios y puntos de
+> interés por su nombre (p. ej. "Planet Fitness"), no solo direcciones. Se elimina `bounded=1`: el recuadro
+> alrededor del coche solo da preferencia, no excluye. Si no hay nada cerca, se repite la búsqueda sin
+> preferencia de zona. Limitación conocida y aceptada: el geocodificador (Nominatim) no corrige erratas,
+> así que "plannet fitness" debe escribirse como "planet fitness".
+>
+> **Ampliación de spec 3 (2026-10-29, ticket #1):** ninguna búsqueda debe quedarse con la primera
+> coincidencia. El listado de hasta 5 candidatos pasa a aplicarse también a Casa/Trabajo (`PlaceEditor`),
+> no solo al alta/edición de lugares propios. `MapLibrePanel.searchAndRoute()` (sin llamadas) se deja
+> delegando en `searchPlaces()` para no conservar una ruta que enruta a la primera. Excepción:
+> `ShadowRoute.resolve()` (handoff de voz), donde no hay UI para elegir.
+>
+> **Ampliación de spec 4 (2026-10-29, ticket #1):** el listado de candidatos debe poder cerrarse sin
+> elegir. Dos formas: (a) botón ✕ en la lista — cierra y conserva la dirección escrita para corregirla;
+> (b) editar el campo de búsqueda — la lista desaparece al primer cambio de texto. Aplica al alta/edición
+> de lugares propios, a Casa/Trabajo y al widget del mapa. El texto del ✕ reutiliza `dash_close` (ya
+> traducido en los 10 idiomas), así que no añade strings nuevos.
 
 ### MT-places-02: Editar nombre de lugar personalizado
 - **Criterios cubiertos:** RF-02, RF-03
@@ -177,38 +201,51 @@ Usuario selecciona hasta 4 lugares en Settings → Mis Lugares → "Mostrar en w
 ## Plan de Implementación (Incrementos)
 
 ### Incremento 1: Modelo de datos
-- [ ] Crear `SavedPlace` data class con id, name, lat, lng, isBuiltIn
-- [ ] Actualizar `Places` data class con `customPlaces: List<SavedPlace>`, `selectedPlaceId: String?`
-- [ ] Agregar método `getSelectedPlace()` en `Places`
-- [ ] Métodos: `addCustomPlace`, `updateCustomPlaceName`, `removeCustomPlace`, `setSelectedPlace`
+- [x] Crear `SavedPlace` data class con id, name, lat, lng, category, isBuiltIn
+- [x] Actualizar `Places` con `customPlaces`, `homeLabel`, `workLabel`
+- [x] `widgetPlaceIds: List<String>` en lugar de `selectedPlaceId`, según la decisión de T-01 (1-4 lugares)
+- [x] `getSelectedPlace()` sustituido por `widgetPlaces()` / `allPlaces()` / `replaceCustom()`
 
 ### Incremento 2: Storage (PlacesStore)
-- [ ] Actualizar `encode()` para serializar `customPlaces` y `selectedPlaceId`
-- [ ] Actualizar `decode()` para deserializar nuevos campos
-- [ ] Implementar `migrateLegacyData()` para backward compatibility
-- [ ] Métodos públicos: `addCustomPlace`, `updatePlaceName`, `removeCustomPlace`, `setSelectedPlace`
+- [x] `encode()` serializa `customPlaces`, `widgetPlaceIds`, `homeLabel`, `workLabel` (y `selectedPlaceId` = primero, para builds anteriores)
+- [x] `decode()` deserializa los nuevos campos y acepta el `selectedPlaceId` suelto como migración
+- [x] Migración legacy implícita: ausencia de campos → valores vacíos; `recent` nulo ya no rompe (bug corregido)
+- [x] Métodos públicos: `renamePlace`, `addCustomPlace`, `updateCustomPlace`, `removeCustomPlace`, `toggleWidgetPlace`
 
 ### Incremento 3: UI Settings
-- [ ] Modificar `PlacesSheet` para mostrar sección de lugares personalizados
-- [ ] Agregar botón "Agregar lugar personalizado" con dialog
-- [ ] Implementar lista de lugares personalizados con editar/eliminar
-- [ ] Agregar dropdown selector "Mostrar en widget"
-- [ ] Permitir editar nombre de Casa/Trabajo también
+- [x] `CustomPlacesList` en `PlacesSheet` con filas, editar y eliminar (con confirmación)
+- [x] Botón "Agregar lugar personalizado" + dialog (nombre, categoría, dirección o posición del coche)
+- [x] Selector "En el mosaico del mapa" con casillas, máximo 4
+- [x] Renombrar Casa/Trabajo sin perder el punto ni el id
 
 ### Incremento 4: Widget
-- [ ] Modificar `HomeWorkTile` para usar `places.getSelectedPlace()`
-- [ ] Mostrar lugar seleccionado en widget
-- [ ] Mantener backward compatibility si no hay selección
+- [x] `HomeWorkCard` y `homeWorkFace` usan `widgetPlaces()`
+- [x] Distribución 1-4 lugares de T-01 (1 línea / 2 líneas)
+- [x] Backward compatibility: sin selección se muestran Casa y Trabajo como antes
 
 ### Incremento 5: Strings multi-idioma
-- [ ] Agregar strings en inglés (`values/strings_places.xml`)
-- [ ] Agregar strings en español (`values-es/strings_places.xml`)
+- [x] Agregar strings en inglés (`values/strings_places.xml`)
+- [x] Agregar strings en español (`values-es/strings_places.xml`)
 
 ### Incremento 6: Validación
-- [ ] Ejecutar tests unitarios existentes: `./gradlew :app:testGithubDebugUnitTest`
-- [ ] Ejecutar lint: `./gradlew :app:lintGithubDebug`
-- [ ] Build de prueba: `./gradlew :app:assembleGithubDebug`
-- [ ] Pruebas manuales MT-places-01 a MT-places-07
+- [x] Ejecutar tests unitarios existentes: `./gradlew :app:testGithubDebugUnitTest`
+- [x] Ejecutar lint: `./gradlew :app:lintGithubDebug` (exige traducción en los 9 idiomas del proyecto)
+- [x] Build de prueba: `./gradlew :app:assembleGithubDebug`
+- [x] Pruebas manuales MT-places-01 a MT-places-07 ejecutadas por el propietario en dispositivo el 2026-10-29
+
+**Validación ejecutada (2026-10-28/29):**
+`./gradlew :app:lintGithubDebug` → **BUILD SUCCESSFUL**, 0 errores.
+`:app:testGithubDebugUnitTest` → ejecutada sin fallos. `:app:assembleGithubDebug` → APK generado.
+Nota: dos ejecuciones intermedias fallaron por causas ajenas al código — un `SuspiciousIndentation`
+ya corregido en `HandsFreeSettings.kt:632` y un fallo al guardar el caché de dex por lanzar dos Gradle
+en paralelo sobre el mismo `build/`. La verificación final se hizo en serie con `--no-build-cache`.
+
+**Pruebas manuales:** MT-places-01 a MT-places-07 ejecutadas en dispositivo por el propietario el 2026-10-29.
+
+**Incidencias corregidas durante la implementación:**
+1. `PlacesStore.decode()` lanzaba NPE cuando el JSON guardado no tenía `recent` (violaba RF-07).
+2. Los borradores previos creaban lugares vacíos en (0,0) y tenían botones con `TODO` sin efecto.
+3. `local.properties` tenía el `:` de la unidad sin escapar, lo que hacía fallar lint antes de estos cambios.
 
 ---
 
@@ -225,9 +262,9 @@ Usuario selecciona hasta 4 lugares en Settings → Mis Lugares → "Mostrar en w
 
 ## Estado de Aprobación
 
-- [ ] **Revisión de spec:** Pendiente
+- [x] **Revisión de spec:** Aprobada por el propietario el 2026-10-28
 - [x] **Dudas resueltas:** 4/4 respondidas (T-01 ✅, T-02 ✅, P-01 ✅, P-02 ✅)
-- [ ] **Autorización para implementar:** No autorizada aún
+- [x] **Autorización para implementar:** ✅ Autorizada por el propietario el 2026-10-28
 - [x] **Ticket GitHub creado:** ✅ [#1](https://github.com/ravalosv/MyDashWheel/issues/1)
 
 **Próximos pasos:**

@@ -47,7 +47,73 @@ internal data class Place(val name: String, val lat: Double, val lng: Double) {
     }
 }
 
-internal data class Places(val home: Place? = null, val work: Place? = null, val recent: List<Place> = emptyList()) {
+/**
+ * A place the driver keeps: home, work, or one they added. [id] is stable for
+ * the lifetime of the place ("home", "work", "custom_<millis>"), [name] is what
+ * they call it, and [category] only picks its icon.
+ */
+internal data class SavedPlace(
+    val id: String,
+    val name: String,
+    val lat: Double,
+    val lng: Double,
+    val category: String = PlaceCategories.GENERIC,
+    val isBuiltIn: Boolean = false
+) {
+    fun asPlace(): Place = Place(name, lat, lng)
+}
+
+/** The icon a saved place gets; stored by name so a new category is one line here and one string. */
+internal object PlaceCategories {
+    const val HOME = "home"
+    const val WORK = "work"
+    const val GENERIC = "generic"
+    const val GYM = "gym"
+    const val SCHOOL = "school"
+    const val HOSPITAL = "hospital"
+    const val RESTAURANT = "restaurant"
+    const val STORE = "store"
+
+    /** The ones the driver can pick for a place they add; home and work keep their own. */
+    val pickable = listOf(GENERIC, GYM, SCHOOL, HOSPITAL, RESTAURANT, STORE)
+
+    /** An id from storage that no longer names a category still draws something. */
+    fun known(category: String): String = if (category in pickable || category == HOME || category == WORK) category else GENERIC
+}
+
+internal data class Places(
+    val home: Place? = null,
+    val work: Place? = null,
+    val customPlaces: List<SavedPlace> = emptyList(),
+    /** Up to [MAX_WIDGET_PLACES] ids the map tile shows, in the order they were picked. */
+    val widgetPlaceIds: List<String> = emptyList(),
+    /** What the driver renamed home and work to; null keeps the translated "Home"/"Work". */
+    val homeLabel: String? = null,
+    val workLabel: String? = null,
+    val recent: List<Place> = emptyList()
+) {
+    /** Home, work and the custom places, as one list for the settings sheet and the tile. */
+    fun allPlaces(): List<SavedPlace> = buildList {
+        home?.let { add(SavedPlace(PlaceCategories.HOME, it.name, it.lat, it.lng, PlaceCategories.HOME, true)) }
+        work?.let { add(SavedPlace(PlaceCategories.WORK, it.name, it.lat, it.lng, PlaceCategories.WORK, true)) }
+        addAll(customPlaces)
+    }
+
+    /** The places the tile shows: [widgetPlaceIds] resolved against [allPlaces], gone ones skipped. */
+    fun widgetPlaces(): List<SavedPlace> {
+        if (widgetPlaceIds.isEmpty()) return emptyList()
+        val byId = allPlaces().associateBy { it.id }
+        return widgetPlaceIds.mapNotNull { byId[it] }.take(MAX_WIDGET_PLACES)
+    }
+
+    /** The same list with the custom place [id] passed through [change]; this when it is not there. */
+    fun replaceCustom(id: String, change: (SavedPlace) -> SavedPlace): Places {
+        val idx = customPlaces.indexOfFirst { it.id == id }
+        if (idx == -1) return this
+        val updated = customPlaces.toMutableList()
+        updated[idx] = change(updated[idx])
+        return copy(customPlaces = updated)
+    }
 
     /**
      * With [place] as the latest destination: first of the list, once, and
@@ -59,6 +125,8 @@ internal data class Places(val home: Place? = null, val work: Place? = null, val
     }
 
     companion object {
+        const val MAX_CUSTOM_PLACES = 4
+        const val MAX_WIDGET_PLACES = 4
         const val MAX_RECENT = 6
     }
 }
@@ -87,6 +155,59 @@ internal object PlacesStore {
 
     fun forgetRecent(context: Context) = update(context) { it.copy(recent = emptyList()) }
 
+    /** Renaming home or work only changes the label: the spot and the id stay. */
+    fun renamePlace(context: Context, placeId: String, newName: String) = update(context) { places ->
+        val name = newName.trim()
+        if (name.isEmpty()) return@update places
+        when (placeId) {
+            PlaceCategories.HOME -> places.copy(homeLabel = name)
+            PlaceCategories.WORK -> places.copy(workLabel = name)
+            else -> places.replaceCustom(placeId) { it.copy(name = name) }
+        }
+    }
+
+    /** A custom place added; ignored past [Places.MAX_CUSTOM_PLACES], with no spot, or with no name. */
+    fun addCustomPlace(context: Context, name: String, lat: Double, lng: Double, category: String) = update(context) { places ->
+        if (places.customPlaces.size >= Places.MAX_CUSTOM_PLACES) return@update places
+        if (name.isBlank() || lat.isNaN() || lng.isNaN()) return@update places
+        val newPlace = SavedPlace(
+            id = "custom_${System.currentTimeMillis()}_${places.customPlaces.size}",
+            name = name.trim(),
+            lat = lat,
+            lng = lng,
+            category = PlaceCategories.known(category)
+        )
+        places.copy(customPlaces = places.customPlaces + newPlace)
+    }
+
+    /** An existing custom place moved, renamed or given another icon. */
+    fun updateCustomPlace(context: Context, placeId: String, name: String, lat: Double, lng: Double, category: String) = update(context) { places ->
+        if (name.isBlank() || lat.isNaN() || lng.isNaN()) return@update places
+        places.replaceCustom(placeId) { it.copy(name = name.trim(), lat = lat, lng = lng, category = PlaceCategories.known(category)) }
+    }
+
+    /** Home and work are never removed this way; they are cleared from their own editor. */
+    fun removeCustomPlace(context: Context, placeId: String) = update(context) { places ->
+        if (placeId == PlaceCategories.HOME || placeId == PlaceCategories.WORK) return@update places
+        if (places.customPlaces.none { it.id == placeId }) return@update places
+        places.copy(
+            customPlaces = places.customPlaces.filterNot { it.id == placeId },
+            widgetPlaceIds = places.widgetPlaceIds - placeId
+        )
+    }
+
+    /** Adds [placeId] to the tile's places, or takes it out; keeps at most [Places.MAX_WIDGET_PLACES]. */
+    fun toggleWidgetPlace(context: Context, placeId: String) = update(context) { places ->
+        val ids = if (placeId in places.widgetPlaceIds) {
+            places.widgetPlaceIds - placeId
+        } else if (places.widgetPlaceIds.size >= Places.MAX_WIDGET_PLACES) {
+            places.widgetPlaceIds
+        } else {
+            places.widgetPlaceIds + placeId
+        }
+        places.copy(widgetPlaceIds = ids)
+    }
+
     @Synchronized
     private fun update(context: Context, change: (Places) -> Places) {
         load(context)
@@ -99,26 +220,57 @@ internal object PlacesStore {
     internal fun encode(p: Places): String = JSONObject().apply {
         p.home?.let { put("home", json(it)) }
         p.work?.let { put("work", json(it)) }
+        p.homeLabel?.let { put("homeLabel", it) }
+        p.workLabel?.let { put("workLabel", it) }
+        put("customPlaces", JSONArray().apply { p.customPlaces.forEach { put(json(it)) } })
+        put("widgetPlaceIds", JSONArray().apply { p.widgetPlaceIds.forEach { put(it) } })
+        // The single id an older build understands; it shows that one place instead of none.
+        p.widgetPlaceIds.firstOrNull()?.let { put("selectedPlaceId", it) }
         put("recent", JSONArray().apply { p.recent.forEach { put(json(it)) } })
     }.toString()
 
     internal fun decode(raw: String): Places {
         val o = JSONObject(raw)
+        val custom = o.optJSONArray("customPlaces")
         val recent = o.optJSONArray("recent")
+        val widgetIds = o.optJSONArray("widgetPlaceIds")
+            ?.let { arr -> (0 until arr.length()).map { arr.optString(it) }.filter { it.isNotEmpty() } }
         return Places(
             home = o.optJSONObject("home")?.let(::place),
             work = o.optJSONObject("work")?.let(::place),
+            customPlaces = if (custom == null) emptyList() else (0 until custom.length()).mapNotNull { i -> custom.optJSONObject(i)?.let(::savedPlace) },
+            widgetPlaceIds = widgetIds
+                ?: listOfNotNull(o.optString("selectedPlaceId").takeIf { it.isNotEmpty() }),
+            homeLabel = o.optString("homeLabel").takeIf { it.isNotBlank() },
+            workLabel = o.optString("workLabel").takeIf { it.isNotBlank() },
             recent = if (recent == null) emptyList() else (0 until recent.length()).mapNotNull { i -> recent.optJSONObject(i)?.let(::place) }
         )
     }
 
     private fun json(p: Place) = JSONObject().put("name", p.name).put("lat", p.lat).put("lng", p.lng)
 
+    private fun json(sp: SavedPlace) = JSONObject().put("id", sp.id).put("name", sp.name).put("lat", sp.lat).put("lng", sp.lng).put("category", sp.category).put("isBuiltIn", sp.isBuiltIn)
+
     private fun place(o: JSONObject): Place? {
         val lat = o.optDouble("lat", Double.NaN)
         val lng = o.optDouble("lng", Double.NaN)
         if (lat.isNaN() || lng.isNaN()) return null
         return Place(o.optString("name"), lat, lng)
+    }
+
+    private fun savedPlace(o: JSONObject): SavedPlace? {
+        val lat = o.optDouble("lat", Double.NaN)
+        val lng = o.optDouble("lng", Double.NaN)
+        if (lat.isNaN() || lng.isNaN()) return null
+        val id = o.optString("id").takeIf { it.isNotEmpty() } ?: return null
+        return SavedPlace(
+            id = id,
+            name = o.optString("name"),
+            lat = lat,
+            lng = lng,
+            category = PlaceCategories.known(o.optString("category")),
+            isBuiltIn = o.optBoolean("isBuiltIn", false)
+        )
     }
 }
 
@@ -142,12 +294,20 @@ internal object PlaceSearch {
      * With [nearLat]/[nearLng], places around there come first.
      */
     fun findAll(query: String, nearLat: Double? = null, nearLng: Double? = null, limit: Int = 5): List<Place> {
+        // A soft viewbox (no bounded=1): places around the car rank first, but a gym or
+        // shop across town is still reachable. A hard box made those say "not found".
         val around = if (nearLat != null && nearLng != null) {
-            // Larger viewbox (about 5km radius) and bounded=1 to restrict results to nearby area
-            String.format(java.util.Locale.US, "&viewbox=%.4f,%.4f,%.4f,%.4f&bounded=1", nearLng - 0.05, nearLat + 0.035, nearLng + 0.05, nearLat - 0.035)
+            String.format(Locale.US, "&viewbox=%.4f,%.4f,%.4f,%.4f", nearLng - 0.25, nearLat + 0.18, nearLng + 0.25, nearLat - 0.18)
         } else ""
-        val url = "$SEARCH_URL?format=json&limit=$limit&countrycodes=mx&q=" + URLEncoder.encode(query, "UTF-8") + around
-        android.util.Log.d("PlaceSearch", "Searching: query='$query' near=($nearLat, $nearLng) url=$url")
+        val nearby = search(query, around, limit)
+        // Nothing around the car: ask again with no preference at all, country-wide.
+        return if (nearby.isEmpty() && around.isNotEmpty()) search(query, "", limit) else nearby
+    }
+
+    /** One Nominatim call. [extra] holds the optional location preference. Throws when offline. */
+    private fun search(query: String, extra: String, limit: Int): List<Place> {
+        val url = "$SEARCH_URL?format=json&limit=$limit&countrycodes=mx&q=" + URLEncoder.encode(query, "UTF-8") + extra
+        android.util.Log.d("PlaceSearch", "Searching: query='$query' url=$url")
         val request = Request.Builder().url(url).header("User-Agent", USER_AGENT).build()
         Http.client.newCall(request).execute().use { resp ->
             if (!resp.isSuccessful) return emptyList()

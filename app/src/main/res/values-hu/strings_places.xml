@@ -18,4 +18,28 @@
     <!-- Spoken when a steering wheel button asks for a place that isn't set -->
     <string name="places_no_home">Az otthon nincs beállítva. Állítsa be a Beállítások, Vezetés, Saját helyek menüben.</string>
     <string name="places_no_work">A munkahely nincs beállítva. Állítsa be a Beállítások, Vezetés, Saját helyek menüben.</string>
+    <!-- Custom places (places-personalizados-plan.md) -->
+    <string name="places_custom_title">Saját helyek</string>
+    <string name="places_custom_empty">Még nincs egy sem. Add hozzá azokat a helyeket, ahová jársz.</string>
+    <string name="places_name">Név</string>
+    <string name="places_custom_rename">Átnevezés</string>
+    <string name="places_custom_location_set">Hely beállítva</string>
+    <string name="places_custom_location_missing">Még nincs hely: keress címet, vagy használd az autó helyzetét</string>
+    <string name="places_custom_widget_title">A térképcsempén</string>
+    <string name="places_custom_widget_hint">Legfeljebb %1$d hely bejelölése</string>
+    <string name="places_custom_widget_empty">Előbb állítsd be az Otthon, a Munkahely vagy egy saját helyet</string>
+    <string name="places_custom_add">Saját hely hozzáadása</string>
+    <string name="places_custom_edit">Hely szerkesztése</string>
+    <string name="places_custom_delete">Törlés</string>
+    <string name="places_custom_category">Kategória</string>
+    <string name="places_custom_category_generic">Általános</string>
+    <string name="places_custom_category_gym">Edzőterem</string>
+    <string name="places_custom_category_school">Iskola</string>
+    <string name="places_custom_category_hospital">Kórház</string>
+    <string name="places_custom_category_restaurant">Étterem</string>
+    <string name="places_custom_category_store">Bolt</string>
+    <string name="places_custom_max_reached">Elérted a 4 saját hely felső határát</string>
+    <string name="places_custom_confirm_delete">Törlöd ezt a helyet?</string>
+    <string name="places_custom_save">Mentés</string>
+    <string name="places_custom_cancel">Mégse</string>
 </resources>

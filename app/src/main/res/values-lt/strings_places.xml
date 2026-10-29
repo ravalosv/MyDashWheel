@@ -18,4 +18,28 @@
     <!-- Spoken when a steering wheel button asks for a place that isn't set -->
     <string name="places_no_home">Namai nenustatyti. Nustatykite juos: Nustatymai, Vairavimas, Mano vietos.</string>
     <string name="places_no_work">Darbas nenustatytas. Nustatykite jį: Nustatymai, Vairavimas, Mano vietos.</string>
+    <!-- Custom places (places-personalizados-plan.md) -->
+    <string name="places_custom_title">Tavo vietos</string>
+    <string name="places_custom_empty">Kol kas nėra. Pridėk vietas, į kurias važiuoji.</string>
+    <string name="places_name">Pavadinimas</string>
+    <string name="places_custom_rename">Pervadinti</string>
+    <string name="places_custom_location_set">Vieta nustatyta</string>
+    <string name="places_custom_location_missing">Vietos dar nėra: ieškok adreso arba naudok automobilio padėtį</string>
+    <string name="places_custom_widget_title">Žemėlapio plytelėje</string>
+    <string name="places_custom_widget_hint">Pažymėk iki %1$d vietų</string>
+    <string name="places_custom_widget_empty">Pirmiausia nustatyk namus, darbą arba savo vietą</string>
+    <string name="places_custom_add">Pridėti savo vietą</string>
+    <string name="places_custom_edit">Redaguoti vietą</string>
+    <string name="places_custom_delete">Ištrinti</string>
+    <string name="places_custom_category">Kategorija</string>
+    <string name="places_custom_category_generic">Bendra</string>
+    <string name="places_custom_category_gym">Sporto salė</string>
+    <string name="places_custom_category_school">Mokykla</string>
+    <string name="places_custom_category_hospital">Ligoninė</string>
+    <string name="places_custom_category_restaurant">Restoranas</string>
+    <string name="places_custom_category_store">Parduotuvė</string>
+    <string name="places_custom_max_reached">Pasiektas 4 savo vietų limitas</string>
+    <string name="places_custom_confirm_delete">Ištrinti šią vietą?</string>
+    <string name="places_custom_save">Išsaugoti</string>
+    <string name="places_custom_cancel">Atšaukti</string>
 </resources>
