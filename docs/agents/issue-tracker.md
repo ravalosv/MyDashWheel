@@ -14,6 +14,39 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 
 Infer the repo from `git remote -v`; `gh` does this automatically when run inside a clone.
 
+## Repository remotes in this clone
+
+This clone intentionally uses **two remotes**:
+
+- `origin`: personal fork / writable repo for publishing your work (`https://github.com/ravalosv/MyDashWheel.git`)
+- `upstream`: original source repo for pulling new versions (`https://github.com/deviloufr-ai/Dashwheel.git`)
+
+Prefer this split consistently:
+
+- **push your changes** to `origin`
+- **fetch updates** from `upstream`
+- when using `gh`, be aware it may target the default repo inferred from the current clone/remotes; verify before creating issues or PRs if the destination matters
+
+### Useful git commands
+
+- **Show remotes**: `git remote -v`
+- **Show tracking branches**: `git branch -vv`
+- **Fetch the original repo**: `git fetch upstream`
+- **Fetch your fork**: `git fetch origin`
+- **Merge upstream main into local main**: `git checkout main && git merge upstream/main`
+- **Rebase local main onto upstream main**: `git checkout main && git rebase upstream/main`
+- **Push local main to your fork**: `git push origin main`
+- **Set local main to track your fork's main**: `git branch --set-upstream-to=origin/main main`
+
+### Recommended sync flow
+
+1. `git fetch upstream`
+2. `git checkout main`
+3. `git merge upstream/main` _or_ `git rebase upstream/main`
+4. `git push origin main`
+
+If feature branches are used, branch from updated `main` and push those branches to `origin`.
+
 ## Pull requests as a triage surface
 
 **PRs as a request surface: no.** _(Set to `yes` if this repo treats external PRs as feature requests; `/triage` reads this flag.)_
