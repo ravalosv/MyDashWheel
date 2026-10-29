@@ -38,3 +38,6 @@ captures/
 # detect.py fetches the vehicle model itself, checked against its fingerprint.
 tools/roadwatch-replay/efficientdet_*.tflite
 *.bat
+# …pero el wrapper de Gradle es parte del build: sin el, un clon en Windows
+# no compila (launch.json, tasks.json e init.ps1 lo invocan).
+!gradlew.bat
