@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Dashwheel Companheiro</string>
+    <string name="app_name">MyDashwheel Companheiro</string>
     <string name="service_channel">Ligação ao carro</string>
     <string name="status_off">Partilha desativada</string>
     <string name="status_waiting">À espera do carro no seu hotspot</string>

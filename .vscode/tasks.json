@@ -22,7 +22,7 @@
     {
       "label": "dashwheel: start MainActivity",
       "type": "shell",
-      "command": "adb shell am start -n com.openauto.dash/.MainActivity",
+      "command": "adb shell am start -n com.mydashwheel.dash/.MainActivity",
       "options": {
         "cwd": "${workspaceFolder}"
       },

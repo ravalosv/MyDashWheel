@@ -12,10 +12,10 @@ class UpdateManagerTest {
     @Test
     fun theLauncherApkIsTheOneThatIsNeitherCompanionNorPlay() {
         val assets = listOf(
-            "dashwheel-companion.apk" to "https://github.com/deviloufr-ai/Dashwheel/releases/download/v1.0.42/dashwheel-companion.apk",
-            "Dashwheel-1.0.42-play.aab" to "https://github.com/deviloufr-ai/Dashwheel/releases/download/v1.0.42/Dashwheel-1.0.42-play.aab",
-            "Dashwheel-1.0.42-PLAY.apk" to "https://github.com/deviloufr-ai/Dashwheel/releases/download/v1.0.42/Dashwheel-1.0.42-PLAY.apk",
-            "Dashwheel-1.0.42.apk" to "https://github.com/deviloufr-ai/Dashwheel/releases/download/v1.0.42/Dashwheel-1.0.42.apk"
+            "mydashwheel-companion.apk" to "https://github.com/ravalosv/MyDashWheel/releases/download/v1.0.42/mydashwheel-companion.apk",
+            "MyDashwheel-1.0.42-play.aab" to "https://github.com/ravalosv/MyDashWheel/releases/download/v1.0.42/MyDashwheel-1.0.42-play.aab",
+            "MyDashwheel-1.0.42-PLAY.apk" to "https://github.com/ravalosv/MyDashWheel/releases/download/v1.0.42/MyDashwheel-1.0.42-PLAY.apk",
+            "MyDashwheel-1.0.42.apk" to "https://github.com/ravalosv/MyDashWheel/releases/download/v1.0.42/MyDashwheel-1.0.42.apk"
         )
         assertEquals(assets.last().second, UpdateManager.pickLauncherApk(assets))
     }
@@ -23,37 +23,37 @@ class UpdateManagerTest {
     @Test
     fun noLauncherApkAmongPlayAndCompanionAssets() {
         val assets = listOf(
-            "dashwheel-companion.apk" to "https://github.com/x/y/releases/download/v1/dashwheel-companion.apk",
-            "Dashwheel-1.0.42-play.apk" to "https://github.com/x/y/releases/download/v1/Dashwheel-1.0.42-play.apk",
-            "Dashwheel-1.0.42.aab" to "https://github.com/x/y/releases/download/v1/Dashwheel-1.0.42.aab"
+            "mydashwheel-companion.apk" to "https://github.com/x/y/releases/download/v1/mydashwheel-companion.apk",
+            "MyDashwheel-1.0.42-play.apk" to "https://github.com/x/y/releases/download/v1/MyDashwheel-1.0.42-play.apk",
+            "MyDashwheel-1.0.42.aab" to "https://github.com/x/y/releases/download/v1/MyDashwheel-1.0.42.aab"
         )
         assertNull(UpdateManager.pickLauncherApk(assets))
     }
 
     @Test
     fun onlyGitHubHostsOverHttpsAreTrusted() {
-        assertNull(UpdateManager.pickLauncherApk(listOf("Dashwheel.apk" to "http://github.com/a/b.apk")))
-        assertNull(UpdateManager.pickLauncherApk(listOf("Dashwheel.apk" to "https://evil.example.com/Dashwheel.apk")))
-        assertNull(UpdateManager.pickLauncherApk(listOf("Dashwheel.apk" to "")))
+        assertNull(UpdateManager.pickLauncherApk(listOf("MyDashwheel.apk" to "http://github.com/a/b.apk")))
+        assertNull(UpdateManager.pickLauncherApk(listOf("MyDashwheel.apk" to "https://evil.example.com/Dashwheel.apk")))
+        assertNull(UpdateManager.pickLauncherApk(listOf("MyDashwheel.apk" to "")))
         val ok = "https://objects.githubusercontent.com/some/path/Dashwheel.apk"
-        assertEquals(ok, UpdateManager.pickLauncherApk(listOf("Dashwheel.apk" to ok)))
+        assertEquals(ok, UpdateManager.pickLauncherApk(listOf("MyDashwheel.apk" to ok)))
     }
 
     @Test
     fun assetNamesTellTheEditionsApart() {
-        assertTrue(UpdateManager.isLauncherApk("Dashwheel-1.0.42.apk"))
-        assertTrue(UpdateManager.isLauncherApk("DASHWHEEL.APK"))
-        assertFalse(UpdateManager.isLauncherApk("Dashwheel-1.0.42-play.apk"))
-        assertFalse(UpdateManager.isLauncherApk("Dashwheel-1.0.42-Play.apk"))
-        assertFalse(UpdateManager.isLauncherApk("Dashwheel-1.0.42.aab"))
-        assertFalse(UpdateManager.isLauncherApk("dashwheel-companion.apk"))
-        assertFalse(UpdateManager.isLauncherApk("Dashwheel-1.0.42.apk.sha256"))
+        assertTrue(UpdateManager.isLauncherApk("MyDashwheel-1.0.42.apk"))
+        assertTrue(UpdateManager.isLauncherApk("MYDASHWHEEL.APK"))
+        assertFalse(UpdateManager.isLauncherApk("MyDashwheel-1.0.42-play.apk"))
+        assertFalse(UpdateManager.isLauncherApk("MyDashwheel-1.0.42-Play.apk"))
+        assertFalse(UpdateManager.isLauncherApk("MyDashwheel-1.0.42.aab"))
+        assertFalse(UpdateManager.isLauncherApk("mydashwheel-companion.apk"))
+        assertFalse(UpdateManager.isLauncherApk("MyDashwheel-1.0.42.apk.sha256"))
     }
 
     @Test
     fun lastNumberInTheTagIsTheBuild() {
         assertEquals(42L, UpdateManager.parseBuildNumber("v1.0.42"))
-        assertEquals(119L, UpdateManager.parseBuildNumber("Dashwheel v1.0.119"))
+        assertEquals(119L, UpdateManager.parseBuildNumber("MyDashwheel v1.0.119"))
         assertEquals(7L, UpdateManager.parseBuildNumber("7"))
     }
 

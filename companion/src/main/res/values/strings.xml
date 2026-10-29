@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Dashwheel Companion</string>
+    <string name="app_name">MyDashwheel Companion</string>
     <string name="service_channel">Car connection</string>
     <string name="status_off">Sharing is off</string>
     <string name="status_waiting">Waiting for the car on your hotspot</string>

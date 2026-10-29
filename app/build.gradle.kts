@@ -23,7 +23,9 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.openauto.dash"
+        // This fork's own identity: it installs beside the upstream app instead of
+        // overwriting it, and its releases come from ravalosv/MyDashWheel below.
+        applicationId = "com.mydashwheel.dash"
         minSdk = 28
         targetSdk = 36
         // Version is driven by CI (the Actions run number) so each build is
@@ -31,9 +33,9 @@ android {
         versionCode = (System.getenv("VERSION_CODE") ?: "1").toInt()
         versionName = System.getenv("VERSION_NAME") ?: "1.0"
 
-        // Where the in-app updater looks for new releases.
-        buildConfigField("String", "GITHUB_OWNER", "\"deviloufr-ai\"")
-        buildConfigField("String", "GITHUB_REPO", "\"Dashwheel\"")
+        // Where the in-app updater looks for new releases: this fork's own, not upstream's.
+        buildConfigField("String", "GITHUB_OWNER", "\"ravalosv\"")
+        buildConfigField("String", "GITHUB_REPO", "\"MyDashWheel\"")
 
         vectorDrawables {
             useSupportLibrary = true
@@ -54,9 +56,9 @@ android {
         }
         create("play") {
             dimension = "edition"
-            // Its own package on Google Play: the GitHub edition keeps com.openauto.dash,
+            // Its own package on Google Play: the GitHub edition keeps com.mydashwheel.dash,
             // so the two never overwrite each other (their signing keys differ anyway).
-            applicationId = "com.dashwheel.app"
+            applicationId = "com.mydashwheel.dash.play"
             buildConfigField("boolean", "PLAY", "true")
         }
     }

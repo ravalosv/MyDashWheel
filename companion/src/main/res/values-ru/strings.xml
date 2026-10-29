@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Dashwheel Companion</string>
+    <string name="app_name">MyDashwheel Companion</string>
     <string name="service_channel">Связь с автомобилем</string>
     <string name="status_off">Передача выключена</string>
     <string name="status_waiting">Ожидание автомобиля в вашей точке доступа</string>

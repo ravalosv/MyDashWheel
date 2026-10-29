@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Dashwheel Companion</string>
+    <string name="app_name">MyDashwheel Companion</string>
     <string name="service_channel">Kapcsolat az autóval</string>
     <string name="status_off">A megosztás ki van kapcsolva</string>
     <string name="status_waiting">Várakozás az autóra a hotspoton</string>
