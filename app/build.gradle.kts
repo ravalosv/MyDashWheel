@@ -7,27 +7,20 @@ plugins {
     id("androidx.baselineprofile")
 }
 
+// Release signing key: CI's env vars, else keystore.properties at the repo root. Local
+// builds may fall back to the debug key; CI must not, because a debug-signed release can
+// never be updated in place by a later properly signed one. The guard lives in the script.
+apply(from = rootProject.file("gradle/release-signing.gradle.kts"))
+
+// What that script resolved for this module: the key, or null to sign with the debug key.
+val releaseKeystore = extra["releaseKeystoreFile"] as? File
+val releaseStorePassword = extra["releaseStorePassword"] as? String
+val releaseKeyAlias = extra["releaseKeyAlias"] as? String
+val releaseKeyPassword = extra["releaseKeyPassword"] as? String
+
 android {
     namespace = "com.openauto.dash"
     compileSdk = 36
-
-    // Release signing key, supplied by CI via env vars. Local builds may fall
-    // back to the debug key; CI must not, because a debug-signed release can
-    // never be updated in place by a later properly signed one.
-    val keystorePath = providers.environmentVariable("KEYSTORE_FILE").orNull
-    val releaseKeystore = keystorePath?.let { file(it) }?.takeIf { it.exists() }
-    val onCi = providers.environmentVariable("CI").orNull == "true"
-    // Enforced only when a release task is actually scheduled: the lint / unit
-    // test workflow builds debug and never prepares a keystore.
-    gradle.taskGraph.whenReady {
-        val buildsRelease = allTasks.any { it.project == project && it.name.contains("Release") }
-        if (onCi && releaseKeystore == null && buildsRelease) {
-            throw GradleException(
-                "CI release build without a keystore: set the KEYSTORE_BASE64 / " +
-                    "KEYSTORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD secrets."
-            )
-        }
-    }
 
     defaultConfig {
         applicationId = "com.openauto.dash"
@@ -72,9 +65,9 @@ android {
         if (releaseKeystore != null) {
             create("release") {
                 storeFile = releaseKeystore
-                storePassword = providers.environmentVariable("KEYSTORE_PASSWORD").orNull
-                keyAlias = providers.environmentVariable("KEY_ALIAS").orNull
-                keyPassword = providers.environmentVariable("KEY_PASSWORD").orNull
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
             }
         }
     }

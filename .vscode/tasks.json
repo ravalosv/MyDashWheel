@@ -34,6 +34,34 @@
       }
     },
     {
+      "label": "dashwheel: release github (APK firmado)",
+      "type": "shell",
+      "command": ".\\gradlew.bat :app:assembleGithubRelease :companion:assembleGithubRelease",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "focus": false
+      }
+    },
+    {
+      "label": "dashwheel: release play (AAB + APK firmados)",
+      "type": "shell",
+      "command": ".\\gradlew.bat :app:bundlePlayRelease :app:assemblePlayRelease :companion:bundlePlayRelease",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "focus": false
+      }
+    },
+    {
       "label": "dashwheel: install + launch",
       "dependsOrder": "sequence",
       "dependsOn": [
