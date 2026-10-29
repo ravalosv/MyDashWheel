@@ -79,3 +79,44 @@
     upstream. Respaldar `keys/release.keystore` + `keys/keystore.properties` fuera del equipo.
   - El geocodificador no corrige erratas ("plannet fitness" ≠ "planet fitness").
 - Mejor próximo paso: decidir e implementar (con ticket) el cálculo automático del `versionCode` local.
+
+### Sesión 003
+
+- Fecha: 2026-10-29
+- Objetivo: Ticket #6 — rebrand a MyDashwheel (nombre de release, `applicationId`, publicación propia) y
+  validación de los secretos de firma en CI
+- Completado:
+  - `applicationId` → `com.mydashwheel.dash` (play `…dash.play`); companion
+    `com.mydashwheel.dash.companion` (play `…companion.play`).
+  - Updater in-app → `ravalosv/MyDashWheel` (`BuildConfig.GITHUB_OWNER`/`GITHUB_REPO`); assets
+    `MyDashwheel-<v>.apk` y `mydashwheel-companion.apk`; títulos de release y de promoción.
+  - Cadenas que son identidad de la app pasan a `BuildConfig.APPLICATION_ID` (`PrivApp`,
+    `SystemDisplayHelper`, `WindowListing`); los prefijos de `Automation` se conservan a propósito.
+  - Etiqueta visible (decidida por el propietario ese mismo día): `MyDashwheel` y
+    `MyDashwheel Companion` en los 11 idiomas.
+  - `PipAnchorTest`: los fixtures de `dumpsys` derivan el paquete del build en lugar de escribirlo.
+- Verificación ejecutada:
+  - `:app:lintGithubDebug :app:testGithubDebugUnitTest :app:assembleGithubDebug
+    :companion:assembleGithubDebug` → BUILD SUCCESSFUL (lint 0 errores).
+  - `:app:assembleGithubRelease :companion:assembleGithubRelease` → BUILD SUCCESSFUL;
+    `aapt2 dump badging` da `com.mydashwheel.dash` / `com.mydashwheel.dash.companion` y
+    `application-label:'MyDashwheel'` / `'MyDashwheel Companion'`.
+  - Secretos de firma: los tres niveles de validación documentados en
+    `docs/harness/reports/release-signing-local-plan.md`. Nivel 2 local OK; Nivel 3 en CI
+    (run `40955976901`, `success`) OK, ambos APK con la huella `7dbc6c4a…be44`.
+- Commits: _pendiente de autorización_ (decidir rama: `build/release-signing-local`, que ya tiene
+  `8df37b6e`, o una propia).
+- Archivos o artefactos actualizados:
+  - app/build.gradle.kts, companion/build.gradle.kts, gradle/release-signing.gradle.kts
+  - app/src/github/java/com/openauto/dash/PrivApp.kt, app/src/main/java/com/openauto/dash/{SystemDisplayHelper,WindowListing,UpdateManager}.kt
+  - app/src/main/res/values/strings.xml, companion/src/main/res/values*/strings.xml
+  - app/src/test/java/com/openauto/dash/{PipAnchorTest,UpdateManagerTest}.kt
+  - .github/workflows/build.yml, .github/workflows/promote.yml, .vscode/{launch,tasks}.json
+  - docs/harness/reports/rebrand-mydashwheel-plan.md, docs/harness/reports/release-signing-local-plan.md
+- Riesgo conocido o problema sin resolver:
+  - Nada verificado aún en dispositivo: `adb install -r` + nombre del lanzador.
+  - El release de CI anterior al rebrand publica `Dashwheel-<v>.apk` con `com.openauto.dash`; se
+    instala **al lado** de la versión rebrandeada (desinstalar la anterior).
+  - Sigue abierto el `versionCode` local (Sesión 002).
+- Mejor próximo paso: autorizar y ejecutar el commit del rebrand, cerrar el ticket #6 y probar en el
+  dispositivo.

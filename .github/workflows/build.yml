@@ -202,19 +202,19 @@ jobs:
       - name: Name the outputs
         run: |
           v=$VERSION_NAME
-          cp app/build/outputs/apk/github/release/app-github-release.apk "Dashwheel-$v.apk"
-          cp companion/build/outputs/apk/github/release/companion-github-release.apk dashwheel-companion.apk
-          cp app/build/outputs/bundle/playRelease/app-play-release.aab "Dashwheel-$v-play.aab"
-          cp app/build/outputs/apk/play/release/app-play-release.apk "Dashwheel-$v-play.apk"
-          cp companion/build/outputs/bundle/playRelease/companion-play-release.aab dashwheel-companion-play.aab
+          cp app/build/outputs/apk/github/release/app-github-release.apk "MyDashwheel-$v.apk"
+          cp companion/build/outputs/apk/github/release/companion-github-release.apk mydashwheel-companion.apk
+          cp app/build/outputs/bundle/playRelease/app-play-release.aab "MyDashwheel-$v-play.aab"
+          cp app/build/outputs/apk/play/release/app-play-release.apk "MyDashwheel-$v-play.apk"
+          cp companion/build/outputs/bundle/playRelease/companion-play-release.aab mydashwheel-companion-play.aab
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: openauto-dash-apk
           path: |
-            Dashwheel-${{ env.VERSION_NAME }}.apk
-            dashwheel-companion.apk
+            MyDashwheel-${{ env.VERSION_NAME }}.apk
+            mydashwheel-companion.apk
           if-no-files-found: error
 
       - name: Upload Play edition artifact
@@ -222,9 +222,9 @@ jobs:
         with:
           name: dashwheel-play
           path: |
-            Dashwheel-${{ env.VERSION_NAME }}-play.aab
-            Dashwheel-${{ env.VERSION_NAME }}-play.apk
-            dashwheel-companion-play.aab
+            MyDashwheel-${{ env.VERSION_NAME }}-play.aab
+            MyDashwheel-${{ env.VERSION_NAME }}-play.apk
+            mydashwheel-companion-play.aab
           if-no-files-found: error
 
       # Readable changelog: one section per commit since the previous build of
@@ -255,15 +255,15 @@ jobs:
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: v${{ env.VERSION_NAME }}
-          name: Dashwheel v${{ env.VERSION_NAME }} (beta)
+          name: MyDashwheel v${{ env.VERSION_NAME }} (beta)
           # A pre-release, never "latest": the stable channel reads /releases/latest.
           prerelease: true
           make_latest: false
           # The launcher and the companion only: the Google Play edition's bundles are
           # for the Play Console, and stay in the "dashwheel-play" workflow artifact.
           files: |
-            Dashwheel-${{ env.VERSION_NAME }}.apk
-            dashwheel-companion.apk
+            MyDashwheel-${{ env.VERSION_NAME }}.apk
+            mydashwheel-companion.apk
           body_path: ${{ runner.temp }}/release-notes.md
 
       - name: Publish branch pre-release
@@ -271,12 +271,12 @@ jobs:
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: ${{ github.ref_name }}-v${{ env.VERSION_NAME }}
-          name: Dashwheel v${{ env.VERSION_NAME }} (${{ github.ref_name }})
+          name: MyDashwheel v${{ env.VERSION_NAME }} (${{ github.ref_name }})
           prerelease: true
           make_latest: false
           files: |
-            Dashwheel-${{ env.VERSION_NAME }}.apk
-            dashwheel-companion.apk
+            MyDashwheel-${{ env.VERSION_NAME }}.apk
+            mydashwheel-companion.apk
           body: |
             Test build of branch `${{ github.ref_name }}` at ${{ github.sha }}.
             Signed with the release key, so it installs over the current version; a later

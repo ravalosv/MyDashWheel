@@ -11,7 +11,7 @@
         "-ExecutionPolicy",
         "Bypass",
         "-Command",
-        ".\\gradlew.bat :app:installGithubDebug; if ($LASTEXITCODE -eq 0) { adb -s ZCSI4IK2RP shell am start -n com.openauto.dash/.MainActivity }"
+        ".\\gradlew.bat :app:installGithubDebug; if ($LASTEXITCODE -eq 0) { adb -s ZCSI4IK2RP shell am start -n com.mydashwheel.dash/.MainActivity }"
       ],
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
@@ -27,7 +27,7 @@
         "-ExecutionPolicy",
         "Bypass",
         "-Command",
-        ".\\gradlew.bat :app:installGithubDebug; if ($LASTEXITCODE -eq 0) { adb shell am start -n com.openauto.dash/.MainActivity }"
+        ".\\gradlew.bat :app:installGithubDebug; if ($LASTEXITCODE -eq 0) { adb shell am start -n com.mydashwheel.dash/.MainActivity }"
       ],
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
@@ -43,7 +43,7 @@
         "-ExecutionPolicy",
         "Bypass",
         "-Command",
-        "adb -s ZCSI4IK2RP shell am start -n com.openauto.dash/.MainActivity"
+        "adb -s ZCSI4IK2RP shell am start -n com.mydashwheel.dash/.MainActivity"
       ],
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",

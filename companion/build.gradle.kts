@@ -20,7 +20,8 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.openauto.dash.companion"
+        // Same fork identity as the launcher: installs beside the upstream companion.
+        applicationId = "com.mydashwheel.dash.companion"
         minSdk = 29
         targetSdk = 36
         versionCode = (System.getenv("VERSION_CODE") ?: "1").toInt()
@@ -38,8 +39,8 @@ android {
         }
         create("play") {
             dimension = "edition"
-            // Its own package on Google Play, beside the launcher's com.dashwheel.app.
-            applicationId = "com.dashwheel.companion"
+            // Its own package on Google Play, beside the launcher's com.mydashwheel.dash.play.
+            applicationId = "com.mydashwheel.dash.companion.play"
             buildConfigField("boolean", "PLAY", "true")
         }
     }

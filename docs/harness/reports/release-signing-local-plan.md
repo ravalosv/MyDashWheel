@@ -92,6 +92,98 @@ Contraseña en `keys/keystore.properties` (fuera del repositorio). **Respaldar a
 (`INSTALL_FAILED_VERSION_DOWNGRADE`). Propuesta para un ticket aparte: que el build local use la misma
 fórmula que CI, dejando las env vars como override.
 
+## Validación de la firma en CI (secretos del repositorio)
+
+**Ejecutada el 2026-10-29.** Local firma con `keys/keystore.properties`, pero CI firma con los cuatro
+secretos del repositorio. Que un build local funcione **no** prueba que los secretos estén bien: hay que
+validarlos en tres niveles. Los comandos son PowerShell, desde la raíz del proyecto.
+
+Huella de referencia del certificado propio (la que debe aparecer siempre):
+
+```
+SHA-256: 7dbc6c4a5c24d7374307bdcf4d4cb481da6232f7789a60a5802df5d4ddfcbe44
+DN:      CN=Dashwheel, O=Dashwheel Personal, C=MX  (RSA 4096, válido hasta 2054)
+```
+
+### Nivel 1 — los secretos existen en el repo correcto
+
+```powershell
+gh auth status                                     # la cuenta activa debe ser ravalosv
+gh secret list --repo ravalosv/MyDashWheel
+```
+
+Deben aparecer `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS` y `KEY_PASSWORD`. **Solo prueba que
+existen**, no que el contenido sea correcto: un base64 mal formado o un alias equivocado falla recién al
+compilar.
+
+### Nivel 2 — el camino de variables de entorno, en local
+
+Simula CI: firma usando **solo** las cuatro variables, con `keys/keystore.properties` fuera de su ruta.
+No publica nada y tarda ~6 min.
+
+```powershell
+$props = @{}
+Get-Content keys\keystore.properties | ForEach-Object {
+  if ($_ -match '^\s*([^#=]+)=(.*)$') { $props[$matches[1].Trim()] = $matches[2].Trim() }
+}
+$env:KEYSTORE_FILE     = (Resolve-Path $props['storeFile']).Path
+$env:KEYSTORE_PASSWORD = $props['storePassword']
+$env:KEY_ALIAS         = $props['keyAlias']
+$env:KEY_PASSWORD      = $props['keyPassword']
+
+# Rutas explícitas a propósito: ver "Errores de uso" más abajo.
+Move-Item .\keys\keystore.properties .\keystore.properties.bak
+try {
+  .\gradlew.bat :app:assembleGithubRelease :companion:assembleGithubRelease
+  "gradle exit = $LASTEXITCODE"
+} finally {
+  Move-Item .\keystore.properties.bak .\keys\keystore.properties
+}
+```
+
+Verificar la firma (un APK por invocación):
+
+```powershell
+foreach ($f in Get-ChildItem app\build\outputs\apk\github\release\*.apk,
+                           companion\build\outputs\apk\github\release\*.apk) {
+  Write-Host "== $($f.Name)"
+  & "$env:LOCALAPPDATA\Android\Sdk\build-tools\35.0.0\apksigner.bat" verify --print-certs $f.FullName
+}
+```
+
+**Resultado:** `BUILD SUCCESSFUL` (6m 1s), ambos APK con la huella de referencia y sin el aviso
+`Release signed with the DEBUG key`. Detecta alias o contraseñas equivocadas sin gastar CI.
+
+### Nivel 3 — CI real (publica un pre-release)
+
+```powershell
+gh workflow run build.yml --repo ravalosv/MyDashWheel --ref main
+gh run list --repo ravalosv/MyDashWheel --workflow build.yml --limit 1
+gh run watch --repo ravalosv/MyDashWheel --exit-status
+
+$tag = gh release list --repo ravalosv/MyDashWheel --limit 1 --json tagName -q '.[0].tagName'
+gh release download $tag --repo ravalosv/MyDashWheel --pattern "*.apk" --dir .\verify --clobber
+
+foreach ($f in Get-ChildItem .\verify\*.apk) {
+  Write-Host "== $($f.Name)"
+  & "$env:LOCALAPPDATA\Android\Sdk\build-tools\35.0.0\apksigner.bat" verify --print-certs $f.FullName
+  & "$env:LOCALAPPDATA\Android\Sdk\build-tools\35.0.0\aapt2.exe" dump badging $f.FullName |
+      Select-String '^package: name|^application-label:'
+}
+```
+
+**Resultado:** run `40955976901` → `success`, pre-release `v1.0.871`. Los dos APK verifican con la huella
+de referencia, así que GitHub inyecta bien los secretos y `KEYSTORE_BASE64` decodifica correctamente.
+Ese run compiló `main` antes del rebrand, por lo que publica `Dashwheel-1.0.871.apk` con
+`com.openauto.dash` y `versionCode 871`: es lo esperado, no un fallo.
+
+### Errores de uso encontrados (y su causa)
+
+| Síntoma | Causa | Solución |
+|---|---|---|
+| `Rename-Item : No se puede cambiar el nombre porque el elemento situado en 'keystore.properties.bak' no existe` | En PowerShell, `Rename-Item keys\archivo keystore.properties.bak` resuelve `NewName` **relativo a la carpeta del propio elemento**: el archivo acabó en `keys\keystore.properties.bak`, no en la raíz | Usar `Move-Item` con ruta de origen y destino completas (bloque del Nivel 2). Si ya ocurrió: `Move-Item .\keys\keystore.properties.bak .\keys\keystore.properties` |
+| `Unexpected parameter(s) after APK (verify\dashwheel-companion.apk)` | `apksigner` acepta **un solo** APK por invocación; el comodín se expandió a dos rutas | Recorrer con `foreach` (bloques de Nivel 2 y 3) |
+
 ## Riesgos
 
 | Riesgo | Impacto | Mitigación |

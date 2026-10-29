@@ -37,3 +37,4 @@ captures/
 
 # detect.py fetches the vehicle model itself, checked against its fingerprint.
 tools/roadwatch-replay/efficientdet_*.tflite
+*.bat

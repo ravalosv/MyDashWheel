@@ -484,7 +484,7 @@ class UpdateManager(private val context: Context) {
          */
         private const val STALL_MS = 5 * 60_000L
         /** The phone companion app's asset in each release (see build.yml). */
-        const val COMPANION_APK_NAME = "dashwheel-companion.apk"
+        const val COMPANION_APK_NAME = "mydashwheel-companion.apk"
         private val ALLOWED_DOWNLOAD_HOSTS = setOf("github.com", "objects.githubusercontent.com", "release-assets.githubusercontent.com")
     }
 }
