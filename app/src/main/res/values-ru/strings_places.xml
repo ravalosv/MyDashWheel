@@ -18,4 +18,28 @@
     <!-- Spoken when a steering wheel button asks for a place that isn't set -->
     <string name="places_no_home">Дом не задан. Задайте его в Настройках: «Вождение», «Мои места».</string>
     <string name="places_no_work">Работа не задана. Задайте её в Настройках: «Вождение», «Мои места».</string>
+    <!-- Custom places (places-personalizados-plan.md) -->
+    <string name="places_custom_title">Ваши места</string>
+    <string name="places_custom_empty">Пока нет. Добавьте места, куда вы ездите.</string>
+    <string name="places_name">Название</string>
+    <string name="places_custom_rename">Переименовать</string>
+    <string name="places_custom_location_set">Место задано</string>
+    <string name="places_custom_location_missing">Пока нет места: найдите адрес или используйте положение автомобиля</string>
+    <string name="places_custom_widget_title">На плитке карты</string>
+    <string name="places_custom_widget_hint">Отметьте до %1$d мест</string>
+    <string name="places_custom_widget_empty">Сначала задайте Дом, Работу или своё место</string>
+    <string name="places_custom_add">Добавить своё место</string>
+    <string name="places_custom_edit">Изменить место</string>
+    <string name="places_custom_delete">Удалить</string>
+    <string name="places_custom_category">Категория</string>
+    <string name="places_custom_category_generic">Общее</string>
+    <string name="places_custom_category_gym">Спортзал</string>
+    <string name="places_custom_category_school">Школа</string>
+    <string name="places_custom_category_hospital">Больница</string>
+    <string name="places_custom_category_restaurant">Ресторан</string>
+    <string name="places_custom_category_store">Магазин</string>
+    <string name="places_custom_max_reached">Достигнут предел: 4 своих места</string>
+    <string name="places_custom_confirm_delete">Удалить это место?</string>
+    <string name="places_custom_save">Сохранить</string>
+    <string name="places_custom_cancel">Отмена</string>
 </resources>

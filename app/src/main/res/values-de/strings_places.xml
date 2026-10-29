@@ -18,4 +18,28 @@
     <!-- Spoken when a steering wheel button asks for a place that isn't set -->
     <string name="places_no_home">Zuhause ist nicht festgelegt. Lege es unter Einstellungen, Fahren, Meine Orte fest.</string>
     <string name="places_no_work">Arbeit ist nicht festgelegt. Lege sie unter Einstellungen, Fahren, Meine Orte fest.</string>
+    <!-- Custom places (places-personalizados-plan.md) -->
+    <string name="places_custom_title">Eigene Orte</string>
+    <string name="places_custom_empty">Noch keine. Füge die Orte hinzu, zu denen du fährst.</string>
+    <string name="places_name">Name</string>
+    <string name="places_custom_rename">Umbenennen</string>
+    <string name="places_custom_location_set">Standort festgelegt</string>
+    <string name="places_custom_location_missing">Noch kein Standort: Suche eine Adresse oder nutze den Standort des Autos</string>
+    <string name="places_custom_widget_title">Auf der Kartenkachel</string>
+    <string name="places_custom_widget_hint">Bis zu %1$d Orte anhaken</string>
+    <string name="places_custom_widget_empty">Lege zuerst Zuhause, Arbeit oder einen eigenen Ort fest</string>
+    <string name="places_custom_add">Eigenen Ort hinzufügen</string>
+    <string name="places_custom_edit">Ort bearbeiten</string>
+    <string name="places_custom_delete">Löschen</string>
+    <string name="places_custom_category">Kategorie</string>
+    <string name="places_custom_category_generic">Allgemein</string>
+    <string name="places_custom_category_gym">Fitnessstudio</string>
+    <string name="places_custom_category_school">Schule</string>
+    <string name="places_custom_category_hospital">Krankenhaus</string>
+    <string name="places_custom_category_restaurant">Restaurant</string>
+    <string name="places_custom_category_store">Geschäft</string>
+    <string name="places_custom_max_reached">Höchstens 4 eigene Orte</string>
+    <string name="places_custom_confirm_delete">Diesen Ort löschen?</string>
+    <string name="places_custom_save">Speichern</string>
+    <string name="places_custom_cancel">Abbrechen</string>
 </resources>

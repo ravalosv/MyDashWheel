@@ -18,4 +18,29 @@
     <!-- Spoken when a steering wheel button asks for a place that isn't set -->
     <string name="places_no_home">Home is not set. Set it in Settings, Driving, My places.</string>
     <string name="places_no_work">Work is not set. Set it in Settings, Driving, My places.</string>
+    <!-- Custom places (places-personalizados-plan.md) -->
+    <string name="places_custom_title">Places of your own</string>
+    <string name="places_custom_empty">None yet. Add the places you drive to.</string>
+    <string name="places_name">Name</string>
+    <string name="places_custom_rename">Rename</string>
+    <string name="places_custom_location_set">Location set</string>
+    <string name="places_custom_location_missing">No location yet: find an address, or use where the car is</string>
+    <string name="places_custom_widget_title">On the map tile</string>
+    <string name="places_custom_widget_hint">Tick up to %1$d places</string>
+    <string name="places_custom_widget_empty">Set home, work or a place of your own first</string>
+    <string name="places_custom_add">Add custom place</string>
+    <string name="places_custom_edit">Edit place</string>
+    <string name="places_custom_delete">Delete</string>
+    <string name="places_custom_category">Category</string>
+    <string name="places_custom_category_generic">Generic</string>
+    <string name="places_custom_category_gym">Gym</string>
+    <string name="places_custom_category_school">School</string>
+    <string name="places_custom_category_hospital">Hospital</string>
+    <string name="places_custom_category_restaurant">Restaurant</string>
+    <string name="places_custom_category_store">Store</string>
+    <string name="places_custom_max_reached">Maximum 4 custom places reached</string>
+    <string name="places_custom_confirm_delete">Delete this place?</string>
+    <string name="places_custom_save">Save</string>
+    <string name="places_custom_cancel">Cancel</string>
 </resources>
+

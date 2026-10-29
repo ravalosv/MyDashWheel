@@ -291,33 +291,8 @@ fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = false) {
         destinationName = place.name
     }
 
-    fun searchAndRoute() {
-        val q = query.trim()
-        if (q.isEmpty() || loading) return
-        error = null; info = null; loading = true
-        scope.launch {
-            // Bias Nominatim toward the car: without it, a short street name can
-            // resolve on another continent, and the public Valhalla then answers
-            // HTTP 400 (DistanceExceeded).
-            val here = LocationFeed.location.value
-            val found = withContext(Dispatchers.IO) {
-                runCatching { PlaceSearch.find(q, here?.latitude, here?.longitude) }
-            }
-            val place = found.getOrNull()
-            if (place == null) {
-                loading = false
-                // No answer at all is the connection, not the address.
-                error = context.getString(if (found.isFailure) R.string.places_offline else R.string.info_map_address_not_found)
-                return@launch
-            }
-            val ll = LatLng(place.lat, place.lng)
-            mapRef?.addMarker(MarkerOptions().position(ll))
-            mapRef?.animateCamera(CameraUpdateFactory.newLatLngZoom(ll, 14.0))
-            loading = false
-            routeTo(Point.fromLngLat(place.lng, place.lat))
-            destinationName = place.name
-        }
-    }
+    /** Same search as [searchPlaces]: several matches are listed, never the first one taken. */
+    fun searchAndRoute() = searchPlaces()
 
     /** A saved place or a last destination, tapped: its route, ready to start. */
     fun routeToPlace(place: Place) {
@@ -558,6 +533,12 @@ fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = false) {
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(8.dp)) {
+                        // Dismissed without picking: the typed address stays, so it can be corrected.
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                            IconButton(onClick = { searchResults = emptyList() }) {
+                                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.dash_close), tint = Color(0xFF9AA0A6))
+                            }
+                        }
                         searchResults.forEach { place ->
                             Row(
                                 modifier = Modifier

@@ -18,4 +18,28 @@
     <!-- Spoken when a steering wheel button asks for a place that isn't set -->
     <string name="places_no_home">Dom nie jest ustawiony. Ustaw go w Ustawieniach, Jazda, Moje miejsca.</string>
     <string name="places_no_work">Praca nie jest ustawiona. Ustaw ją w Ustawieniach, Jazda, Moje miejsca.</string>
+    <!-- Custom places (places-personalizados-plan.md) -->
+    <string name="places_custom_title">Twoje miejsca</string>
+    <string name="places_custom_empty">Jeszcze żadnego. Dodaj miejsca, do których jeździsz.</string>
+    <string name="places_name">Nazwa</string>
+    <string name="places_custom_rename">Zmień nazwę</string>
+    <string name="places_custom_location_set">Lokalizacja ustawiona</string>
+    <string name="places_custom_location_missing">Brak lokalizacji: znajdź adres lub użyj pozycji samochodu</string>
+    <string name="places_custom_widget_title">Na kafelku mapy</string>
+    <string name="places_custom_widget_hint">Zaznacz do %1$d miejsc</string>
+    <string name="places_custom_widget_empty">Najpierw ustaw Dom, Pracę lub własne miejsce</string>
+    <string name="places_custom_add">Dodaj własne miejsce</string>
+    <string name="places_custom_edit">Edytuj miejsce</string>
+    <string name="places_custom_delete">Usuń</string>
+    <string name="places_custom_category">Kategoria</string>
+    <string name="places_custom_category_generic">Ogólne</string>
+    <string name="places_custom_category_gym">Siłownia</string>
+    <string name="places_custom_category_school">Szkoła</string>
+    <string name="places_custom_category_hospital">Szpital</string>
+    <string name="places_custom_category_restaurant">Restauracja</string>
+    <string name="places_custom_category_store">Sklep</string>
+    <string name="places_custom_max_reached">Osiągnięto limit 4 własnych miejsc</string>
+    <string name="places_custom_confirm_delete">Usunąć to miejsce?</string>
+    <string name="places_custom_save">Zapisz</string>
+    <string name="places_custom_cancel">Anuluj</string>
 </resources>

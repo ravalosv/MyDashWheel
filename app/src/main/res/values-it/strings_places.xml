@@ -18,4 +18,28 @@
     <!-- Spoken when a steering wheel button asks for a place that isn't set -->
     <string name="places_no_home">Casa non è impostata. Impostala in Impostazioni, Guida, I miei luoghi.</string>
     <string name="places_no_work">Lavoro non è impostato. Impostalo in Impostazioni, Guida, I miei luoghi.</string>
+    <!-- Custom places (places-personalizados-plan.md) -->
+    <string name="places_custom_title">I tuoi luoghi</string>
+    <string name="places_custom_empty">Ancora nessuno. Aggiungi i luoghi in cui vai.</string>
+    <string name="places_name">Nome</string>
+    <string name="places_custom_rename">Rinomina</string>
+    <string name="places_custom_location_set">Posizione impostata</string>
+    <string name="places_custom_location_missing">Ancora nessuna posizione: cerca un indirizzo o usa quella dell\'auto</string>
+    <string name="places_custom_widget_title">Sulla tessera della mappa</string>
+    <string name="places_custom_widget_hint">Seleziona fino a %1$d luoghi</string>
+    <string name="places_custom_widget_empty">Imposta prima Casa, Lavoro o un luogo tuo</string>
+    <string name="places_custom_add">Aggiungi luogo personalizzato</string>
+    <string name="places_custom_edit">Modifica luogo</string>
+    <string name="places_custom_delete">Elimina</string>
+    <string name="places_custom_category">Categoria</string>
+    <string name="places_custom_category_generic">Generico</string>
+    <string name="places_custom_category_gym">Palestra</string>
+    <string name="places_custom_category_school">Scuola</string>
+    <string name="places_custom_category_hospital">Ospedale</string>
+    <string name="places_custom_category_restaurant">Ristorante</string>
+    <string name="places_custom_category_store">Negozio</string>
+    <string name="places_custom_max_reached">Raggiunto il massimo di 4 luoghi personalizzati</string>
+    <string name="places_custom_confirm_delete">Eliminare questo luogo?</string>
+    <string name="places_custom_save">Salva</string>
+    <string name="places_custom_cancel">Annulla</string>
 </resources>

@@ -18,4 +18,28 @@
     <!-- Spoken when a steering wheel button asks for a place that isn't set -->
     <string name="places_no_home">Le domicile n\'est pas défini. Réglez-le dans Réglages, Conduite, Mes lieux.</string>
     <string name="places_no_work">Le travail n\'est pas défini. Réglez-le dans Réglages, Conduite, Mes lieux.</string>
+    <!-- Custom places (places-personalizados-plan.md) -->
+    <string name="places_custom_title">Vos propres lieux</string>
+    <string name="places_custom_empty">Aucun pour l\'instant. Ajoutez les lieux où vous allez.</string>
+    <string name="places_name">Nom</string>
+    <string name="places_custom_rename">Renommer</string>
+    <string name="places_custom_location_set">Position définie</string>
+    <string name="places_custom_location_missing">Pas encore de position : cherchez une adresse ou utilisez la position de la voiture</string>
+    <string name="places_custom_widget_title">Sur la tuile de la carte</string>
+    <string name="places_custom_widget_hint">Cochez jusqu\'à %1$d lieux</string>
+    <string name="places_custom_widget_empty">Définissez d\'abord Domicile, Travail ou un lieu à vous</string>
+    <string name="places_custom_add">Ajouter un lieu personnalisé</string>
+    <string name="places_custom_edit">Modifier le lieu</string>
+    <string name="places_custom_delete">Supprimer</string>
+    <string name="places_custom_category">Catégorie</string>
+    <string name="places_custom_category_generic">Générique</string>
+    <string name="places_custom_category_gym">Salle de sport</string>
+    <string name="places_custom_category_school">École</string>
+    <string name="places_custom_category_hospital">Hôpital</string>
+    <string name="places_custom_category_restaurant">Restaurant</string>
+    <string name="places_custom_category_store">Magasin</string>
+    <string name="places_custom_max_reached">Maximum de 4 lieux personnalisés atteint</string>
+    <string name="places_custom_confirm_delete">Supprimer ce lieu ?</string>
+    <string name="places_custom_save">Enregistrer</string>
+    <string name="places_custom_cancel">Annuler</string>
 </resources>
