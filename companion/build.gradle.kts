@@ -6,20 +6,18 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// Same release key as the launcher: CI's env vars, else keystore.properties at the repo root.
+apply(from = rootProject.file("gradle/release-signing.gradle.kts"))
+
+// What that script resolved for this module: the key, or null to sign with the debug key.
+val releaseKeystore = extra["releaseKeystoreFile"] as? File
+val releaseStorePassword = extra["releaseStorePassword"] as? String
+val releaseKeyAlias = extra["releaseKeyAlias"] as? String
+val releaseKeyPassword = extra["releaseKeyPassword"] as? String
+
 android {
     namespace = "com.openauto.dash.companion"
     compileSdk = 36
-
-    // Same release key as the launcher (see app/build.gradle.kts), supplied by CI.
-    val keystorePath = providers.environmentVariable("KEYSTORE_FILE").orNull
-    val releaseKeystore = keystorePath?.let { file(it) }?.takeIf { it.exists() }
-    val onCi = providers.environmentVariable("CI").orNull == "true"
-    gradle.taskGraph.whenReady {
-        val buildsRelease = allTasks.any { it.project == project && it.name.contains("Release") }
-        if (onCi && releaseKeystore == null && buildsRelease) {
-            throw GradleException("CI release build without a keystore: see app/build.gradle.kts.")
-        }
-    }
 
     defaultConfig {
         applicationId = "com.openauto.dash.companion"
@@ -50,9 +48,9 @@ android {
         if (releaseKeystore != null) {
             create("release") {
                 storeFile = releaseKeystore
-                storePassword = providers.environmentVariable("KEYSTORE_PASSWORD").orNull
-                keyAlias = providers.environmentVariable("KEY_ALIAS").orNull
-                keyPassword = providers.environmentVariable("KEY_PASSWORD").orNull
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
             }
         }
     }

@@ -48,6 +48,38 @@
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen"
+    },
+    {
+      "name": "Release → github (APK firmado, launcher + companion)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        ".\\gradlew.bat :app:assembleGithubRelease :companion:assembleGithubRelease; if ($LASTEXITCODE -eq 0) { Write-Host ''; Write-Host 'APKs firmados:' -ForegroundColor Green; Get-ChildItem app\\build\\outputs\\apk\\github\\release\\*.apk, companion\\build\\outputs\\apk\\github\\release\\*.apk | Select-Object FullName, Length }"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
+    },
+    {
+      "name": "Release → play (AAB + APK firmados)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        ".\\gradlew.bat :app:bundlePlayRelease :app:assemblePlayRelease :companion:bundlePlayRelease; if ($LASTEXITCODE -eq 0) { Write-Host ''; Write-Host 'AAB/APK firmados:' -ForegroundColor Green; Get-ChildItem app\\build\\outputs\\bundle\\playRelease\\*.aab, app\\build\\outputs\\apk\\play\\release\\*.apk, companion\\build\\outputs\\bundle\\playRelease\\*.aab | Select-Object FullName, Length }"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
     }
   ]
 }
