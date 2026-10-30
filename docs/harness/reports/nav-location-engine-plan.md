@@ -90,6 +90,10 @@ el punto de contacto.
 - [ ] Sin regresión en el unit moderno (API ≥ 30): la navegación sigue guiando como antes. Pendiente
       en dispositivo; en código, esa rama ejecuta exactamente la construcción anterior.
 
+**Commit:** `fe4c725a` en `main` y en `releases` (2026-10-30). Ticket
+[#12](https://github.com/ravalosv/MyDashWheel/issues/12) cerrado el mismo día, con la prueba en el
+aparato anotada como pendiente: el crash solo se reproduce al iniciar una ruta en el unit afectado.
+
 ## Riesgos
 
 | Riesgo | Impacto | Mitigación |

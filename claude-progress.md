@@ -202,3 +202,28 @@
     autoactualización (#10) y esta corrección; la prueba en dispositivo sigue pendiente.
   - Los builds locales siguen con `versionCode 1`: un APK local no se instala encima de uno de CI.
 - Mejor próximo paso: confirmar el run `41005993412` y probar la instalación del beta publicado.
+
+---
+
+## Sesión 007 (2026-10-30): crash de navegación en Android < 11
+
+- Objetivo: resolver el ticket #12 — al iniciar una ruta desde el widget, el proceso moría con
+  `AbstractMethodError` en `LocationListener.onProviderDisabled` en un unit con `SDK_INT` 29.
+- Causa: el motor de maplibre-navigation registra un listener compilado contra API 30+, donde esos
+  callbacks son `default` y por eso no los sobrescribe; en API < 30 siguen abstractos y el
+  `ListenerTransport` del sistema los invoca igual. Los tres listeners propios del repo sí los
+  implementan, así que el que fallaba era el de la librería, creado al arrancar la guía.
+- Cambio: bajo API 30, `InAppNav` pide el motor a `MineOverrides.navLocationEngine`, que devuelve un
+  `FeedLocationEngine` sobre `LocationFeed`; de API 30 en adelante sigue `MapLibreLocationEngine`.
+  Una sola línea marcada `// MINE: #12` en el archivo heredado.
+- Aislamiento: nueva "Regla de desacoplamiento del fork" en `CLAUDE.md` (paquete
+  `com.openauto.dash.mine`, marcas `// MINE:`, `grep` obligatorio tras cada merge del upstream) y
+  puntero en `AGENTS.md`.
+- Verificación ejecutada: `compileGithubDebugKotlin` (2m 1s); `lintGithubDebug`,
+  `testGithubDebugUnitTest`, `assembleGithubDebug` y el equivalente Play → BUILD SUCCESSFUL.
+- Commit: `fe4c725a` en `main`, fusionado en `releases`. Ticket #12 cerrado.
+- Riesgo conocido o problema sin resolver:
+  - La prueba en el aparato sigue pendiente: instalar el APK de `fe4c725a` en el `FF_866X` y repetir
+    el escenario (buscar dirección → iniciar ruta).
+  - Si el crash reapareciera, `adb logcat` debe mostrar si viene de otra ruta de código.
+- Mejor próximo paso: probar en el unit y, si guía bien, publicar el beta desde `releases`.
