@@ -2,11 +2,16 @@ name: Build Android APK
 
 # Every push and pull request is linted and unit-tested first; nothing is built
 # for release, let alone published, unless that passed.
-#  - main: a signed build published as a *beta* pre-release. Drivers who turned
-#    on "Beta updates" get it; everyone else stays on stable until a beta is
-#    promoted by hand (promote.yml, "Promote to stable").
-#  - any other branch: a signed pre-release under the branch's name, for trying
-#    a branch on the head unit without merging it; no updater channel takes it.
+# Publishing is a deliberate act, not a side effect of pushing: only a merge
+# into `releases` publishes.
+#  - main (and any other branch): checks only. A green main is a main that
+#    builds, not a release.
+#  - releases: a signed build published as a *beta* pre-release. Drivers who
+#    turned on "Beta updates" get it; everyone else stays on stable until a beta
+#    is promoted by hand (promote.yml, "Promote to stable").
+#  - workflow_dispatch: a signed build on demand, publishing only when run on
+#    `releases` (or on main, which is not a release branch and so publishes
+#    nothing).
 #  - pull requests: a debug build only. A fork's pull request gets no secrets,
 #    so it can't (and needn't) sign anything.
 on:
@@ -109,7 +114,10 @@ jobs:
 
   release:
     name: Signed build and release
-    if: ${{ github.event_name != 'pull_request' }}
+    # Only a merge into `releases` publishes. Checks still run on every push, so
+    # main stays verified without every commit becoming a release; a manual run
+    # is the other way in, for the cases a merge cannot express.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/releases' }}
     needs: checks
     runs-on: ubuntu-latest
     # Needed so the build can publish a GitHub Release with the APK.
@@ -228,14 +236,14 @@ jobs:
           if-no-files-found: error
 
       # Readable changelog: one section per commit since the previous build of
-      # main (beta or stable), using the commit subject as the heading and its
-      # body as the details. Commit bodies are written as user-facing notes, so
-      # this reads as a changelog rather than a bare "Full Changelog" link.
+      # releases (beta or stable), using the commit subject as the heading and
+      # its body as the details. Commit bodies are written as user-facing notes,
+      # so this reads as a changelog rather than a bare "Full Changelog" link.
       # Promoting to stable writes the notes again, since the previous stable.
       - name: Write release notes
-        if: ${{ github.ref == 'refs/heads/main' }}
+        if: ${{ github.ref == 'refs/heads/releases' }}
         run: |
-          # Only main's own tags: a branch pre-release tag is not a release.
+          # Only release tags: a branch pre-release tag is not a release.
           prev=$(git describe --tags --abbrev=0 --match 'v1.0.*' HEAD^ 2>/dev/null || true)
           range=${prev:+$prev..HEAD}
           {
@@ -251,7 +259,7 @@ jobs:
           cat "$RUNNER_TEMP/release-notes.md"
 
       - name: Publish beta
-        if: ${{ github.ref == 'refs/heads/main' }}
+        if: ${{ github.ref == 'refs/heads/releases' }}
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: v${{ env.VERSION_NAME }}
@@ -265,19 +273,3 @@ jobs:
             MyDashwheel-${{ env.VERSION_NAME }}.apk
             mydashwheel-companion.apk
           body_path: ${{ runner.temp }}/release-notes.md
-
-      - name: Publish branch pre-release
-        if: ${{ github.ref != 'refs/heads/main' && github.event_name == 'push' }}
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
-        with:
-          tag_name: ${{ github.ref_name }}-v${{ env.VERSION_NAME }}
-          name: MyDashwheel v${{ env.VERSION_NAME }} (${{ github.ref_name }})
-          prerelease: true
-          make_latest: false
-          files: |
-            MyDashwheel-${{ env.VERSION_NAME }}.apk
-            mydashwheel-companion.apk
-          body: |
-            Test build of branch `${{ github.ref_name }}` at ${{ github.sha }}.
-            Signed with the release key, so it installs over the current version; a later
-            release from main will update over it again. No updater channel offers it.
