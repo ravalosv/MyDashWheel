@@ -53,10 +53,18 @@ archivo, así que no se añade ninguno.
 
 ## Criterios de aceptación
 
-- [ ] Compila sin símbolos huérfanos ni imports sin usar.
-- [ ] `lintGithubDebug` sin errores y `testGithubDebugUnitTest` en verde.
-- [ ] Con la edición GitHub arranca el chequeo al iniciar; en la edición Play no.
-- [ ] El aviso no aparece con el coche en marcha ni dos veces para el mismo build.
+- [x] Compila sin símbolos huérfanos ni imports sin usar.
+- [x] `lintGithubDebug` sin errores y `testGithubDebugUnitTest` en verde,
+      `assembleGithubDebug` OK (6m 40s).
+- [x] La consulta va a `api.github.com/repos/ravalosv/MyDashWheel/releases`.
+- [ ] Con la edición GitHub arranca el chequeo al iniciar; en la edición Play no — verificado en el
+      código (`Edition.full`), pendiente de ver en dispositivo.
+- [ ] El aviso no aparece con el coche en marcha ni dos veces para el mismo build — pendiente de
+      ver en dispositivo.
+
+**Commit:** `dbcad265` en `main` (2026-10-29). Ticket [#10](https://github.com/ravalosv/MyDashWheel/issues/10)
+cerrado el mismo día, con la prueba en dispositivo anotada como pendiente: un build local no puede
+comprobar que una versión instalada detecta, descarga e instala un release más nuevo.
 
 ## Riesgos
 

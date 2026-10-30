@@ -151,3 +151,24 @@
   - Los pre-releases de rama ya no existen; para probar una rama en el head unit queda
     `workflow_dispatch` o fusionarla en `releases`.
 - Mejor próximo paso: revisar los runs `40981094726` (main) y `40985274625` (releases) cuando terminen.
+
+### Sesión 005
+
+- Fecha: 2026-10-29
+- Objetivo: reactivar la autoactualización apuntando a los releases del fork (ticket #10)
+- Completado:
+  - `AutomotiveDashboard.kt`: reactivados el bucle de chequeo (`Edition.full`: al arrancar, en cada
+    encendido y cada 6 h), la auto-descarga (permiso de instalación + red sin medir, una vez por
+    build), el aviso "Update ready" (solo aparcado, una vez por build) y `UPDATE_CHECK_EVERY_MS`.
+  - Sin imports nuevos: `delay`, `launch`, `mutableLongStateOf` e `ignitionFlow` ya estaban.
+- Verificación ejecutada:
+  - `:app:lintGithubDebug` sin errores, `:app:testGithubDebugUnitTest` sin fallos,
+    `:app:assembleGithubDebug` → BUILD SUCCESSFUL (6m 40s).
+- Commits: `dbcad265` en `main`. Ticket #10 cerrado.
+- Riesgo conocido o problema sin resolver:
+  - **Sin probar en dispositivo**: falta un release publicado por `releases` encima de una versión
+    instalada. `releases` sigue en `2d5b3cfe`, así que el cambio aún no está publicado.
+  - El bucle consulta cada 6 h y en cada encendido: en la tablet eso implica red móvil si no hay wifi
+    (la descarga solo ocurre en red no medida).
+- Mejor próximo paso: merge de `main` a `releases` para publicar la beta con la autoactualización y
+  probar el ciclo completo en el head unit.
