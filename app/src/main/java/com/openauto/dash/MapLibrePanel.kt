@@ -442,6 +442,8 @@ fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = false) {
         if (line != null && nav != null) runCatching { line.addProgressChangeListener(nav) }
         onDispose { if (line != null && nav != null) runCatching { line.removeProgressChangeListener(nav) } }
     }
+    // MINE: #13 the destination handed to Maps or Waze, drawn on this map too (tile and Canvas wallpaper).
+    com.openauto.dash.mine.HandedOffRouteOnMap(mapRef, navRoute)
 
     // Location puck: enabled once the style is up, and again if the permission
     // is granted later from the runtime prompt.
