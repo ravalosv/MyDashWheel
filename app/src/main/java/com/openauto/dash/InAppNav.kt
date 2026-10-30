@@ -5,9 +5,9 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
-import android.os.Looper
 import android.util.Log
 import android.view.View
+import com.openauto.dash.mine.MineOverrides
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -20,7 +20,6 @@ import kotlinx.coroutines.withContext
 import org.maplibre.geojson.Point
 import org.maplibre.navigation.android.navigation.ui.v5.instruction.maneuver.ManeuverView
 import org.maplibre.navigation.core.location.Location
-import org.maplibre.navigation.core.location.engine.MapLibreLocationEngine
 import org.maplibre.navigation.core.milestone.Milestone
 import org.maplibre.navigation.core.milestone.MilestoneEventListener
 import org.maplibre.navigation.core.milestone.VoiceInstructionMilestone
@@ -121,7 +120,7 @@ object InAppNav {
         appContext = app
         _voiceOn.value = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_VOICE, true)
         val nav = runCatching {
-            AndroidMapLibreNavigation(app, MapLibreNavigationOptions(), MapLibreLocationEngine(app, Looper.getMainLooper()))
+            AndroidMapLibreNavigation(app, MapLibreNavigationOptions(), MineOverrides.navLocationEngine(app)) // MINE: #12
         }.getOrElse {
             Log.w("InAppNav", "navigation failed to start: ${it.message}")
             return false

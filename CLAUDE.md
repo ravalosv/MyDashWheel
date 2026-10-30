@@ -28,6 +28,29 @@ indique otra base explícitamente.**
 **Excepción**: solo cuando el propietario pida explícitamente partir de otra rama (por ejemplo, un
 hotfix sobre un tag publicado), y en ese caso se anota en el reporte del ticket.
 
+## REGLA DE DESACOPLAMIENTO DEL FORK
+**Este repositorio es un fork de `deviloufr-ai/Dashwheel`, que sigue recibiendo actualizaciones. Todo
+cambio propio se aísla del código heredado en la medida de lo posible, para que los merges del
+upstream no produzcan conflictos y para poder distinguir "mis cambios" de "el fork original".**
+
+1. **Código propio en paquete propio.** Lo nuevo (arreglos, parches, comportamientos nuestros) vive en
+   `com.openauto.dash.mine` (app) y equivalentes por módulo, en archivos nuevos, no repartido por los
+   archivos heredados.
+2. **En un archivo heredado, la huella es mínima.** Un arreglo que necesite engancharse al código del
+   upstream deja una sola llamada de una línea a nuestra función (por ejemplo
+   `MineOverrides.navLocationEngine(app)`). Nada de lógica propia dentro del archivo heredado.
+3. **Señalizar lo tocado.** Cada línea añadida a un archivo heredado va marcada con `// MINE:` y el
+   número de ticket, para encontrarlas con `grep -rn "MINE:" app/src/main` tras un merge.
+4. **Nada de refactors cosméticos en archivos heredados.** Renombrar, reformatear o reordenar código
+   del upstream solo crea conflictos; si hace falta, se hace en nuestro paquete.
+5. **Si un arreglo no se puede aislar** (el fallo está dentro del upstream y exige cambiarlo), se
+   documenta en el reporte del ticket el porqué y se deja el diff más pequeño que funcione, marcado
+   con `// MINE:`.
+6. **Ficheros de build y workflows**: añadir nuestro bloque al final, con un comentario que lo
+   identifique; no reescribir los del upstream.
+7. **Verificación tras un merge del upstream**: `grep -rn "MINE:"` debe seguir encontrando cada
+   punto de contacto; si desaparece alguno, el merge se llevó un arreglo nuestro y hay que reponerlo.
+
 ## REGLA PRINCIPAL
 **NO IMPLEMENTAR NADA hasta que todas estas condiciones se cumplan:**
 

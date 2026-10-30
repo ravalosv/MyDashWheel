@@ -25,6 +25,7 @@ Mantener y evolucionar Dashwheel, el launcher de coche abierto para unidades And
 - No afirmes que un test, build o lint se ejecutó si no se ejecutó realmente.
 - No hagas push de commits ni ramas sin autorización explícita del propietario.
 - Todo commit y toda rama nueva parten de `main` (`CLAUDE.md`, "Regla de ramas y commits"). Comprueba la rama actual antes de commitear; `releases` solo recibe merges de `main`.
+- Es un fork que se mergea con el upstream: el código propio va en `com.openauto.dash.mine` y en los archivos heredados solo queda una llamada marcada `// MINE:` (`CLAUDE.md`, "Regla de desacoplamiento del fork").
 - Mantén la compatibilidad con Android 9+ (minSdk 28) salvo ADR que indique lo contrario.
 - Las dos ediciones (github/play) se construyen desde la misma base; no rompas la edición Play al añadir features de root.
 - Los cambios de UI deben funcionar en pantallas horizontales, verticales y de cualquier resolución.
