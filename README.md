@@ -2,6 +2,23 @@
 
 # Dashwheel
 
+<!-- MINE: aviso de fork. Todo lo que sigue por debajo es el README del proyecto original, sin editar. -->
+> [!IMPORTANT]
+> **This is a personal fork, not Dashwheel itself.**
+> It is a copy of [Dashwheel](https://github.com/deviloufr-ai/Dashwheel) by
+> [Alexandre Leblanc (deviloufr-ai)](https://github.com/deviloufr-ai), kept for one reason: my own
+> customizations for my own head unit. It is not maintained as a project and I cannot offer support
+> for it.
+>
+> **Looking for Dashwheel? Go to the original repository:**
+> **[github.com/deviloufr-ai/Dashwheel](https://github.com/deviloufr-ai/Dashwheel)**
+>
+> Downloads, the wiki, issues, test hardware and support all live there. Please star it, follow it
+> and send your bug reports to the original project — the work is his, not mine.
+>
+> Everything below this banner is upstream's README, unedited; its links point to the original
+> project on purpose.
+
 **The free car launcher for Android head units (QF, FYT, Microntek and more).** Map, music and live car data on one calm screen: up to seven dashboards you arrange yourself, 55+ widgets, whole-design skins, an AI mechanic that explains warning lights, and your phone's calls and messages on the big screen. No ads, no trial, no account.
 
 ![Dashwheel: map, speed, weather and music on one screen](docs/screenshots/01_hero.jpg)
