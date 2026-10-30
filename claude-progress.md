@@ -172,3 +172,26 @@
     (la descarga solo ocurre en red no medida).
 - Mejor próximo paso: merge de `main` a `releases` para publicar la beta con la autoactualización y
   probar el ciclo completo en el head unit.
+
+---
+
+## Sesión 006 (2026-10-29): la CI en rojo por un fixture de la edición Play
+
+- Objetivo: explicar y corregir el fallo de `:app:testPlayDebugUnitTest` que llevaba tres pushes
+  consecutivos en rojo (`40986702523`, `40988165283`, `40988546348`).
+- Causa: el rebrand del ticket #6 cambió los fixtures de `PipAnchorTest` a `BuildConfig.APPLICATION_ID`,
+  pero la aserción del resumen siguió comparando con el literal `"fullscreen dash · freeform maps"`.
+  `summarizeStacks` nombra la app con el último segmento del paquete, así que en `github`
+  (`com.mydashwheel.dash`) la etiqueta es `dash` y coincidía; en `play`
+  (`com.mydashwheel.dash.play`) es `play` y fallaba. El fallo era del fixture, no de `WindowListing`.
+- Cambio: `selfName = self.substringAfterLast('.')` y la aserción usa `"fullscreen $selfName · freeform maps"`.
+  Sin tocar código de producción.
+- Verificación ejecutada:
+  - `:app:lintGithubDebug :app:testGithubDebugUnitTest :app:assembleGithubDebug` → BUILD SUCCESSFUL (7m 6s).
+  - `:app:lintPlayDebug :app:testPlayDebugUnitTest :app:assemblePlayDebug` → BUILD SUCCESSFUL (13m 9s).
+- Plan: `docs/harness/reports/play-test-label-plan.md`. Ticket #11.
+- Riesgo conocido o problema sin resolver:
+  - El commit queda local a la espera de autorización para publicarse; hasta entonces `main` sigue
+    en rojo en GitHub.
+  - `releases` sigue en `2d5b3cfe`: ni la autoactualización (#10) ni esta corrección están publicadas.
+- Mejor próximo paso: push de la corrección, y luego merge de `main` a `releases`.

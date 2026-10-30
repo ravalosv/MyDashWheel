@@ -12,6 +12,9 @@ class PipAnchorTest {
     /** The id the app is built under, so a rename does not leave these fixtures stale. */
     private val self = BuildConfig.APPLICATION_ID
 
+    /** How [WindowListing.summarizeStacks] names the app: the package's last segment. */
+    private val selfName = self.substringAfterLast('.')
+
     private val android10 = """
         Stack id=1 bounds=[0,0][1280,720] displayId=0 userId=0
          configuration={1.0 ?mcc?mnc [fr_FR] ldltr sw720dp w1280dp h672dp 160dpi lrg long land finger -keyb/v/h -nav/h winConfig={ mBounds=Rect(0, 0 - 1280, 720) mAppBounds=Rect(0, 0 - 1280, 672) mWindowingMode=fullscreen mActivityType=standard} s.12}
@@ -57,7 +60,7 @@ class PipAnchorTest {
         assertEquals(7, win.stackId)
         assertEquals(63, win.taskId)
         assertEquals("com.google.android.apps.maps", win.packageName)
-        assertEquals("fullscreen dash \u00b7 freeform maps", WindowListing.summarizeStacks(freeform))
+        assertEquals("fullscreen $selfName \u00b7 freeform maps", WindowListing.summarizeStacks(freeform))
     }
 
     @Test
