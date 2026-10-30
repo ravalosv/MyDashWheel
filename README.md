@@ -1,6 +1,6 @@
 <img src="docs/logo.png" width="96" alt="Dashwheel logo">
 
-# Dashwheel
+# MyDashwheel
 
 <!-- MINE: aviso de fork. Todo lo que sigue por debajo es el README del proyecto original, sin editar. -->
 > [!IMPORTANT]
