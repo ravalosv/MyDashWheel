@@ -120,3 +120,30 @@
   - Sigue abierto el `versionCode` local (Sesión 002).
 - Mejor próximo paso: autorizar y ejecutar el commit del rebrand, cerrar el ticket #6 y probar en el
   dispositivo.
+
+### Sesión 004
+
+- Fecha: 2026-10-29
+- Objetivo: traer `upstream/main` a `main` y hacer que publicar releases sea un acto deliberado
+  (ticket #9)
+- Completado:
+  - Merge de `upstream/main` (19 commits, 133 archivos: HCN/Junsun, modo 2 del volante, foco de
+    pantalla, segunda pantalla en la Pi, refactor de la cámara del mapa). Conflictos en
+    `MapLibrePanel` (se tomó el refactor de upstream) y `WindowListing` (se combinó su
+    `pickFloatingWindow` con `BuildConfig.APPLICATION_ID`).
+  - `build.yml`: el job `release` solo corre en `workflow_dispatch` o al pushear `releases`; las
+    notas y la pre-release beta pasan a `refs/heads/releases`; se retira el pre-release de rama.
+    Los checks siguen en cada push y PR.
+  - `releases` creada desde `main` y avanzada por fast-forward.
+- Verificación ejecutada:
+  - Gate completo tras el merge: `lintGithubDebug` + `testGithubDebugUnitTest` +
+    `assembleGithubDebug` (app y companion) → BUILD SUCCESSFUL (7m 45s).
+  - YAML de `build.yml` y `promote.yml` válido (`js-yaml`).
+- Commits: `7c251c60` (merge de upstream) y `2d5b3cfe` (gate de publicación), en `main` y en `releases`.
+- Riesgo conocido o problema sin resolver:
+  - **Los runs no se esperaron** (decisión del propietario): falta confirmar que el push a `main` deja
+    `release` en `skipped` y que el de `releases` publica la beta. Si no, reabrir #9 o abrir otro ticket.
+  - `main` no tiene protección de rama: acepta pushes directos.
+  - Los pre-releases de rama ya no existen; para probar una rama en el head unit queda
+    `workflow_dispatch` o fusionarla en `releases`.
+- Mejor próximo paso: revisar los runs `40981094726` (main) y `40985274625` (releases) cuando terminen.

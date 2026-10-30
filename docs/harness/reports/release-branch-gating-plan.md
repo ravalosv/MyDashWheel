@@ -48,11 +48,18 @@ PRs se quedarían sin lint ni tests, que es justo lo que evita fusionar código 
 
 ## Criterios de aceptación
 
-- [ ] Push a `main`: solo `checks`, sin firma ni release.
-- [ ] Push a `releases`: pre-release beta con `MyDashwheel-<v>.apk` y `mydashwheel-companion.apk`.
-- [ ] PR a `main`: lint, tests y debug build.
-- [ ] `workflow_dispatch` sigue publicado a mano.
-- [ ] `promote.yml` sin cambios.
+Verificado en el código y en el push; la confirmación en los runs quedó pendiente por decisión del
+propietario (2026-10-29): cerrar sin esperar, y reabrir o abrir otro ticket si la CI muestra lo contrario.
+
+- [x] Push a `main`: el job `release` no se ejecuta (gate por rama); solo corre `checks`.
+- [ ] Push a `releases`: pre-release beta con `MyDashwheel-<v>.apk` y `mydashwheel-companion.apk`
+      — pendiente de confirmar en el run `40985274625`.
+- [x] PR a `main`: lint, tests y debug build (`debug-build` intacto).
+- [x] `workflow_dispatch` sigue disponible como otra vía de publicación.
+- [x] `promote.yml` sin cambios.
+
+**Fusión:** `2d5b3cfe` en `main`, y `releases` avanzado por fast-forward al mismo commit.
+**Ticket:** [#9](https://github.com/ravalosv/MyDashWheel/issues/9) cerrado el 2026-10-29.
 
 ## Riesgos
 
