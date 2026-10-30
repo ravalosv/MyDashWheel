@@ -105,3 +105,6 @@ Solicitud del propietario:
 - [x] Revisión de spec: aprobada por el propietario el 2026-10-29
 - [x] Autorización para implementar: "hay que modificar para que en lugar de Dashwheel el nombre del release sea MyDashwheel. Hay que habilitar para que se pueda generar y publicar el release en github. Cambiar tambien el packagename a com.mydashwheel.dash"
 - [x] Ticket GitHub creado: [#6](https://github.com/ravalosv/MyDashWheel/issues/6)
+- [x] Commits: `ddc4035f` (rebrand) y `16c3f36d` (restauración de `gradlew.bat`) en
+      `feat/rebrand-mydashwheel`; fusionados en `main` por PR #7 (`94be5f43`) y PR #8 (`aeeb44cd`)
+- [x] Ticket cerrado el 2026-10-29 con el comentario de evidencia

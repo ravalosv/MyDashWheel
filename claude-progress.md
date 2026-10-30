@@ -104,8 +104,12 @@
   - Secretos de firma: los tres niveles de validación documentados en
     `docs/harness/reports/release-signing-local-plan.md`. Nivel 2 local OK; Nivel 3 en CI
     (run `40955976901`, `success`) OK, ambos APK con la huella `7dbc6c4a…be44`.
-- Commits: _pendiente de autorización_ (decidir rama: `build/release-signing-local`, que ya tiene
-  `8df37b6e`, o una propia).
+- Commits: `ddc4035f` (rebrand) y `16c3f36d` (restauración de `gradlew.bat`) en
+  `feat/rebrand-mydashwheel`; fusionados en `main` por PR #7 (`94be5f43`) y PR #8 (`aeeb44cd`).
+  Ticket #6 cerrado el 2026-10-29.
+- Incidencia corregida: un commit intermedio metió `*.bat` en `.gitignore` y borró `gradlew.bat`
+  (CI en Linux no lo detecta porque usa `./gradlew`). Se restauró el archivo y se añadió
+  `!gradlew.bat`. Regla para el futuro: `*.bat` nunca debe ignorar el wrapper de Gradle.
 - Archivos o artefactos actualizados:
   - app/build.gradle.kts, companion/build.gradle.kts, gradle/release-signing.gradle.kts
   - app/src/github/java/com/openauto/dash/PrivApp.kt, app/src/main/java/com/openauto/dash/{SystemDisplayHelper,WindowListing,UpdateManager}.kt
