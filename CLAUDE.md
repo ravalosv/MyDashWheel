@@ -154,12 +154,25 @@ Este repositorio usa un sistema de trabajo (harness) para desarrollo con agentes
 
 ### Verificación
 
-Ejecuta siempre antes de entregar (edición GitHub):
+**Durante el desarrollo, solo pruebas básicas y rápidas.** Al terminar de escribir o cambiar código
+se comprueba que compila y que lo nuevo pasa sus propios tests, y nada más:
+
+```bash
+./gradlew :app:compileGithubDebugKotlin
+./gradlew :app:testGithubDebugUnitTest --tests "com.openauto.dash.<paquete>.<ClaseNueva>Test"
+```
+
+**Nunca la batería completa tras construir.** El propietario revisa el desarrollo *antes* de
+cualquier otra acción; no debe esperar diez o quince minutos por edición en cada iteración.
+
+**La corrida completa es solo cuando el propietario la pide**: al autorizar el commit o al cerrar el
+ticket. Entonces sí, las dos ediciones:
+
 ```bash
 ./gradlew :app:lintGithubDebug :app:testGithubDebugUnitTest :app:assembleGithubDebug
 ```
 
-Para verificar también la edición Play:
+Y para verificar también la edición Play:
 ```bash
 ./gradlew :app:lintPlayDebug :app:testPlayDebugUnitTest :app:assemblePlayDebug
 ```
