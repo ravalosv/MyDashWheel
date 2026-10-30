@@ -18,13 +18,15 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
 import androidx.core.view.WindowCompat
 import androidx.core.view.doOnPreDraw
 import androidx.core.view.WindowInsetsCompat
@@ -279,7 +281,11 @@ open class MainActivity : ComponentActivity() {
                     // Android can say "multi-window" while Dashwheel still has the whole width: a
                     // split the firmware left half done kept the split's layout, its swap button
                     // and its edit limits on a full screen. Only a pane that really is narrow counts.
-                    AutomotiveDashboard(inSplitMode = inMultiWindow.value && isNarrowPane(config.screenWidthDp, config.screenHeightDp))
+                    Box(Modifier.fillMaxSize()) {
+                        AutomotiveDashboard(inSplitMode = inMultiWindow.value && isNarrowPane(config.screenWidthDp, config.screenHeightDp))
+                        // The steering wheel's dashboard buttons move this screen, with a second one to switch to.
+                        ScreenFocusMark(screen = 1)
+                    }
                 }
             }
         }
@@ -483,8 +489,10 @@ fun OpenAutoDashTheme(content: @Composable () -> Unit) {
     val view = LocalView.current
     val light = DashColors.Light
     if (!view.isInEditMode) {
-        SideEffect {
-            val window = (view.context as? android.app.Activity)?.window ?: return@SideEffect
+        // Only when day turns to night or back: the theme recomposes at every
+        // frame of a palette fade, and this is a system call each time.
+        LaunchedEffect(light) {
+            val window = (view.context as? android.app.Activity)?.window ?: return@LaunchedEffect
             WindowInsetsControllerCompat(window, view).isAppearanceLightStatusBars = light
         }
     }
