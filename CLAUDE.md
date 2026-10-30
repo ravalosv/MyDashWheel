@@ -172,7 +172,8 @@ ticket. Entonces sí, las dos ediciones:
 ./gradlew :app:lintGithubDebug :app:testGithubDebugUnitTest :app:assembleGithubDebug
 ```
 
-Y para verificar también la edición Play:
+La edición Play **no se exige** (2026-10-30): la app es de uso personal y no hay planes de publicarla
+en Google Play. El flavor `play` sigue en el repositorio y se compila cuando alguien lo pida:
 ```bash
 ./gradlew :app:lintPlayDebug :app:testPlayDebugUnitTest :app:assemblePlayDebug
 ```
