@@ -306,5 +306,12 @@
   `feat/rebrand-mydashwheel`, `feature/restrict-mexico-routing`,
   `feature/search-results-list`) estaban fusionadas en `main` (`git branch --merged main`), así
   que se borraron sin riesgo de perder commits. Quedan solo `main` y `releases`.
+- Corrección de los rulesets: la regla **`required_status_checks` también bloquea los pushes
+  directos** (exige que el commit empujado ya tenga el check en verde), no solo los merges de
+  PRs. El primer push tras activarla falló con `GH013: Required status check "Lint and unit
+  tests" is expected` sobre un commit recién rebasado que nunca había pasado por CI. Decisión
+  del propietario: quedarse con la variante simple —`deletion` + `non_fast_forward` en `main` y
+  en `releases`, sin checks obligatorios— porque el flujo es de push directo a `main` y el CI
+  ya corre en cada push (el fallo se ve, solo no impide publicarlo a mano).
 - Mejor próximo paso: seguir con la lista de pendientes del propietario; no hay trabajo abierto
   en el harness.
