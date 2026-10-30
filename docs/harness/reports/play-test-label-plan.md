@@ -65,7 +65,16 @@ para que ignorara el sufijo de flavor sería empeorar el código para complacer 
 - [x] `:app:testGithubDebugUnitTest` sigue en verde — 7m 6s, `BUILD SUCCESSFUL`.
 - [x] `./gradlew :app:lintGithubDebug :app:testGithubDebugUnitTest :app:assembleGithubDebug` OK.
 - [x] `./gradlew :app:lintPlayDebug :app:testPlayDebugUnitTest :app:assemblePlayDebug` OK.
-- [ ] CI en verde en el push de la corrección — pendiente: el commit espera autorización para publicarse.
+- [x] CI en verde en el push de la corrección — run `41004891688` sobre `85bb4aca`: `success`
+      (lint github/play, tests github/play, assemble de ambas ediciones).
+
+**Commit:** `85bb4aca` en `main` (2026-10-29). Ticket
+[#11](https://github.com/ravalosv/MyDashWheel/issues/11) cerrado el 2026-10-30.
+
+**Incidente durante el cierre:** el commit se creó por error sobre la rama `releases` (era la rama
+activa de la sesión). Se recuperó con `cherry-pick` sobre `main` y publicando `85bb4aca`; ningún
+commit se perdió y `main` quedó como única fuente. De ahí la regla "Regla de ramas y commits" añadida
+a `CLAUDE.md`.
 
 ## Riesgos
 

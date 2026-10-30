@@ -190,8 +190,15 @@
   - `:app:lintGithubDebug :app:testGithubDebugUnitTest :app:assembleGithubDebug` → BUILD SUCCESSFUL (7m 6s).
   - `:app:lintPlayDebug :app:testPlayDebugUnitTest :app:assemblePlayDebug` → BUILD SUCCESSFUL (13m 9s).
 - Plan: `docs/harness/reports/play-test-label-plan.md`. Ticket #11.
+- Cierre: commit `85bb4aca` publicado en `main`; CI en verde en el run `41004891688`. Ticket #11
+  cerrado el 2026-10-30.
+- Incidente: el commit se creó por error sobre la rama `releases` (era la rama activa). Se recuperó
+  con `cherry-pick` sobre `main`; ningún commit se perdió. Al corregir las refs, un `reset --hard`
+  cruzado invirtió `main` y `releases` en local; se corrigió y ambas coincidieron con el remoto.
+  Consecuencia: nueva "Regla de ramas y commits" en `CLAUDE.md` (todo commit y toda rama parten de
+  `main` salvo indicación expresa).
 - Riesgo conocido o problema sin resolver:
-  - El commit queda local a la espera de autorización para publicarse; hasta entonces `main` sigue
-    en rojo en GitHub.
-  - `releases` sigue en `2d5b3cfe`: ni la autoactualización (#10) ni esta corrección están publicadas.
-- Mejor próximo paso: push de la corrección, y luego merge de `main` a `releases`.
+  - El push a `releases` (run `41005993412`, en curso al escribir esto) publica el beta con la
+    autoactualización (#10) y esta corrección; la prueba en dispositivo sigue pendiente.
+  - Los builds locales siguen con `versionCode 1`: un APK local no se instala encima de uno de CI.
+- Mejor próximo paso: confirmar el run `41005993412` y probar la instalación del beta publicado.

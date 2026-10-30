@@ -9,6 +9,25 @@
 4. **Toda implementación de código debe referenciar el número de ticket**
 5. **Sin número de ticket → NO proceder con implementación de código**
 6. **Configuración del harness/documentación interna NO requiere ticket**
+## REGLA DE RAMAS Y COMMITS
+**Todo commit y toda rama nueva se crean a partir de `main`, siempre, salvo que el propietario
+indique otra base explícitamente.**
+
+1. **Antes de tocar nada, comprobar la rama:** `git rev-parse --abbrev-ref HEAD`.
+   Si no es `main`, cambiar a `main` y actualizarla (`git fetch origin && git reset --hard origin/main`).
+2. **Nunca commitear sobre la rama en la que se estaba "por casualidad"** (`releases`, una rama de
+   feature abandonada, un checkout suelto). El commit se pierde del flujo o, peor, acaba donde no toca.
+3. **Una rama de trabajo nace de `main`**: `git switch -c <tipo>/#<ticket>-<slug> main`.
+4. **`main` es la única fuente**: `releases` solo recibe merges desde `main`; ninguna rama de trabajo
+   se crea a partir de `releases`.
+5. **Si un commit cae en la rama equivocada**: `git cherry-pick <sha>` sobre `main` y realinear la
+   otra rama con `origin/<rama>`. No se reescribe historia ya publicada.
+6. **Antes de hacer push, verificar las refs**: `git branch -vv` debe mostrar la rama y el remoto que
+   se esperan. Un `git reset --hard` cruzado deja `main` y `releases` invertidas y no avisa.
+
+**Excepción**: solo cuando el propietario pida explícitamente partir de otra rama (por ejemplo, un
+hotfix sobre un tag publicado), y en ese caso se anota en el reporte del ticket.
+
 ## REGLA PRINCIPAL
 **NO IMPLEMENTAR NADA hasta que todas estas condiciones se cumplan:**
 
