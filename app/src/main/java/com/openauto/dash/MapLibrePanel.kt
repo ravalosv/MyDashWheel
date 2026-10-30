@@ -258,7 +258,8 @@ fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = false) {
         scope.launch {
             val here = LocationFeed.location.value
             val found = withContext(Dispatchers.IO) {
-                runCatching { PlaceSearch.findAll(q, here?.latitude, here?.longitude, limit = 5) }
+                // MINE: #14 our own question: the country of the car, nearest branch first, the typed house number respected.
+                runCatching { com.openauto.dash.mine.PlaceQuery.findAll(context, q, here?.latitude, here?.longitude) }
             }
             val places = found.getOrDefault(emptyList())
             loading = false
@@ -266,19 +267,9 @@ fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = false) {
                 error = context.getString(if (found.isFailure) R.string.places_offline else R.string.info_map_address_not_found)
                 return@launch
             }
-            // If only one result, route directly
-            if (places.size == 1) {
-                val place = places[0]
-                val ll = LatLng(place.lat, place.lng)
-                mapRef?.addMarker(MarkerOptions().position(ll))
-                mapRef?.animateCamera(CameraUpdateFactory.newLatLngZoom(ll, 14.0))
-                routeTo(Point.fromLngLat(place.lng, place.lat))
-                destinationName = place.name
-                searchResults = emptyList()
-            } else {
-                // Show list for user to pick
-                searchResults = places
-            }
+            // MINE: #14 always the list, even for a single answer: the driver confirms, nothing is routed
+            // behind their back (a wrong address costs a turn, not a tap).
+            searchResults = places
         }
     }
 
@@ -298,13 +289,8 @@ fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = false) {
     fun routeToPlace(place: Place) {
         android.util.Log.d("MapLibrePanel", "routeToPlace: name='${place.name}' lat=${place.lat} lng=${place.lng}")
         
-        // Validate place is within Mexico bounds (roughly 14-33°N, 118-86°W)
-        if (place.lat < 14.0 || place.lat > 33.0 || place.lng < -118.0 || place.lng > -86.0) {
-            android.util.Log.w("MapLibrePanel", "Place '${place.name}' is outside Mexico bounds")
-            error = context.getString(R.string.info_map_address_not_found)
-            return
-        }
-        
+        // MINE: #14 no fixed Mexico box: a unit abroad was told "not found" for a real address. The router
+        // still refuses what it cannot route, and routeTo drops absurd distances.
         clearRoute()
         val ll = LatLng(place.lat, place.lng)
         mapRef?.addMarker(MarkerOptions().position(ll))
@@ -541,6 +527,16 @@ fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = false) {
                                 Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.dash_close), tint = Color(0xFF9AA0A6))
                             }
                         }
+                        // MINE: #14 the number the driver typed is in none of these: say so, never route somewhere else silently.
+                        val typedNumber = com.openauto.dash.mine.PlaceQuery.typed(query).number
+                        if (typedNumber != null && searchResults.none { com.openauto.dash.mine.PlaceQuery.hasNumber(it.name, typedNumber) }) {
+                            Text(
+                                text = stringResource(R.string.mine_search_number_not_found, typedNumber),
+                                color = Color(0xFFF28B82),
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
+                            )
+                        }
                         searchResults.forEach { place ->
                             Row(
                                 modifier = Modifier
@@ -556,12 +552,31 @@ fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = false) {
                                     modifier = Modifier.size(20.dp)
                                 )
                                 Spacer(Modifier.width(8.dp))
-                                Text(
-                                    text = place.name,
-                                    color = Color.White,
-                                    fontSize = 14.sp,
-                                    modifier = Modifier.weight(1f)
-                                )
+                                // MINE: #14 two lines per result, name over the rest of the address, and a mark when
+                                // the typed house number is not this one.
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = com.openauto.dash.mine.PlaceQuery.title(place.name),
+                                        color = Color.White,
+                                        fontSize = 14.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    val detail = com.openauto.dash.mine.PlaceQuery.detail(place.name)
+                                    val missing = typedNumber != null && !com.openauto.dash.mine.PlaceQuery.hasNumber(place.name, typedNumber)
+                                    Text(
+                                        text = if (missing) {
+                                            val mark = stringResource(R.string.mine_search_no_number)
+                                            if (detail.isEmpty()) mark else "$mark · $detail"
+                                        } else {
+                                            detail
+                                        },
+                                        color = if (missing) Color(0xFFF28B82) else Color(0xFF9AA0A6),
+                                        fontSize = 12.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
                             }
                         }
                     }
@@ -591,6 +606,17 @@ fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = false) {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
+                        // MINE: #14 what Start is about to take: the destination's name, next to the route's figures.
+                        destinationName?.let { name ->
+                            Text(
+                                text = com.openauto.dash.mine.PlaceQuery.title(name),
+                                color = Color.White,
+                                fontSize = 13.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.widthIn(max = 220.dp)
+                            )
+                        }
                         Text(
                             text = currentInfo ?: currentError ?: stringResource(R.string.info_map_ready),
                             color = if (currentError != null) Color(0xFFF28B82) else Color.White

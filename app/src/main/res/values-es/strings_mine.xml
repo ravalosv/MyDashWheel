@@ -54,4 +54,7 @@
     <string name="mine_err_address">Las direcciones tienen 3 u 8 cifras hexadecimales, y una dirección de respuesta necesita una dirección de centralita.</string>
     <string name="mine_err_session">Sesión: solo 1001, 1003, 1081, 1092 o 10C0, con dirección de centralita.</string>
     <string name="mine_err_no_bytes">Las letras A a H solo tienen sentido en una lectura del coche.</string>
+    <!-- Búsqueda de destinos: lo que dice una fila cuando el número escrito no es el de esa dirección (PlaceQuery.kt, MapLibrePanel.kt) -->
+    <string name="mine_search_no_number">sin número</string>
+    <string name="mine_search_number_not_found">El número %1$s no aparece en estas direcciones. Elige una para verla en el mapa.</string>
 </resources>
