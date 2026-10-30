@@ -1075,16 +1075,16 @@ fun AutomotiveDashboard(inSplitMode: Boolean = false) {
         }
     }
 
-    // Auto-update checks disabled for now (local builds / custom branding).
-    // Restore this block to re-enable: check at start, each ignition on, and
-    // every six hours awake. Never in the Play edition (Google Play updates it).
-    // if (Edition.full) LaunchedEffect(Unit) {
-    //     launch { ignitionFlow().drop(1).filter { it == true }.collect { updateManager.checkForUpdate() } }
-    //     while (true) {
-    //         updateManager.checkForUpdate()
-    //         delay(UPDATE_CHECK_EVERY_MS)
-    //     }
-    // }
+    // Check at start, each ignition on, and every six hours awake, against this
+    // fork's own releases ([UpdateManager] reads BuildConfig.GITHUB_OWNER/REPO).
+    // Never in the Play edition: Google Play updates it.
+    if (Edition.full) LaunchedEffect(Unit) {
+        launch { ignitionFlow().drop(1).filter { it == true }.collect { updateManager.checkForUpdate() } }
+        while (true) {
+            updateManager.checkForUpdate()
+            delay(UPDATE_CHECK_EVERY_MS)
+        }
+    }
     // The head unit running hot is said once, tile or not (HeadUnitMonitor).
     LaunchedEffect(Unit) { withContext(Dispatchers.IO) { HeadUnitMonitor.watchHeat(context) } }
     val checkForUpdates: () -> Unit = { scope.launch { updateManager.checkForUpdate() } }
@@ -1113,26 +1113,27 @@ fun AutomotiveDashboard(inSplitMode: Boolean = false) {
         val info = updateStatus.updateInfo
         if (info != null) whenParked { releaseNotes = info }
     }
-    // Auto-download + "Update ready" prompt disabled with the check loop above.
-    // Restore this block together with the LaunchedEffect that calls checkForUpdate.
-    // var autoDownloadedBuild by remember { mutableLongStateOf(-1L) }
-    // var promptedBuild by remember { mutableLongStateOf(-1L) }
+    // Auto-download the build the check found (package-install permission and
+    // an unmetered network, once per build), then say it is ready — parked only,
+    // and once per build.
+    var autoDownloadedBuild by remember { mutableLongStateOf(-1L) }
+    var promptedBuild by remember { mutableLongStateOf(-1L) }
     var updatePrompt by remember { mutableStateOf<UpdateStatus.Ready?>(null) }
-    // LaunchedEffect(updateStatus, moving) {
-    //     val status = updateStatus
-    //     if (status is UpdateStatus.Available && autoDownloadedBuild != status.info.buildNumber &&
-    //         updateManager.canInstallPackages() && updateManager.onUnmeteredNetwork()
-    //     ) {
-    //         autoDownloadedBuild = status.info.buildNumber
-    //         updateManager.download(status.info)
-    //     }
-    //     if (status is UpdateStatus.Ready && !moving && promptedBuild != status.info.buildNumber) {
-    //         promptedBuild = status.info.buildNumber
-    //         // One dialog at a time: the notes give way to "Update ready".
-    //         releaseNotes = null
-    //         updatePrompt = status
-    //     }
-    // }
+    LaunchedEffect(updateStatus, moving) {
+        val status = updateStatus
+        if (status is UpdateStatus.Available && autoDownloadedBuild != status.info.buildNumber &&
+            updateManager.canInstallPackages() && updateManager.onUnmeteredNetwork()
+        ) {
+            autoDownloadedBuild = status.info.buildNumber
+            updateManager.download(status.info)
+        }
+        if (status is UpdateStatus.Ready && !moving && promptedBuild != status.info.buildNumber) {
+            promptedBuild = status.info.buildNumber
+            // One dialog at a time: the notes give way to "Update ready".
+            releaseNotes = null
+            updatePrompt = status
+        }
+    }
 
     /** The adapter picker is a list to read: parked only. Reconnecting a saved one needs no picker. */
     fun openDevicePicker() = whenParked {
@@ -2664,7 +2665,7 @@ private class PageAnchor {
     var wanted = -1
 }
 
-// Used by the auto-update check loop above (commented out for now).
-// private const val UPDATE_CHECK_EVERY_MS = 6 * 60 * 60_000L
+/** How often the auto-update check runs while the dashboard is awake. */
+private const val UPDATE_CHECK_EVERY_MS = 6 * 60 * 60_000L
 /** After a swipe during the tour, the new page shows for this long before the next tip. */
 private const val TOUR_SWIPE_SETTLE_MS = 700L
