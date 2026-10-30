@@ -72,6 +72,7 @@ internal object MapsScreen {
         val destination = destinationOf(pieces, height)
         log(pieces, destination)
         if (destination != null) noticed(destination)
+        com.openauto.dash.mine.MapsDestination.watch(pieces, NavDirections.running.value != null, SystemClock.elapsedRealtime(), destination != null) // MINE: #15
     }
 
     /** A destination read, here or off the tile's picture ([TileText]): handed off once per destination. */

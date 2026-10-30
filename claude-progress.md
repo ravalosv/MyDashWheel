@@ -202,3 +202,116 @@
     autoactualización (#10) y esta corrección; la prueba en dispositivo sigue pendiente.
   - Los builds locales siguen con `versionCode 1`: un APK local no se instala encima de uno de CI.
 - Mejor próximo paso: confirmar el run `41005993412` y probar la instalación del beta publicado.
+
+---
+
+## Sesión 007 (2026-10-30): crash de navegación en Android < 11
+
+- Objetivo: resolver el ticket #12 — al iniciar una ruta desde el widget, el proceso moría con
+  `AbstractMethodError` en `LocationListener.onProviderDisabled` en un unit con `SDK_INT` 29.
+- Causa: el motor de maplibre-navigation registra un listener compilado contra API 30+, donde esos
+  callbacks son `default` y por eso no los sobrescribe; en API < 30 siguen abstractos y el
+  `ListenerTransport` del sistema los invoca igual. Los tres listeners propios del repo sí los
+  implementan, así que el que fallaba era el de la librería, creado al arrancar la guía.
+- Cambio: bajo API 30, `InAppNav` pide el motor a `MineOverrides.navLocationEngine`, que devuelve un
+  `FeedLocationEngine` sobre `LocationFeed`; de API 30 en adelante sigue `MapLibreLocationEngine`.
+  Una sola línea marcada `// MINE: #12` en el archivo heredado.
+- Aislamiento: nueva "Regla de desacoplamiento del fork" en `CLAUDE.md` (paquete
+  `com.openauto.dash.mine`, marcas `// MINE:`, `grep` obligatorio tras cada merge del upstream) y
+  puntero en `AGENTS.md`.
+- Verificación ejecutada: `compileGithubDebugKotlin` (2m 1s); `lintGithubDebug`,
+  `testGithubDebugUnitTest`, `assembleGithubDebug` y el equivalente Play → BUILD SUCCESSFUL.
+- Commit: `fe4c725a` en `main`, fusionado en `releases`. Ticket #12 cerrado.
+- Riesgo conocido o problema sin resolver:
+  - La prueba en el aparato sigue pendiente: instalar el APK de `fe4c725a` en el `FF_866X` y repetir
+    el escenario (buscar dirección → iniciar ruta).
+  - Si el crash reapareciera, `adb logcat` debe mostrar si viene de otra ruta de código.
+- Mejor próximo paso: probar en el unit y, si guía bien, publicar el beta desde `releases`.
+
+---
+
+## Sesión 008 (2026-10-30): el repo pasa a público y se endurece
+
+- Objetivo: explicar por qué Ajustes → Actualizaciones decía «No se pudieron buscar
+  actualizaciones» aunque hubiera una versión publicada, y arreglarlo.
+- Causa: **el repositorio era privado.** La app consulta la API de GitHub sin credenciales
+  (`UpdateManager.fetchJson` no envía `Authorization`) y GitHub responde **404** a un cliente
+  anónimo sobre un repo privado. Prueba decisiva: `gh release view` (autenticado) veía
+  `v1.0.882` con `isPrerelease: false`, mientras que `curl` a
+  `/releases/latest` devolvía `404`. No era el canal estable, ni el rate limit, ni el
+  fixture del `versionCode`: ninguno de esos daba 404.
+- Descartado en la tablet: no existe ajuste de red, proxy ni cuenta que añada una cabecera
+  de autorización a una petición que la app no construye.
+- Opciones planteadas: A) hacer público el repo; B) publicar los APK en un repo público
+  aparte con un PAT en CI (`RELEASES_OWNER`/`RELEASES_REPO` + `gh release create -R` en
+  `build.yml` y `promote.yml`); C) un PAT de solo lectura dentro de la app (descartada por
+  seguridad). **Decisión del propietario: A.**
+- Cambios:
+  - `README.md`: aviso de fork bajo el título, marcado `<!-- MINE: aviso de fork -->`, con
+    enlace al repositorio original y a su wiki/incidencias. El resto del README queda
+    intacto, como dice el propio aviso. Commit `c15cb467` en `main` (rama `main`, como manda
+    la regla de ramas y commits).
+  - Visibilidad del repo: pública (`gh repo edit --visibility public`).
+- Seguridad aplicada (repo público):
+  - Secret scanning, push protection, patrones no de proveedor, comprobación de validez y
+    Dependabot security updates: `enabled`. Alertas de vulnerabilidades, arreglos
+    automáticos y reporte privado de vulnerabilidades: `PUT` correctos.
+  - Rulesets: `main` (id 26218328) y `releases` (id 26218333), ambos `active`, con
+    **deletion**, **non_fast_forward** y **required_status_checks** («Lint and unit tests»).
+    Sin regla de PR a propósito: el flujo del harness commitea y pushea a `main` con
+    autorización, y `releases` recibe fast-forward desde `main`.
+  - Actions: `default_workflow_permissions: read`,
+    `can_approve_pull_request_reviews: false`, aprobación obligatoria de workflows de PRs de
+    colaboradores externos.
+  - Repo: squash y merge commit permitidos, rebase no; borrado automático de ramas al
+    fusionar; wiki y projects desactivados; issues activos (`UnitReport` abre incidencias
+    aquí).
+  - Sin restricción de tags `v*`: `gh release create` usa `GITHUB_TOKEN` y los rulesets de
+    tags solo admiten usuarios/roles como excepción; restringirlos rompería la publicación.
+- Auditoría previa al cambio de visibilidad: `keys/` y `local.properties` nunca se
+  commitearon; `.gitignore` los cubre; ningún token real en el código (el único parecido es
+  un fixture falso en `OverpassTest`). Los workflows ya tenían `permissions: contents: read`
+  global y las Actions de terceros fijadas por SHA.
+- Verificación ejecutada:
+  - `/releases/latest` público → `200` (antes `404`).
+  - `gh api` confirma `visibility: public`, `secret_scanning: enabled`,
+    `push_protection: enabled` y los dos rulesets activos.
+  - En el unit: Ajustes → Actualizaciones encuentra y ofrece `v1.0.882` (propietario).
+- Incidencia: la primera escritura de los JSON con `Out-File -Encoding utf8` (Windows
+  PowerShell 5.1) añadió BOM y GitHub devolvió `400 Problems parsing JSON`. Se corrigió con
+  `Set-Content -Encoding ascii` sobre archivos en `$env:TEMP`, para no dejar JSON sueltos en
+  el árbol de trabajo.
+- Riesgo conocido o problema sin resolver:
+  - El APK instalado tiene que ser de **CI**: el de Visual Studio va firmado con la clave
+    debug y el instalador rechaza el de release (`INSTALL_FAILED_UPDATE_INCOMPATIBLE`).
+    Sigue abierto el `versionCode 1` de los builds locales (Sesión 002).
+  - Los enlaces de `UnitReport` apuntan a este repo; si alguna vez se vuelve privado, dejan
+    de funcionar para terceros y el updater vuelve a romperse — en ese caso toca la opción B.
+  - Rama `com.openauto.dash` antigua: el build de antes del rebrand sigue instalado en el
+    unit (`adb uninstall com.openauto.dash`).
+- Canal del updater: el propietario **activó «Actualizaciones beta»** en el unit (Ajustes →
+  Acerca de, justo debajo de la fila de actualización). El interruptor ya existía; estaba
+  apagado. Con él encendido, cada merge en `releases` llega al aparato en cuanto se publica
+  el pre-release, sin esperar a `promote.yml`. Por eso se descartó el cambio de pipeline
+  («publicar directo a estable, borrar `promote.yml`»): la publicación ya es automática y el
+  `prerelease: true` es justo lo que separa a quien quiere betas de quien quiere estable.
+- Cierre del ticket #12 en el aparato: **confirmado** por el propietario el 2026-10-30 con la
+  versión publicada `v1.0.882` (APK de CI): iniciar una ruta desde el widget ya no crashea.
+  Criterio marcado en `docs/harness/reports/nav-location-engine-plan.md`.
+- `versionCode` local: **decisión del propietario de dejarlo como está.** Los builds de Visual
+  Studio siguen saliendo con `1` y no se instalan encima de los de CI; para probar en el unit se
+  usa el APK publicado. Se cierra el pendiente abierto desde la Sesión 002 sin cambio de código.
+- Limpieza de ramas: las siete ramas de trabajo (`build/release-signing-local`,
+  `disable-auto-update`, `feat/harness`, `feat/places-personalizados-desde-ticket-1`,
+  `feat/rebrand-mydashwheel`, `feature/restrict-mexico-routing`,
+  `feature/search-results-list`) estaban fusionadas en `main` (`git branch --merged main`), así
+  que se borraron sin riesgo de perder commits. Quedan solo `main` y `releases`.
+- Corrección de los rulesets: la regla **`required_status_checks` también bloquea los pushes
+  directos** (exige que el commit empujado ya tenga el check en verde), no solo los merges de
+  PRs. El primer push tras activarla falló con `GH013: Required status check "Lint and unit
+  tests" is expected` sobre un commit recién rebasado que nunca había pasado por CI. Decisión
+  del propietario: quedarse con la variante simple —`deletion` + `non_fast_forward` en `main` y
+  en `releases`, sin checks obligatorios— porque el flujo es de push directo a `main` y el CI
+  ya corre en cada push (el fallo se ve, solo no impide publicarlo a mano).
+- Mejor próximo paso: seguir con la lista de pendientes del propietario; no hay trabajo abierto
+  en el harness.

@@ -85,10 +85,17 @@ el punto de contacto.
 - [x] `:app:lintPlayDebug :app:testPlayDebugUnitTest :app:assemblePlayDebug` → BUILD SUCCESSFUL.
 - [x] Test unitario del selector: con `SDK_INT` bajo devuelve nuestro motor; con API ≥ 30, el de la
       librería (`MineOverridesTest`, en la verificación de ambas ediciones).
-- [ ] En el unit (`FF_866X`, API 29): buscar dirección en el widget → iniciar ruta → guía sin crash.
-      Pendiente de probar en el aparato con el APK de este commit.
+- [x] En el unit (`FF_866X`, API 29): buscar dirección en el widget → iniciar ruta → guía sin crash.
+      Verificado por el propietario el 2026-10-30 con la versión publicada `v1.0.882`.
 - [ ] Sin regresión en el unit moderno (API ≥ 30): la navegación sigue guiando como antes. Pendiente
       en dispositivo; en código, esa rama ejecuta exactamente la construcción anterior.
+
+**Commit:** `fe4c725a` en `main` y en `releases` (2026-10-30). Ticket
+[#12](https://github.com/ravalosv/MyDashWheel/issues/12) cerrado el mismo día, con la prueba en el
+aparato anotada como pendiente: el crash solo se reproduce al iniciar una ruta en el unit afectado.
+
+**Prueba en el aparato:** verificada por el propietario el 2026-10-30 con la versión publicada
+`v1.0.882` (APK de CI, no el build local): iniciar una ruta desde el widget ya no crashea.
 
 ## Riesgos
 

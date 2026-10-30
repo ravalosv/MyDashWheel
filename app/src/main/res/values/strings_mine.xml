@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<!-- xmlns:tools is ours: the two search strings below are translated in English and Spanish only
+     (the owner's decision), so lint must not demand the other nine locales. -->
+<resources xmlns:tools="http://schemas.android.com/tools">
     <!-- My readings: the driver's own OBD requests and formulas (MyReadings.kt, MyReadingsTile.kt) -->
     <string name="mine_title">My readings</string>
     <string name="mine_settings_detail">Your own OBD requests and formulas</string>
@@ -54,4 +56,7 @@
     <string name="mine_err_address">Addresses are 3 or 8 hex digits, and an answer address needs an ECU address.</string>
     <string name="mine_err_session">Session: 1001, 1003, 1081, 1092 or 10C0 only, with an ECU address.</string>
     <string name="mine_err_no_bytes">The letters A to H only mean something in a reading from the car.</string>
+    <!-- Place search: what a result row says when the typed house number is not that address (PlaceQuery.kt, MapLibrePanel.kt) -->
+    <string name="mine_search_no_number" tools:ignore="MissingTranslation">no number</string>
+    <string name="mine_search_number_not_found" tools:ignore="MissingTranslation">Number %1$s is not in these addresses. Pick one to see it on the map.</string>
 </resources>
