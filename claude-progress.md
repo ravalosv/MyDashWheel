@@ -315,3 +315,23 @@
   ya corre en cada push (el fallo se ve, solo no impide publicarlo a mano).
 - Mejor próximo paso: seguir con la lista de pendientes del propietario; no hay trabajo abierto
   en el harness.
+
+## Sesión 009 (2026-10-31): la hoja del mapa y las rutas alternativas llegan a `releases`
+
+- Un solo commit `3d5a0660` («hoja de ajustes del mapa, capas y rutas alternativas») cierra
+  los tickets **#16 a #25** menos ninguno: hoja de capas (#16), «Centrar» sin retorno
+  automático (#17), tema del mapa (#18), estilos de OpenFreeMap en lista (#19), clave de
+  TomTom en Ajustes → Experto (#20), «Mapa» al final de Aspecto (#21), «Centrar» solo icono
+  (#22), «Ruta completa» (#23), ciudades y pueblos en la búsqueda (#24) y rutas alternativas
+  (#25, cerrado antes con su anotación).
+- Verificación completa antes del commit: `lintGithubDebug` + `testGithubDebugUnitTest` +
+  `assembleGithubDebug`, **BUILD SUCCESSFUL en 8m34s**, 1404 tests, 0 fallos, APK generado.
+- Merge `7c4fe0d8` en `main` (empujado a `ravalosv/MyDashWheel`) y merge `9e140ad3` en
+  `releases`, que publica el beta `v1.0.884` (la CI cuenta 684 commits de primer padre + 200).
+- Quedan abiertos como pendientes del propietario: **#26** (búsqueda de direcciones más limpia,
+  como en valhalla.openstreetmap.de), **#27** (¿el tráfico de Valhalla en vez de TomTom?),
+  **#28** («Esta versión no» recordado entre sesiones solo para la comprobación automática) y
+  **#29** (arrastre del mapa sin ambigüedad; en el ticket va la contrapropuesta: un dedo cambia
+  de pantalla, dos dedos mueven el mapa).
+- Lo que sigue sin funcionar y quedó anotado en #25: **tocar una ruta alternativa no la
+  selecciona**. Se entregaron la generación y el dibujo; la selección por toque sigue pendiente.
