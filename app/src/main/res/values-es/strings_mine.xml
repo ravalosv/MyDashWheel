@@ -57,4 +57,42 @@
     <!-- Búsqueda de destinos: lo que dice una fila cuando el número escrito no es el de esa dirección (PlaceQuery.kt, MapLibrePanel.kt) -->
     <string name="mine_search_no_number">sin número</string>
     <string name="mine_search_number_not_found">El número %1$s no aparece en estas direcciones. Elige una para verla en el mapa.</string>
+    <!-- La hoja propia del mapa (MapOptions.kt, MapSettingsSheet.kt, #16) -->
+    <!-- El encabezado propio del mapa al final del panel Aspecto (SettingsScreen.kt, #21) -->
+    <string name="mine_map_section">Mapa</string>
+    <string name="mine_map_title">Mapa</string>
+    <string name="mine_map_detail">El widget de mapa y cómo sigue al coche</string>
+    <string name="mine_map_widget">Widget de mapa</string>
+    <string name="mine_map_gestures">Dejar tocar el mapa</string>
+    <string name="mine_map_gestures_detail">Arrástralo, pellízcalo y gíralo con la mano. Apagado, el mapa solo sigue al coche.</string>
+    <string name="mine_map_compass">Brújula</string>
+    <string name="mine_map_compass_detail">Una brújula pequeña sobre el mapa, girando con él.</string>
+    <!-- El estilo del mapa del widget: oscuro, claro o el del tema (MapOptions.kt, #18) -->
+    <string name="mine_map_theme">Estilo del mapa</string>
+    <string name="mine_map_theme_detail">Oscuro, claro o el que pida el tema del panel. El fondo de Canvas sigue siempre al tema.</string>
+    <string name="mine_map_theme_panel">Según tema</string>
+    <string name="mine_map_theme_dark">Oscuro</string>
+    <string name="mine_map_theme_light">Claro</string>
+    <!-- Los estilos de OpenFreeMap, elegidos de una lista (MapStyles.kt, #19) -->
+    <string name="mine_map_styles">Estilos de mapa</string>
+    <string name="mine_map_styles_detail">El estilo de OpenFreeMap que se carga en cada tema. Para una URL propia, Servidores de mapa y rutas.</string>
+    <string name="mine_map_style_light">Mapa claro</string>
+    <string name="mine_map_style_dark">Mapa oscuro</string>
+    <string name="mine_map_layers">Capas</string>
+    <string name="mine_map_traffic">Tráfico</string>
+    <string name="mine_map_traffic_detail">Los incidentes de TomTom —obras, cortes, accidentes— siempre que haya clave, con ruta o sin ella. Los colores del tráfico, solo sobre la ruta trazada: sin ruta ni se piden ni se pintan. La clave, en Experto → Tus claves API.</string>
+    <string name="mine_route_picked">Ruta elegida: %1$s</string>
+    <string name="mine_route_only_one">Solo hay una ruta a este destino</string>
+    <string name="mine_map_alternatives">Rutas alternativas</string>
+    <string name="mine_map_alternatives_detail">Dos o tres caminos al mismo destino, dibujados a la vez: toca el que quieras seguir. En un viaje largo el servidor puede no encontrar ninguno y solo se dibuja la principal.</string>
+    <!-- La clave de TomTom, ya en Experto → Tus claves API (ApiKeys.kt, #20) -->
+    <string name="mine_traffic_key_title">Clave de TomTom (tráfico)</string>
+    <string name="mine_traffic_key_uses">El tráfico y los incidentes del mapa. Gratis para un coche: 200 000 peticiones al mes.</string>
+    <string name="mine_map_reset">Restablecer</string>
+    <!-- El botón de volver al coche sobre el widget de mapa (MapCenterButton.kt, #17). Desde el #22 es
+         solo la descripción del icono: el botón no lleva texto. -->
+    <string name="mine_map_center">Centrar</string>
+    <!-- El botón de ver la ruta entera sobre el widget de mapa (MapRouteOverview.kt, #23): solo la
+         descripción del icono, el botón no lleva texto. -->
+    <string name="mine_route_overview">Ruta completa</string>
 </resources>

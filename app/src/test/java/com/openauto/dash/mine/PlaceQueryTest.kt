@@ -151,4 +151,55 @@ class PlaceQueryTest {
         val b = place("Soriana Chapalita", 20.7000)
         assertEquals(2, PlaceQuery.ranked(listOf(a, b), "Soriana", null, null).size)
     }
+
+    // --- cities and towns, not only the street of the same name (#24) --------
+
+    private fun found(name: String, rank: Int, lat: Double, lng: Double = -103.35) =
+        PlaceQuery.Found(place(name, lat, lng), rank, "city")
+
+    @Test
+    fun theTypedCityGoesBeforeTheStreetOfTheSameName() {
+        // What Nominatim answered with a box: streets named Puerto Vallarta. Without it: the city.
+        val street = place("Puerto Vallarta, Tlaquepaque, Región Centro, Jalisco", 20.6152, -103.2928)
+        val city = found("Puerto Vallarta, Región Costa Norte, Jalisco, México", 16, 20.6534, -105.2253)
+        val rows = PlaceQuery.withLocalities(listOf(street), listOf(city), "Puerto Vallarta")
+        assertEquals(2, rows.size)
+        assertEquals("Puerto Vallarta, Región Costa Norte, Jalisco, México", rows[0].name)
+    }
+
+    @Test
+    fun aPlaceNameIsComparedWithoutAccentsCaseOrWhatFollowsTheComma() {
+        assertEquals("san sebastian el grande", PlaceQuery.name("  San Sebastián El Grande "))
+        assertEquals("puerto vallarta", PlaceQuery.name("Puerto Vallarta, Jalisco"))
+        val town = found("San Sebastián El Grande, Tlajomulco de Zúñiga, Jalisco", 18, 20.30)
+        val rows = PlaceQuery.withLocalities(emptyList(), listOf(town), "SAN SEBASTIAN EL GRANDE")
+        assertEquals(1, rows.size)
+    }
+
+    @Test
+    fun aRoadFarAwayIsNotOfferedAsALocality() {
+        // "hacienda la palma" must keep finding the street beside the car (#14).
+        val nearStreet = place("Hacienda la Palma", 20.66)
+        val farStreet = found("Hacienda la Palma, Guadalupe, Nuevo León", 26, 25.6, -100.2)
+        val rows = PlaceQuery.withLocalities(listOf(nearStreet), listOf(farStreet), "hacienda la palma")
+        assertEquals(1, rows.size)
+        assertEquals(20.66, rows[0].lat, 0.0)
+    }
+
+    @Test
+    fun anotherTownOfTheSameNameGoesAfterTheNearRows() {
+        val nearStreet = place("San Sebastián", 20.66)
+        val town = found("San Sebastián El Grande, Tlajomulco, Jalisco", 18, 20.52)
+        val rows = PlaceQuery.withLocalities(listOf(nearStreet), listOf(town), "San Sebastián")
+        assertEquals(2, rows.size)
+        assertEquals(20.66, rows[0].lat, 0.0)
+    }
+
+    @Test
+    fun localitiesReachFromMunicipalityToSuburb() {
+        assertTrue(PlaceQuery.isLocality(12))
+        assertTrue(PlaceQuery.isLocality(16))
+        assertTrue(PlaceQuery.isLocality(20))
+        assertFalse(PlaceQuery.isLocality(26))
+    }
 }

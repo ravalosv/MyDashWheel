@@ -199,7 +199,8 @@ internal enum class SettingsTab(@StringRes val titleRes: Int, val icon: ImageVec
 /** The settings that open further into the pane; Lab's open over Lab. */
 internal enum class Deep {
     CAR, CAR_LOOK, REVERSE, SIGNALS, AI, UPKEEP, EXPLORER, WHEEL, PLACES, LANGUAGE, SECOND_SCREEN, LPG, MY_READINGS,
-    OBD, UNITS, ACCESS, ABOUT, LAB, UNIT_TOOLS, MAP_SERVERS, API_KEYS, HEAD_UNIT, TPMS, SENSOR_WATCH
+    OBD, UNITS, ACCESS, ABOUT, LAB, UNIT_TOOLS, MAP_SERVERS, API_KEYS, HEAD_UNIT, TPMS, SENSOR_WATCH,
+    MAP // MINE: #16
 }
 
 /** Under this width the categories go along the top: a rail would leave the settings half a screen. */
@@ -294,6 +295,7 @@ internal fun SettingsScreen(
                         Deep.HEAD_UNIT -> HeadUnitSheet(onDismiss = back)
                         Deep.TPMS -> UsbTpmsSheet(onDismiss = back)
                         Deep.SENSOR_WATCH -> SensorWatchSheet(onDismiss = back)
+                        Deep.MAP -> com.openauto.dash.mine.MapSettingsSheet(onDismiss = back) // MINE: #16
                     }
                 }
             }
@@ -310,7 +312,7 @@ internal fun SettingsScreen(
                         SettingsTab.OVERVIEW -> Unit
                         SettingsTab.ALERTS -> AlertsGrid()
                         SettingsTab.SOUND -> SoundPane()
-                        SettingsTab.LOOK -> LookPane(theme)
+                        SettingsTab.LOOK -> LookPane(theme, open) // MINE: #16
                         SettingsTab.DASHBOARD -> DashboardPane(m, theme)
                         SettingsTab.CAR -> CarPane(open)
                         SettingsTab.DIAGNOSTICS -> DiagnosticsPane(open)
@@ -826,14 +828,18 @@ private fun deepFieldLabel(field: ObdField): Int = when (field) {
  * What the dashboard looks like: the look in use with the Home it brings and
  * the looks by family (LookPage.kt), then day and night beside the effects,
  * and the animation Dashwheel starts with.
+ * MINE: #21 last, under its own heading, the map: it is not part of the panel's look.
  */
 @Composable
-private fun LookPane(theme: ThemeState) {
+private fun LookPane(theme: ThemeState, open: (Deep) -> Unit) {
     LookPicker(theme)
     Spacer(Modifier.height(16.dp))
     LookLightAndEffects(theme)
-    Spacer(Modifier.height(20.dp))
+    Spacer(Modifier.height(20.dp)) // MINE: #21
     StartAnimationSetting()
+    Spacer(Modifier.height(20.dp)) // MINE: #21 the map, kept apart from the look itself.
+    SettingsSection(stringResource(R.string.mine_map_section)) // MINE: #21
+    SettingsRow(Icons.Filled.Tune, stringResource(R.string.mine_map_title), stringResource(R.string.mine_map_detail)) { open(Deep.MAP) } // MINE: #16
 }
 
 /** The dashboard around the tiles: the bottom bar, its readouts, the side rail and tabs, Moments. */

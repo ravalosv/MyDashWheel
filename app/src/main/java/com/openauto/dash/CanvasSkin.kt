@@ -164,6 +164,8 @@ internal fun CanvasBackdrop(modifier: Modifier) {
                 Brush.verticalGradient(0f to bg, 0.2f to bg.copy(alpha = 0.8f), 0.45f to bg.copy(alpha = 0f))
             )
         )
+        // MINE: #16 over the veil, not under it: up top the gradient is opaque enough to hide it.
+        com.openauto.dash.mine.MapCompass(Modifier.align(Alignment.BottomEnd).padding(end = 24.dp, bottom = 24.dp))
     }
 }
 

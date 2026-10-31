@@ -80,8 +80,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -95,7 +93,6 @@ import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.location.LocationComponentActivationOptions
 import org.maplibre.android.location.LocationComponent
 import org.maplibre.android.location.LocationComponentOptions
-import org.maplibre.android.location.OnCameraTrackingChangedListener
 import org.maplibre.android.location.modes.CameraMode
 import org.maplibre.android.location.modes.RenderMode
 import org.maplibre.android.maps.MapLibreMap
@@ -198,7 +195,10 @@ fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = false) {
     fun clearRoute() {
         route = null; destination = null; destinationName = null; info = null; error = null
         navRoute?.removeRoute()
+        com.openauto.dash.mine.AlternativeRoutes.forget() // MINE: #25 no route, no choice kept from it.
+        com.openauto.dash.mine.RoutePicking.show(emptyList()) // MINE: #25 no line, nothing to touch.
         mapRef?.markers?.forEach { mapRef?.removeMarker(it) }
+        com.openauto.dash.mine.RouteFeed.clearPreview() // MINE: #16 the route is gone: so is its traffic.
     }
 
     fun routeTo(dest: Point) {
@@ -235,10 +235,25 @@ fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = false) {
             }
             loading = false
             result.onSuccess { resp ->
-                val first = resp.routes.firstOrNull()
-                if (first == null) { error = context.getString(R.string.info_map_no_route); return@onSuccess }
+                if (resp.routes.isEmpty()) { error = context.getString(R.string.info_map_no_route); return@onSuccess }
+                // MINE: #25 among them, the one the driver tapped last time, else the server's first.
+                val first = resp.routes[
+                    com.openauto.dash.mine.AlternativeRoutes.indexOf(
+                        com.openauto.dash.mine.AlternativeRoutes.chosenGeometry(),
+                        resp.routes.map { it.geometry }
+                    ).coerceAtLeast(0)
+                ]
                 route = first
                 navRoute?.addRoutes(resp.routes)
+                // MINE: #25 the lines on the map, for the tap read here and the one written on it.
+                com.openauto.dash.mine.RoutePicking.show(resp.routes)
+                // MINE: #25 all of them on the map, so the driver can tap the one to follow. After
+                // addRoutes: the alternative lines are drawn by then, and hiding them is one call.
+                navRoute?.showAlternativeRoutes(
+                    resp.routes.size > 1 && com.openauto.dash.mine.MapOptionsStore.current.value.alternatives
+                )
+                // MINE: #16 the route now on the screen, so its traffic is drawn on it.
+                com.openauto.dash.mine.RouteFeed.preview(first)
                 info = formatEta(context, first.distance, first.duration)
                 map.animateCamera(
                     CameraUpdateFactory.newLatLngZoom(LatLng(dest.latitude(), dest.longitude()), 13.0)
@@ -378,7 +393,8 @@ fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = false) {
     // The basemap follows the dashboard's dark or light version. Only the
     // style swaps on a change; the route line and click listener are set up
     // on the first load, and the location puck carries over by itself.
-    val lightMap = DashColors.Light
+    // MINE: #18 the widget's basemap as the driver chose it (dark, light or the theme's); the Canvas backdrop keeps the theme.
+    val lightMap = if (wallpaper) DashColors.Light else com.openauto.dash.mine.MapLook.mapIsLight()
     // The listener below is registered once; it reads the lock's latest state.
     val movingNow = rememberUpdatedState(moving)
     MapServers.load(context)
@@ -389,7 +405,30 @@ fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = false) {
         map.setStyle(Style.Builder().fromUri(styleUrl)) { style ->
             add3dBuildings(style, lightMap)
             if (navRoute == null) {
-                navRoute = NavigationMapRoute(mapView, map)
+                // MINE: #25 the alternative tapped on the map becomes the one to follow.
+                navRoute = NavigationMapRoute(mapView, map).also { line ->
+                    line.setOnRouteSelectionChangeListener { picked ->
+                        com.openauto.dash.mine.AlternativeRoutes.chosen(picked.geometry)
+                        route = picked
+                        info = formatEta(context, picked.distance, picked.duration) // MINE: #25 the chosen one's time
+                    }
+                    // MINE: #25 its map-tap listener is only registered in onStart(); the upstream never
+                    // calls it, so a tap on an alternative was ignored. The map is up by now.
+                    runCatching { line.onStart() }
+                }
+                // MINE: #25 the tap read here as well: the library's own answer is never visible to us,
+                // so this one says which line was touched (one written line, on top of the route).
+                com.openauto.dash.mine.RoutePicking.watch(map) { picked, all ->
+                    com.openauto.dash.mine.AlternativeRoutes.chosen(picked.geometry)
+                    route = picked
+                    info = formatEta(context, picked.distance, picked.duration)
+                    android.widget.Toast.makeText(
+                        context,
+                        if (all <= 1) context.getString(R.string.mine_route_only_one)
+                        else context.getString(R.string.mine_route_picked, formatEta(context, picked.distance, picked.duration)),
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
                 // A destination is set by a long press, not a tap: a tap while
                 // panning, or a knock on the screen in a bumpy lane, used to
                 // drop the route being followed and start a new one. Never
@@ -436,12 +475,28 @@ fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = false) {
     LaunchedEffect(hasLocation, styleReady) {
         if (!hasLocation || !styleReady) return@LaunchedEffect
         val map = mapRef ?: return@LaunchedEffect
-        map.getStyle { style -> enableLocation(map, style, context, scope, if (wallpaper) mapView else null) { stillNow } }
+        map.getStyle { style ->
+            enableLocation(map, style, context, scope, if (wallpaper) mapView else null) { stillNow }
+            // MINE: #16 inside the callback: this style is the loaded one, the only that takes new layers.
+            com.openauto.dash.mine.MapLook.watch(context, scope, map, if (wallpaper) mapView else null, style)
+        }
     }
 
     Box(modifier = modifier.fillMaxSize()) {
         // A layer of its own: each map frame re-records only this view, not the page over it.
         AndroidView(factory = { mapView }, modifier = Modifier.fillMaxSize().graphicsLayer())
+        // MINE: #16 our compass over the widget's map; the library's only shows once the map is turned.
+        if (!wallpaper) com.openauto.dash.mine.MapCompass(Modifier.align(Alignment.BottomEnd).padding(10.dp), diameter = 36.dp)
+        // MINE: #17 back to the car once the camera has been moved away from it, just above the compass.
+        if (!wallpaper) com.openauto.dash.mine.MapCenterButton(
+            mapRef,
+            Modifier.align(Alignment.BottomEnd).padding(end = 10.dp, bottom = 54.dp)
+        )
+        // MINE: #23 the whole route on the screen, while there is one, above «Centrar».
+        if (!wallpaper) com.openauto.dash.mine.MapRouteOverviewButton(
+            mapRef,
+            Modifier.align(Alignment.BottomEnd).padding(end = 10.dp, bottom = 104.dp)
+        )
         // The search and route panels belong to the map tile, not to a wallpaper.
         if (!wallpaper) {
             // Destination search bar. Searching from the IME key, the search button
@@ -757,24 +812,10 @@ private fun enableLocation(
                 if (byGesture) userZooms[map] = map.cameraPosition.zoom
                 byGesture = false
             }
-            // Any gesture or programmatic camera move (route preview, search hit)
-            // drops the component out of tracking mode. In a car the map has to
-            // come back to the vehicle by itself, so tracking resumes a few
-            // seconds after the last interruption.
-            var resume: Job? = null
-            lc.addOnCameraTrackingChangedListener(object : OnCameraTrackingChangedListener {
-                override fun onCameraTrackingDismissed() {
-                    resume?.cancel()
-                    resume = scope.launch {
-                        delay(TRACKING_RESUME_MS)
-                        followVehicle(lc, wallpaper, userZooms[map])
-                    }
-                }
-
-                override fun onCameraTrackingChanged(currentMode: Int) {
-                    if (currentMode != CameraMode.NONE) resume?.cancel()
-                }
-            })
+            // MINE: #17 any gesture or camera move of ours (route preview, search hit) drops the
+            // component out of tracking mode. The map no longer comes back to the car on a timer:
+            // it stays where the driver left it, and the «Centrar» button takes it back.
+            com.openauto.dash.mine.MapRecentering.watch(map, lc) { followVehicle(lc, wallpaper, null) }
         }
         lc.isLocationComponentEnabled = true
         // Directional puck; the camera follows position AND heading (map rotates
@@ -787,9 +828,6 @@ private fun enableLocation(
         followVehicle(lc, wallpaper, userZooms[map])
     }
 }
-
-/** Seconds of free panning before the camera snaps back to the vehicle. */
-private const val TRACKING_RESUME_MS = 10_000L
 
 /** A fix this close to the last one shown, with the car standing still, is GPS wander: the map keeps the last. */
 private const val STILL_WANDER_M = 3f
@@ -931,7 +969,11 @@ internal fun valhallaRoute(origin: Point, dest: Point, language: String): Direct
         "units" to if (Units.current.value.imperial) "miles" else "kilometers",
         "locations" to listOf(loc(origin.longitude(), origin.latitude()), loc(dest.longitude(), dest.latitude()))
     )
-    val json = Gson().toJson(body)
+    // MINE: #25 the same request, asking for alternative routes unless the driver turned them off.
+    val json = com.openauto.dash.mine.AlternativeRoutes.body(
+        Gson().toJson(body),
+        com.openauto.dash.mine.MapOptionsStore.current.value.alternatives // MINE: #25
+    )
     android.util.Log.d("MapLibrePanel", "Routing request: origin=(${origin.latitude()},${origin.longitude()}) dest=(${dest.latitude()},${dest.longitude()})")
     android.util.Log.d("MapLibrePanel", "Request body: $json")
     val routingUrl = MapServers.current.value.routing
