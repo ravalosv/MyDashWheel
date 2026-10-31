@@ -123,6 +123,33 @@ Lo que se hizo distinto de lo escrito arriba, y por qué:
    país del destino (otra petición) o enseñar un aviso que la tarjeta tapa con la ETA. `routeTo` ya
    rechaza destinos a más de 5000 km, que cubre el caso absurdo.
 
+## Ciudades y pueblos, no solo la calle homónima (2026-10-31, el propietario)
+
+**Ticket:** [#24](https://github.com/ravalosv/MyDashWheel/issues/24)
+
+Informe: escribiendo «Puerto Vallarta» desde Guadalajara —una ciudad a cuatro horas— la búsqueda no
+la encontraba. Medido contra Nominatim el 2026-10-31: **con caja, aunque sea suave, la ciudad no sale
+nunca**. Con la caja dura del punto 6 devuelve calles del mismo nombre de Tlaquepaque; con la caja
+suave, otras seis calles de Tlajomulco y Zapopan; las ocho filas se llenan de calles y la ciudad
+(`place_rank` 16, municipio 12) queda fuera del límite. Sin caja, en cambio, la primera respuesta es
+la ciudad.
+
+La segunda consulta pasa a ser **nacional y sin caja** (`answers(raw, "", …)`), y de ella solo entran
+los lugares que un conductor nombra como destino: `place_rank <= 20` —ciudad (16), municipio (12),
+pueblo (18), aldea y colonia (20)—. Los caminos y edificios (26 en adelante) no se ofrecen como
+localidad. Con esa respuesta, `withLocalities` arma las filas:
+
+1. la localidad cuyo nombre coincide **exactamente** con lo escrito —sin acentos, sin mayúsculas, lo
+   que va antes de la primera coma—, que va primera: «Puerto Vallarta» enseña la ciudad antes que la
+   calle de al lado;
+2. las filas cercanas, como hasta ahora (`ranked`, con el número de casa respetado);
+3. las demás localidades lejanas, detrás.
+
+Así el punto 6 no se rompe: «hacienda la palma» sin caja solo devuelve calles de ese nombre (rango
+26), que no son localidades, y la calle de al lado sigue la primera. Si no hay nada cerca, la
+respuesta nacional se ordena como siempre. Coste: una petición más por búsqueda a Nominatim (la
+consulta cerrada y la nacional), dos en total; sigue sin autocompletado.
+
 ## Estado de Aprobación
 
 - [x] Autorización para implementar: el propietario pide incluirlo en la solución (2026-10-30)

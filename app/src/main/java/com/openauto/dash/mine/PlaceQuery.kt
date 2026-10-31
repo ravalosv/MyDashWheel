@@ -45,6 +45,49 @@ internal object PlaceQuery {
     /** What was typed: the house number to respect, if any. */
     data class Typed(val number: String?)
 
+    /** One answer as Nominatim gave it: the [place], and how big a thing it names ([rank]). */
+    internal data class Found(val place: Place, val rank: Int, val kind: String)
+
+    /**
+     * Whether [rank] names something a driver sets off towards: a city (16),
+     * municipality (12), town (18), village (19), hamlet or suburb (20). Roads
+     * and buildings rank 26 and up and are not offered as a locality.
+     */
+    internal fun isLocality(rank: Int): Boolean = rank <= 20
+
+    /** The typed text as a name to compare: before the first comma, no accents, one case. */
+    internal fun name(raw: String): String =
+        java.text.Normalizer.normalize(raw.substringBefore(',').trim(), java.text.Normalizer.Form.NFD)
+            .replace(Regex("""\p{M}+"""), "")
+            .replace(Regex("""\s+"""), " ")
+            .lowercase(Locale.ROOT)
+
+    /**
+     * The rows to show: [near] —the car's surroundings, address intent first—
+     * with the localities of the countrywide [wide] answer (#24). The one the
+     * driver named exactly is the answer, so it goes first: typed "Puerto
+     * Vallarta" the city comes before the street of that name ten minutes
+     * away. The other localities go after the near rows, so a street beside the
+     * car still wins over a village of the same name elsewhere (#14).
+     */
+    internal fun withLocalities(near: List<Place>, wide: List<Found>, raw: String, limit: Int = LIMIT): List<Place> {
+        val wanted = name(raw)
+        val localities = wide.filter { isLocality(it.rank) }.map { it.place }
+        val exact = if (wanted.isEmpty()) emptyList() else localities.filter { name(it.name) == wanted }
+        val others = localities.filter { candidate -> exact.none { it.sameSpot(candidate) } }
+        return deduped(exact + near + others, limit)
+    }
+
+    /** One row per place, in the order given, up to [limit]. */
+    private fun deduped(places: List<Place>, limit: Int): List<Place> {
+        val kept = ArrayList<Place>(places.size)
+        for (place in places) {
+            if (kept.size >= limit) break
+            if (kept.none { it.sameSpot(place) || it.distanceM(place.lat, place.lng) < SAME_PLACE_M }) kept += place
+        }
+        return kept
+    }
+
     /** A standalone number is a house number unless it is part of the street's own name ("Calle 5 de Mayo"). */
     private val NUMBER = Regex("""\b(\d{1,5})\b""")
     private val NAME_NUMBER = Regex("""^\s*(de|del|de la|de las|de los)\s""", RegexOption.IGNORE_CASE)
@@ -108,9 +151,7 @@ internal object PlaceQuery {
         val pool = withNumber.ifEmpty { answers }
         val near = nearLat != null && nearLng != null
         val ordered = if (near) pool.sortedBy { it.distanceM(nearLat!!, nearLng!!) } else pool
-        val kept = ArrayList<Place>(ordered.size)
-        for (place in ordered) if (kept.none { it.sameSpot(place) || it.distanceM(place.lat, place.lng) < SAME_PLACE_M }) kept += place
-        return kept
+        return deduped(ordered, LIMIT)
     }
 
     /**
@@ -122,20 +163,23 @@ internal object PlaceQuery {
         withContext(Dispatchers.IO) {
             val language = InAppNav.locale(context).language
             if (nearLat == null || nearLng == null) {
-                return@withContext ranked(answers(raw, "", limit, language, null), raw, null, null)
+                return@withContext ranked(answers(raw, "", limit, language, null).map { it.place }, raw, null, null)
             }
             val country = CountryLookup.code(nearLat, nearLng)
             // Around the car first, as a hard limit: "hacienda la palma" must find the street five
             // minutes away, not the village of the same name in the next city. A soft box only
             // reorders, and Nominatim ranked the far one first.
             val near = answers(raw, around(nearLat, nearLng, NEAR_DEG), limit, language, country, bounded = true)
-            if (near.isNotEmpty()) return@withContext ranked(near, raw, nearLat, nearLng)
-            // Nothing around the car: the whole country, with the car as a preference only.
-            ranked(answers(raw, around(nearLat, nearLng), limit, language, country), raw, nearLat, nearLng)
+            // And the country's answer with no box at all: the only one that sees cities, towns and
+            // villages further away. With a box —even a soft one— its eight rows fill with the
+            // streets of that same name around the car, and the city is never offered (#24).
+            val wide = answers(raw, "", limit, language, country)
+            if (near.isEmpty()) return@withContext ranked(wide.map { it.place }, raw, nearLat, nearLng)
+            withLocalities(ranked(near.map { it.place }, raw, nearLat, nearLng), wide, raw, limit)
         }
 
-    /** One Nominatim call. */
-    private fun answers(raw: String, around: String, limit: Int, language: String?, country: String?, bounded: Boolean = false): List<Place> {
+    /** One Nominatim call, each answer with the rank of the thing it names. */
+    private fun answers(raw: String, around: String, limit: Int, language: String?, country: String?, bounded: Boolean = false): List<Found> {
         val request = Request.Builder().url(url(raw, around, limit, language, country, bounded))
             .header("User-Agent", OVERPASS_AGENT).build()
         Http.client.newCall(request).execute().use { resp ->
@@ -146,7 +190,7 @@ internal object PlaceQuery {
                 val lat = o.optString("lat").toDoubleOrNull() ?: return@mapNotNull null
                 val lon = o.optString("lon").toDoubleOrNull() ?: return@mapNotNull null
                 val name = o.optString("display_name").takeIf { it.isNotBlank() } ?: raw
-                Place(name, lat, lon)
+                Found(Place(name, lat, lon), o.optInt("place_rank", 30), o.optString("addresstype"))
             }
         }
     }

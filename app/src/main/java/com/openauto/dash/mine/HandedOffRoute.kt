@@ -114,6 +114,7 @@ internal fun HandedOffRouteOnMap(map: MapLibreMap?, navRoute: NavigationMapRoute
         drawn = null
         marker?.let { m -> runCatching { map?.removeMarker(m) } }
         marker = null
+        RouteFeed.clearHanded()
     }
 
     LaunchedEffect(map, navRoute, wanted, language) {
@@ -171,6 +172,8 @@ internal fun HandedOffRouteOnMap(map: MapLibreMap?, navRoute: NavigationMapRoute
                         offSince = 0L
                         drawn = route
                         runCatching { line.addRoute(route) }
+                        // The line now on the map, so its traffic is painted on it (#16).
+                        RouteFeed.handed(route)
                         progress = route.geometry?.let { Polyline.decode(it, 6) }
                             ?.takeIf { it.size > 1 }
                             ?.let { RouteProgress(it) }

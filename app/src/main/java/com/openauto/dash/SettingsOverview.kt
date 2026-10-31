@@ -497,6 +497,7 @@ private val SETTINGS_INDEX: List<SettingsEntry> by lazy {
         SettingsEntry(R.string.settings_lab, SettingsTab.EXPERT, listOf(Deep.LAB)),
         SettingsEntry(R.string.api_keys_title, SettingsTab.EXPERT, listOf(Deep.API_KEYS), detail = R.string.api_keys_search_detail),
         SettingsEntry(R.string.map_servers_title, SettingsTab.EXPERT, listOf(Deep.MAP_SERVERS)),
+        SettingsEntry(R.string.mine_map_title, SettingsTab.LOOK, listOf(Deep.MAP)), // MINE: #16
         SettingsEntry(R.string.explore_title, SettingsTab.EXPERT, listOf(Deep.LAB, Deep.EXPLORER), detail = R.string.explore_settings_detail),
         SettingsEntry(R.string.dead_strip_title, SettingsTab.EXPERT, listOf(Deep.LAB), detail = R.string.dead_strip_detail),
         SettingsEntry(R.string.settings_sleep_title, SettingsTab.EXPERT, listOf(Deep.LAB), offered = { CarPower.available }),
@@ -531,6 +532,7 @@ private fun Deep.titleRes(): Int = when (this) {
     Deep.HEAD_UNIT -> R.string.unit_card_title
     Deep.TPMS -> R.string.tpms_usb_title
     Deep.SENSOR_WATCH -> R.string.watch_title
+    Deep.MAP -> R.string.mine_map_title // MINE: #16
 }
 
 /** Lower case without accents, so "eco" finds "Éco" and "volumen" finds "Volumen". */
