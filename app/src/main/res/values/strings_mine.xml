@@ -59,4 +59,42 @@
     <!-- Place search: what a result row says when the typed house number is not that address (PlaceQuery.kt, MapLibrePanel.kt) -->
     <string name="mine_search_no_number" tools:ignore="MissingTranslation">no number</string>
     <string name="mine_search_number_not_found" tools:ignore="MissingTranslation">Number %1$s is not in these addresses. Pick one to see it on the map.</string>
+    <!-- The map's own settings sheet (MapOptions.kt, MapSettingsSheet.kt, #16) -->
+    <!-- The map's own heading at the end of the Aspecto pane (SettingsScreen.kt, #21) -->
+    <string name="mine_map_section" tools:ignore="MissingTranslation">Map</string>
+    <string name="mine_map_title" tools:ignore="MissingTranslation">Map</string>
+    <string name="mine_map_detail" tools:ignore="MissingTranslation">The map widget and how it follows the car</string>
+    <string name="mine_map_widget" tools:ignore="MissingTranslation">Map widget</string>
+    <string name="mine_map_gestures" tools:ignore="MissingTranslation">Let the map be touched</string>
+    <string name="mine_map_gestures_detail" tools:ignore="MissingTranslation">Drag, pinch and turn it by hand. With it off the map only follows the car.</string>
+    <string name="mine_map_compass" tools:ignore="MissingTranslation">Compass</string>
+    <string name="mine_map_compass_detail" tools:ignore="MissingTranslation">A small compass over the map, turning with it.</string>
+    <!-- The widget's basemap: dark, light or the theme's (MapOptions.kt, #18) -->
+    <string name="mine_map_theme" tools:ignore="MissingTranslation">Map style</string>
+    <string name="mine_map_theme_detail" tools:ignore="MissingTranslation">Dark, light, or whatever the panel\'s theme says. The Canvas backdrop always follows the theme.</string>
+    <string name="mine_map_theme_panel" tools:ignore="MissingTranslation">Theme</string>
+    <string name="mine_map_theme_dark" tools:ignore="MissingTranslation">Dark</string>
+    <string name="mine_map_theme_light" tools:ignore="MissingTranslation">Light</string>
+    <!-- The OpenFreeMap styles, picked from a list (MapStyles.kt, #19) -->
+    <string name="mine_map_styles" tools:ignore="MissingTranslation">Map styles</string>
+    <string name="mine_map_styles_detail" tools:ignore="MissingTranslation">The OpenFreeMap style loaded for each theme. For a URL of your own, Map and route servers.</string>
+    <string name="mine_map_style_light" tools:ignore="MissingTranslation">Light map</string>
+    <string name="mine_map_style_dark" tools:ignore="MissingTranslation">Dark map</string>
+    <string name="mine_map_layers" tools:ignore="MissingTranslation">Layers</string>
+    <string name="mine_map_traffic" tools:ignore="MissingTranslation">Traffic</string>
+    <string name="mine_map_traffic_detail" tools:ignore="MissingTranslation">TomTom\'s incidents —roadworks, closures, crashes— whenever there is a key, with or without a route. Traffic colours only on the traced route: without one none are asked for, none drawn. The key lives in Expert → Your API keys.</string>
+    <string name="mine_route_picked" tools:ignore="MissingTranslation">Route picked: %1$s</string>
+    <string name="mine_route_only_one" tools:ignore="MissingTranslation">Only one route to this destination</string>
+    <string name="mine_map_alternatives" tools:ignore="MissingTranslation">Alternative routes</string>
+    <string name="mine_map_alternatives_detail" tools:ignore="MissingTranslation">Two or three ways to the same destination, drawn at once: tap the one to follow. On a long trip the server may find none and only the main one is drawn.</string>
+    <!-- The TomTom key, now in Expert → Your API keys (ApiKeys.kt, #20) -->
+    <string name="mine_traffic_key_title" tools:ignore="MissingTranslation">TomTom key (traffic)</string>
+    <string name="mine_traffic_key_uses" tools:ignore="MissingTranslation">The map\'s traffic and incidents. Free for a car: 200 000 requests a month.</string>
+    <string name="mine_map_reset" tools:ignore="MissingTranslation">Restore</string>
+    <!-- The back-to-the-car button over the map widget (MapCenterButton.kt, #17). Since #22 it is the
+         icon's description alone: the button shows no text. -->
+    <string name="mine_map_center" tools:ignore="MissingTranslation">Centre</string>
+    <!-- The whole-route button over the map widget (MapRouteOverview.kt, #23): its description only,
+         the button shows no text. -->
+    <string name="mine_route_overview" tools:ignore="MissingTranslation">Whole route</string>
 </resources>

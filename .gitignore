@@ -41,3 +41,6 @@ tools/roadwatch-replay/efficientdet_*.tflite
 # …pero el wrapper de Gradle es parte del build: sin el, un clon en Windows
 # no compila (launch.json, tasks.json e init.ps1 lo invocan).
 !gradlew.bat
+
+# Local screenshots and scratch material
+.tmp-shots/

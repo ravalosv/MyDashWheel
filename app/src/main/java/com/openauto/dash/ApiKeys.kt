@@ -54,7 +54,9 @@ internal enum class ApiService(
 ) {
     GEMINI(R.string.ai_key, R.string.api_keys_gemini_uses, "https://aistudio.google.com/apikey"),
     /** Fuel prices in Germany ([Tankerkoenig]). */
-    TANKERKOENIG(R.string.api_keys_tankerkoenig, R.string.api_keys_tankerkoenig_uses, Tankerkoenig.SIGN_UP);
+    TANKERKOENIG(R.string.api_keys_tankerkoenig, R.string.api_keys_tankerkoenig_uses, Tankerkoenig.SIGN_UP),
+    // MINE: #20 the map's traffic key: its store stays the one #16 gave it ([mine.MapTraffic]).
+    TRAFFIC(R.string.mine_traffic_key_title, R.string.mine_traffic_key_uses, com.openauto.dash.mine.MapTraffic.SIGN_UP);
 }
 
 internal object ApiKeys {
@@ -78,6 +80,7 @@ internal object ApiKeys {
             // The AI mechanic's own settings keep the Gemini key: one store, two pages.
             ApiService.GEMINI -> AiSettings.load(context).apiKey
             ApiService.TANKERKOENIG -> prefs(context).getString(service.name, "").orEmpty()
+            ApiService.TRAFFIC -> com.openauto.dash.mine.MapTraffic.key(context) // MINE: #20
         }
     }
 
@@ -97,6 +100,8 @@ internal object ApiKeys {
                 // The stations around are read again with (or without) the key.
                 FuelPriceRepo.forget()
             }
+            // MINE: #20 the map's layers read this key every second, so the incidents appear on their own.
+            ApiService.TRAFFIC -> com.openauto.dash.mine.MapTraffic.setKey(context, clean)
         }
         _version.value++
     }
