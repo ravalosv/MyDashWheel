@@ -700,16 +700,7 @@ internal fun TileContent(
                 modifier = Modifier.fillMaxSize().background(DashColors.Card)
             ) {
                 MapLibrePanel(modifier = Modifier.fillMaxSize())
-                // Google Maps / Waze next turn, floated over the MapLibre map.
-                val nav by NavDirections.state.collectAsState()
-                if (nav.active) {
-                    DirectionsBanner(
-                        nav = nav,
-                        modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .padding(horizontal = 10.dp, vertical = 10.dp)
-                    )
-                }
+                // MINE: #30 MapLibrePanel owns the navigation banner; do not overlay a second one.
             }
             BuiltinKind.NAVIGATION, BuiltinKind.MEDIA, BuiltinKind.TELEMETRY,
             BuiltinKind.RANGE, BuiltinKind.SPEED_HUD, BuiltinKind.CLOCK, BuiltinKind.WEATHER ->

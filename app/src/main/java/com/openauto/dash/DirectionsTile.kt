@@ -29,12 +29,14 @@ import androidx.compose.material.icons.filled.Directions
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Sms
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -83,6 +85,10 @@ internal fun openNavigationApp(context: Context, nav: NavState) {
         return
     }
     SplitLauncher.launchSplit(context, app)
+}
+
+internal fun stopExternalNavigation(context: Context, nav: NavState) {
+    if (!NavDirections.exitNavigation()) openNavigationApp(context, nav)
 }
 
 /** With no route read: the navigation app that runs now, else the one the driver uses, else Google Maps. */
@@ -182,6 +188,18 @@ internal fun DirectionsCard(
                             color = if (nav.active) DashColors.Good else DashColors.Muted,
                             style = MaterialTheme.typography.labelSmall
                         )
+                    }
+                    if (nav.active && nav.packageName in NavDirections.PACKAGES) {
+                        IconButton(
+                            onClick = { stopExternalNavigation(context, nav) },
+                            modifier = Modifier.size(DashSize.TouchPrimary)
+                        ) {
+                            Icon(
+                                Icons.Filled.Close,
+                                contentDescription = stringResource(R.string.info_map_stop),
+                                tint = DashColors.TextSecondary
+                            )
+                        }
                     }
                 }
 

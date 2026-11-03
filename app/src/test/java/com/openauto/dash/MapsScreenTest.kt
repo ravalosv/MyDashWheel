@@ -9,6 +9,13 @@ class MapsScreenTest {
     private fun piece(text: String, top: Int, described: Boolean = false) = WazeScreen.Piece(text, top, top + 40, 0, described)
 
     @Test
+    fun selectedPlaceCardTakesPrecedenceOverTheNameOnlyPreview() {
+        assertNull(MapsScreen.previewFallback("Planet Fitness", cardIsPreferred = true))
+        assertEquals("Planet Fitness", MapsScreen.previewFallback("Planet Fitness", cardIsPreferred = false))
+        assertNull(MapsScreen.previewFallback(null, cardIsPreferred = false))
+    }
+
+    @Test
     fun theDestinationIsTheTextUnderYourLocation() {
         val preview = listOf(
             piece("Search here", 0), piece("Your location", 120), piece("Tour Eiffel", 180),

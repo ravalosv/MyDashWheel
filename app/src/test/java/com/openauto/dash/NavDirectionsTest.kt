@@ -74,4 +74,24 @@ class NavDirectionsTest {
         assertNull(NavDirections.fromLines(listOf("Google Maps is running"), null, "com.google.android.apps.maps"))
         assertNull(NavDirections.fromLines(emptyList(), null, "com.waze"))
     }
+
+    @Test
+    fun mapsExitActionConfirmsNavigationWhenItsDirectionsCannotBeRead() {
+        val state = NavDirections.mapsNavigationFallback(
+            packageName = "com.google.android.apps.maps",
+            ongoing = true,
+            hasExitAction = true,
+            continueLabel = "Continue"
+        )
+        assertEquals(true, state?.active)
+        assertEquals("Continue", state?.instruction)
+        assertEquals("com.google.android.apps.maps", state?.packageName)
+    }
+
+    @Test
+    fun anOrdinaryRunningNotificationDoesNotConfirmNavigation() {
+        assertNull(NavDirections.mapsNavigationFallback("com.google.android.apps.maps", true, false, "Continue"))
+        assertNull(NavDirections.mapsNavigationFallback("com.google.android.apps.maps", false, true, "Continue"))
+        assertNull(NavDirections.mapsNavigationFallback("com.waze", true, true, "Continue"))
+    }
 }

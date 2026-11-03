@@ -204,10 +204,19 @@ object NavDirections {
             if (runningKey != sbn.key) Log.i(TAG, "${sbn.packageName} runs (${sbn.key})")
             runningKey = sbn.key
             _running.value = sbn.packageName
+            com.openauto.dash.mine.MapsDestination.onNavigationNotification(sbn.packageName) // MINE: #30 deliver the cached Maps card even when no screen event follows navigation startup.
         }
-        val parsed = parse(context, sbn) ?: return
+        val mapsExit = if (sbn.packageName == NavHandoff.MAPS && sbn.isOngoing) {
+            sbn.notification?.actions?.singleOrNull()?.actionIntent
+        } else null
+        if (sbn.isOngoing) exit = mapsExit
+        val parsed = parse(context, sbn) ?: mapsNavigationFallback(
+            sbn.packageName,
+            sbn.isOngoing,
+            mapsExit != null,
+            context.getString(R.string.info_nav_continue)
+        ) ?: return
         currentKey = sbn.key
-        exit = sbn.notification?.actions?.singleOrNull()?.actionIntent?.takeIf { sbn.packageName == NavHandoff.MAPS }
         publish(parsed)
     }
 
@@ -356,6 +365,20 @@ object NavDirections {
             distance = distance,
             eta = eta.orEmpty(),
             icon = icon,
+            packageName = packageName
+        )
+    }
+
+    internal fun mapsNavigationFallback(
+        packageName: String,
+        ongoing: Boolean,
+        hasExitAction: Boolean,
+        continueLabel: String
+    ): NavState? {
+        if (packageName != NavHandoff.MAPS || !ongoing || !hasExitAction) return null
+        return NavState(
+            active = true,
+            instruction = continueLabel,
             packageName = packageName
         )
     }

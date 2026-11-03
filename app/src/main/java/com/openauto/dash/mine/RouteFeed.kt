@@ -28,6 +28,8 @@ internal object RouteFeed {
 
     private val previewed = MutableStateFlow<RouteLine?>(null)
     private val handed = MutableStateFlow<RouteLine?>(null)
+    /** The line currently drawn for a destination handed to Google Maps or Waze. */
+    val handedRoute: StateFlow<RouteLine?> = handed
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var started = false
 
