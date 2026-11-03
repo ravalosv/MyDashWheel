@@ -1,7 +1,7 @@
 # Workflow: preparar issue
 
 1. Leer instrucciones del repositorio (`AGENTS.md`) y ADR aplicables.
-2. Localizar issue por número, dependencias y estado.
+2. Localizar el issue por número exclusivamente en `ravalosv/MyDashWheel` y revisar dependencias y decisiones. No filtrar ni bloquear por etiquetas/estados de triage del upstream.
 3. Crear matriz requisito → criterio → prueba.
 4. Definir casos de prueba manuales concretos. Cada caso lleva ID estable `MT-<issue>-NN`, criterios de aceptación cubiertos, precondiciones/datos ficticios, pasos numerados y resultado esperado observable.
 5. Incluir esos casos en una sección **Pruebas manuales** de la descripción del issue.

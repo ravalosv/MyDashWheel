@@ -2,6 +2,13 @@
 
 Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all operations.
 
+## Scope for MyDashWheel
+
+This checkout's issue workflow applies only to `ravalosv/MyDashWheel`. Do not apply issue states,
+triage labels, or readiness gates from `deviloufr-ai/Dashwheel`; in particular, `ready-for-agent`
+is not required here. Follow the personal repository's instructions and the owner's explicit
+decisions, and pass `--repo ravalosv/MyDashWheel` when the target could be ambiguous.
+
 ## Conventions
 
 - **Create an issue**: `gh issue create --title "..." --body "..."`. Use a heredoc for multi-line bodies.

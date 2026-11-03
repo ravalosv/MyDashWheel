@@ -1,8 +1,8 @@
 # Puertas de calidad
 
-**G0 — especificación:** issue `ready-for-agent`, dependencias resueltas, criterios verificables. Toda duda de "Dependencias y decisiones pendientes" debe tener tipo (Técnica/Producto), indicar si bloquea desarrollo, y formular pregunta, contexto, sugerencia y respuesta del propietario. Cualquier respuesta `Pendiente` impide aceptar el spec e iniciar construcción. Si no hay dudas, dejar la declaración explícita de que está lista para implementar.
+**G0 — especificación:** issue identificado en `ravalosv/MyDashWheel`, dependencias resueltas, autorización explícita del propietario y criterios verificables. No se requieren etiquetas de triage ni estados del upstream (`deviloufr-ai/Dashwheel`); en particular, `ready-for-agent` no es un gate de este repositorio. Toda duda de "Dependencias y decisiones pendientes" debe tener tipo (Técnica/Producto), indicar si bloquea desarrollo, y formular pregunta, contexto, sugerencia y respuesta del propietario. Cualquier respuesta `Pendiente` impide aceptar el spec e iniciar construcción. Si no hay dudas, dejar la declaración explícita de que está lista para implementar.
 
-**G0a — pruebas manuales:** antes de marcar un issue Ready, su descripción incluye casos manuales con ID estable `MT-<issue>-NN`, trazabilidad a criterios, precondiciones/datos ficticios, pasos y resultados esperados observables. Escenarios vagos no pasan el gate.
+**G0a — pruebas manuales:** antes de iniciar la implementación, la descripción del issue incluye casos manuales con ID estable `MT-<issue>-NN`, trazabilidad a criterios, precondiciones/datos ficticios, pasos y resultados esperados observables. Escenarios vagos no pasan el gate.
 
 **G1 — diseño:** módulos, contratos entre módulos (`:app`, `:companion`, `:display`, `:link`, `:unitproto`, `:fakeunit`), seguridad y plan revisados.
 

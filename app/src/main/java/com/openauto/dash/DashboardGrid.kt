@@ -266,11 +266,11 @@ internal fun DashboardPage(
                 val line = DashColors.TextSecondary.copy(alpha = 0.28f)
                 for (c in 0..GRID_COLS) {
                     val x = (cellWpx * c).coerceAtMost(size.width - 0.5f)
-                    drawLine(line, Offset(x, 0f), Offset(x, size.height), 2f)
+                    drawLine(line, Offset(x, 0f), Offset(x, size.height), 1f) // MINE: #31
                 }
                 for (r in 0..GRID_ROWS) {
                     val y = (cellHpx * r).coerceAtMost(size.height - 0.5f)
-                    drawLine(line, Offset(0f, y), Offset(size.width, y), 2f)
+                    drawLine(line, Offset(0f, y), Offset(size.width, y), 1f) // MINE: #31
                 }
             }
 

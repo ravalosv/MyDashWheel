@@ -2,7 +2,7 @@
 
 1. Antes de cualquier edición, revisar la sección de dependencias y decisiones pendientes del issue.
 2. Si alguna decisión bloqueante está sin resolver, detenerse y preguntar al propietario.
-3. Confirmar issue con label `ready-for-agent`.
+3. Confirmar que el issue pertenece a `ravalosv/MyDashWheel`, que el propietario autorizó explícitamente la implementación y que no quedan decisiones bloqueantes. No aplicar el gate upstream `ready-for-agent`.
 4. Leer contexto y registrar plan/impacto antes de editar.
 5. Escribir pruebas de reglas críticas y casos negativos; implementar caso vertical mínimo.
 6. Validar compatibilidad entre ediciones (github/play), configuraciones de pantalla y permisos Android.

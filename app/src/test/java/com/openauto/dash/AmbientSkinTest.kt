@@ -12,7 +12,7 @@ class AmbientSkinTest {
     fun wideHomeFitsTheGrid() {
         val wide = AmbientLayout.wide!!
         assertTrue(fitsGrid(wide))
-        wide.forEach { assertTrue("$it too small", it.w >= 3 && it.h >= 2) }
+        wide.forEach { assertTrue("$it too small", it.w >= it.minW() && it.h >= it.minH()) }
     }
 
     @Test
