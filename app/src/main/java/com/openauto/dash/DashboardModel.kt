@@ -3,6 +3,7 @@ package com.openauto.dash
 import android.content.Context
 import android.util.Log
 import androidx.annotation.StringRes
+import com.openauto.dash.mine.DashboardGridScale // MINE: #31
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.json.JSONArray
@@ -29,8 +30,8 @@ enum class BuiltinKind(
     @StringRes val labelRes: Int,
     val category: WidgetCategory,
     @StringRes val blurbRes: Int,
-    val defaultW: Int = 5,
-    val defaultH: Int = 3
+    defaultWCells: Int = 5, // MINE: #31
+    defaultHCells: Int = 3 // MINE: #31
 ) {
     NAVMAP(R.string.apps_kind_navmap, WidgetCategory.NAVIGATION, R.string.apps_kind_navmap_blurb),
     NAVIGATION(R.string.apps_kind_navigation, WidgetCategory.NAVIGATION, R.string.apps_kind_navigation_blurb, 4, 3),
@@ -106,7 +107,10 @@ enum class BuiltinKind(
     // The last drives the drive log kept, with this week's total (DriveHistoryTile.kt).
     DRIVE_HISTORY(R.string.widgets_history, WidgetCategory.DRIVING, R.string.widgets_history_blurb, 4, 3),
     // The one thing that matters right now, picked from the other feeds (NowCard.kt).
-    NOW(R.string.widgets_now, WidgetCategory.DRIVING, R.string.widgets_now_blurb, 5, 2)
+    NOW(R.string.widgets_now, WidgetCategory.DRIVING, R.string.widgets_now_blurb, 5, 2);
+
+    val defaultW: Int = DashboardGridScale.span(defaultWCells) // MINE: #31
+    val defaultH: Int = DashboardGridScale.span(defaultHCells) // MINE: #31
 }
 
 /**
@@ -150,7 +154,7 @@ sealed interface DashboardItem {
     data class AppShortcut(
         val packageName: String,
         override val x: Int = 0, override val y: Int = 0,
-        override val w: Int = 2, override val h: Int = 2,
+        override val w: Int = DashboardGridScale.span(2), override val h: Int = DashboardGridScale.span(2), // MINE: #31
         override val zoom: Float = 1f
     ) : DashboardItem
 
@@ -158,14 +162,14 @@ sealed interface DashboardItem {
         val primaryPackage: String,
         val secondaryPackage: String,
         override val x: Int = 0, override val y: Int = 0,
-        override val w: Int = 2, override val h: Int = 2,
+        override val w: Int = DashboardGridScale.span(2), override val h: Int = DashboardGridScale.span(2), // MINE: #31
         override val zoom: Float = 1f
     ) : DashboardItem
 
     data class LaunchBar(
         val packages: List<String> = emptyList(),
         override val x: Int = 0, override val y: Int = 0,
-        override val w: Int = 8, override val h: Int = 1,
+        override val w: Int = DashboardGridScale.span(8), override val h: Int = DashboardGridScale.span(1), // MINE: #31
         override val zoom: Float = 1f
     ) : DashboardItem
 
@@ -173,7 +177,7 @@ sealed interface DashboardItem {
     data class BuiltinWidget(
         val kind: BuiltinKind,
         override val x: Int = 0, override val y: Int = 0,
-        override val w: Int = 5, override val h: Int = 3,
+        override val w: Int = DashboardGridScale.span(5), override val h: Int = DashboardGridScale.span(3), // MINE: #31
         val design: WidgetDesign = WidgetDesign.STANDARD,
         override val zoom: Float = 1f
     ) : DashboardItem
@@ -181,7 +185,7 @@ sealed interface DashboardItem {
     data class SystemWidget(
         val appWidgetId: Int,
         override val x: Int = 0, override val y: Int = 0,
-        override val w: Int = 5, override val h: Int = 3,
+        override val w: Int = DashboardGridScale.span(5), override val h: Int = DashboardGridScale.span(3), // MINE: #31
         override val zoom: Float = 1f
     ) : DashboardItem
 
@@ -193,15 +197,15 @@ sealed interface DashboardItem {
     data class AppWindow(
         val packageName: String,
         override val x: Int = 0, override val y: Int = 0,
-        override val w: Int = 5, override val h: Int = 3,
+        override val w: Int = DashboardGridScale.span(5), override val h: Int = DashboardGridScale.span(3), // MINE: #31
         override val zoom: Float = 1f,
         val inside: Boolean = false
     ) : DashboardItem
 }
 
-/** The dashboard grid: 12 cells across, 7 down; the other way round on an upright screen ([ScreenShape]). */
-val GRID_COLS: Int get() = if (ScreenShape.vertical) 7 else 12
-val GRID_ROWS: Int get() = if (ScreenShape.vertical) 12 else 7
+/** The dashboard grid uses twice as many cells on each axis; upright screens swap them. */ // MINE: #31
+val GRID_COLS: Int get() = DashboardGridScale.columns(ScreenShape.vertical) // MINE: #31
+val GRID_ROWS: Int get() = DashboardGridScale.rows(ScreenShape.vertical) // MINE: #31
 
 /** Compact icon tiles (shortcuts / split pairs) vs. larger widget cards. */
 fun DashboardItem.isCompactTile(): Boolean =
@@ -213,7 +217,7 @@ fun DashboardItem.isCompactTile(): Boolean =
  * The resize handle, the templates and the placer never go under it; a saved
  * tile that is smaller still loads at its size.
  */
-fun BuiltinKind.minSize(): Pair<Int, Int> = when (this) {
+fun BuiltinKind.minSize(): Pair<Int, Int> = DashboardGridScale.scaleSize(when (this) { // MINE: #31
     BuiltinKind.SPEED_HUD, BuiltinKind.SPEED_LIMIT, BuiltinKind.GEAR, BuiltinKind.CLOCK -> 2 to 2
     // Lists: rows need their width.
     BuiltinKind.CALENDAR, BuiltinKind.NOTIFICATIONS, BuiltinKind.QUICK_DIAL, BuiltinKind.FUEL_PRICES, BuiltinKind.WIFI_NETWORKS,
@@ -230,7 +234,7 @@ fun BuiltinKind.minSize(): Pair<Int, Int> = when (this) {
     BuiltinKind.SERVICE, BuiltinKind.CAR_STATUS, BuiltinKind.TYRES, BuiltinKind.HEAD_UNIT -> 2 to 2
     // One reading and a caption.
     else -> 2 to 1
-}
+}) // MINE: #31
 
 /**
  * Smallest span this tile may be resized to where it sits: its kind's
@@ -520,7 +524,7 @@ object DashboardStore {
 
     /**
      * [pages] laid out again for the grid of the current screen direction
-     * (the other one's tiles were placed on a 12x7 grid, this one is 7x12,
+     * (the other one's tiles were placed on a 24x14 grid, this one is 14x24, // MINE: #31
      * or the reverse): each tile at its own span where that fits, else the
      * largest that does down to its kind's minimum, nearest its old place;
      * one with no room left on its page goes to the nearest page with room,

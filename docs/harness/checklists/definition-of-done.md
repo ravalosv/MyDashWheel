@@ -1,16 +1,19 @@
 # Definition of Done — verificación humana
-- [ ] Issue identificado y `ready-for-agent`, sin decisiones bloqueantes.
-- [ ] Criterios de aceptación cubiertos por pruebas trazables.
-- [ ] El agente ejecutó automáticamente lint, tests unitarios y build de compilación sobre la versión final.
-- [ ] Lint, tests y build satisfactorios; evidencia con fecha, comandos, resultados y códigos de salida.
-- [ ] Ninguna comprobación requerida fallida, omitida, ausente o bloqueada. Si existe, el estado es BLOCKED/incompleto.
-- [ ] La revisión manual del propietario complementa y no sustituye la validación automatizada del agente.
-- [ ] Issue incluye casos de prueba manuales ejecutables, vinculados a criterios, con precondiciones/datos ficticios, pasos y resultados esperados.
-- [ ] Los casos manuales requeridos se ejecutaron y tienen resultado Pass/Fail/Blocked, fecha, ejecutor y evidencia.
-- [ ] Casos de error, permisos Android y configuraciones de pantalla cubiertos.
-- [ ] Compatibilidad entre ediciones (github/play) verificada.
-- [ ] Lint, tests, build: comandos y resultados registrados.
-- [ ] Documentación actualizada.
-- [ ] Sin secretos ni PII en código/logs.
-- [ ] Riesgos, deuda técnica y pruebas no ejecutadas documentados.
-- [ ] Aprobación humana obtenida antes de marcar Done.
+
+Aplicar [quality-gates.md](../quality-gates.md); no exigir checks ajenos al alcance.
+
+## Listo para revisión
+- [ ] Issue de `ravalosv/MyDashWheel`, autorización y decisiones bloqueantes resueltas (código de la app).
+- [ ] Criterios cubiertos por pruebas apropiadas y casos negativos relevantes.
+- [ ] Checks focalizados por riesgo satisfactorios sobre la versión entregada.
+- [ ] Casos manuales necesarios de UI, hardware o permisos definidos y resultados reales declarados.
+- [ ] Límites modulares, Android 9+, privacidad y documentación revisados según impacto.
+- [ ] Play conservado; checks solo si se solicitaron explícitamente.
+- [ ] Reporte breve: alcance, versión, comandos/resultados, checks no ejecutados y riesgos.
+- [ ] Ningún check requerido fallido, omitido o bloqueado; en caso contrario BLOCKED/incompleto.
+
+## Lote aceptado / uso habitual / cierre
+- [ ] Aceptación humana obtenida.
+- [ ] Regresión GitHub del lote final satisfactoria, incluidos otros módulos afectados; evidencia local o CI válida sin duplicarla.
+- [ ] Casos manuales requeridos ejecutados con resultado Pass/Fail/Blocked y evidencia.
+- [ ] Cierre, commit, merge o push solo con la autorización correspondiente.

@@ -2,6 +2,37 @@
 
 Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all operations.
 
+## Scope for MyDashWheel
+
+This checkout's issue workflow applies only to `ravalosv/MyDashWheel`. Do not apply issue states,
+triage labels, or readiness gates from `deviloufr-ai/Dashwheel`; in particular, `ready-for-agent`
+is not required here. Follow the personal repository's instructions and the owner's explicit
+decisions, and pass `--repo ravalosv/MyDashWheel` when the target could be ambiguous.
+
+## Authentication for this repository
+
+Use only the authenticated GitHub account `ravalosv` for this repository's Git/GitHub operations.
+This refers to remote authentication, not rewriting commit authors or removing co-author trailers.
+
+1. Before remote operations, run `gh api user --jq .login` and require `ravalosv`.
+2. If another account is active, run `gh auth switch --hostname github.com --user ravalosv`,
+   then verify again. If this account is unavailable or verification fails, stop; never fall back
+   to another account.
+3. Git may use a different credential helper from `gh`. Use the verified CLI credentials for pushes:
+
+   ```powershell
+   git -c credential.helper= -c 'credential.https://github.com.helper=!gh auth git-credential' push origin main
+   ```
+
+   Replace `main` only with the authorized target branch. The overrides apply to that command,
+   not other repositories. Never print tokens, remove other accounts, or change global credential settings.
+
+## Branch protections
+
+No required status check is enforced on `main`: CI runs on `releases` or manually, not development
+  pushes/PRs. The obsolete `main-checks` ruleset is disabled. The separate rules preventing branch
+  deletion and force-push remain active on `main` and `releases`.
+
 ## Conventions
 
 - **Create an issue**: `gh issue create --title "..." --body "..."`. Use a heredoc for multi-line bodies.

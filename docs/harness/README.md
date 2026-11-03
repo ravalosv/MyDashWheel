@@ -22,7 +22,7 @@ harness/
 ## Archivos raíz relacionados
 
 - `AGENTS.md` - Instrucciones para agentes de codificación
-- `init.sh` / `init.ps1` - Scripts de inicialización y verificación
+- `init.sh` / `init.ps1` - Consulta del estado local, sin Gradle por defecto
 - `claude-progress.md` - Registro de progreso entre sesiones
 - `feature_list.json` - Lista de características y su estado
 
@@ -49,25 +49,36 @@ El directorio `.claude/` en la raíz del repositorio contiene:
 ### Para agentes
 
 1. Lee `AGENTS.md` antes de trabajar
-2. Ejecuta `./init.sh` (o `./init.ps1` en Windows) para verificar el estado base
+2. Consulta el estado local con `./init.sh` (o `.\init.ps1` en Windows), sin Gradle por defecto
 3. Revisa `docs/harness/quality-gates.md` antes de proponer un plan
 4. Usa los workflows en `docs/harness/workflows/` como guía
-5. Registra evidencia en `docs/harness/reports/`
-6. Actualiza `claude-progress.md` al final de cada sesión
+5. Reporta brevemente evidencia en el issue o conversación; usa archivos solo si se solicitan o son necesarios
+6. Actualiza el progreso cuando aporte información nueva, no por rutina
 
 ### Comandos de verificación
 
-El proyecto tiene dos product flavors (`github` y `play`). El flavor por defecto es **`github`**.
+La política canónica está en [quality-gates.md](quality-gates.md). Durante desarrollo, validar por riesgo con compilación y tests focalizados. Documentación no requiere Gradle; scripts del harness requieren validación propia. No usar `clean` ni resolver dependencias por rutina; caché e incrementalidad ya están habilitadas.
 
-**Edición GitHub (default, siempre verificar):**
+**GitHub: una regresión por lote aceptado, antes de APK para uso habitual o cierre:**
 ```bash
 ./gradlew :app:lintGithubDebug :app:testGithubDebugUnitTest :app:assembleGithubDebug
 ```
 
-**Edición Play (solo cuando el cambio afecte esa edición o código compartido):**
+Añadir módulos afectados y reutilizar evidencia válida de la misma versión, entorno y alcance. Los checks focalizados permiten entregar listo para revisión, no validado para uso habitual.
+
+**Play: solo por solicitud explícita del propietario:**
 ```bash
 ./gradlew :app:lintPlayDebug :app:testPlayDebugUnitTest :app:assemblePlayDebug
 ```
+
+En Windows usar `.\gradlew.bat`. Mantener el código Play y declarar cuando no se verificó.
+
+### Inicio y CI
+
+- `init.ps1` / `init.sh` no instalan dependencias ni ejecutan lint, tests o build por defecto. `RUN_START_COMMAND=1` conserva la instalación explícita en un dispositivo.
+- CI solo se ejecuta en pushes a `releases` o manualmente; no en cada push/PR de desarrollo.
+- La ejecución manual valida GitHub y genera APKs debug. `include_play` añade checks y build Play; `build_release` solicita el build firmado. Ambos son opcionales y desactivados por defecto.
+- Los pushes a `releases` mantienen el firmado y publicación beta después de los checks. Una ejecución manual fuera de `releases` no publica.
 
 ### Comandos de Claude Code
 

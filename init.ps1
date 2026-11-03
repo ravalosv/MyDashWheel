@@ -4,18 +4,18 @@ $ErrorActionPreference = "Stop"
 $RootDir = $PSScriptRoot
 Set-Location $RootDir
 
-$InstallCmd = ".\gradlew dependencies"
-$VerifyCmd = ".\gradlew :app:lintGithubDebug :app:testGithubDebugUnitTest :app:assembleGithubDebug"
-$StartCmd = ".\gradlew :app:installGithubDebug"
+$StartCmd = ".\gradlew.bat :app:installGithubDebug"
 
 Write-Host "==> Working directory: $RootDir"
-Write-Host "==> Syncing dependencies"
-Invoke-Expression $InstallCmd
-if ($LASTEXITCODE -ne 0) { throw "Install failed" }
-
-Write-Host "==> Running baseline verification"
-Invoke-Expression $VerifyCmd
-if ($LASTEXITCODE -ne 0) { throw "Verification failed" }
+Write-Host "==> Local repository state (no Gradle checks)"
+git rev-parse --abbrev-ref HEAD
+if ($LASTEXITCODE -ne 0) { throw "Branch check failed" }
+git --no-pager status --short
+if ($LASTEXITCODE -ne 0) { throw "Repository status failed" }
+if (-not (Test-Path -LiteralPath ".\gradlew.bat" -PathType Leaf)) {
+    throw "Gradle wrapper missing"
+}
+Write-Host "Validation policy: docs/harness/quality-gates.md"
 
 Write-Host "==> Startup command"
 Write-Host "    $StartCmd"
@@ -23,6 +23,7 @@ Write-Host "    $StartCmd"
 if ($env:RUN_START_COMMAND -eq "1") {
     Write-Host "==> Starting the app"
     Invoke-Expression $StartCmd
+    if ($LASTEXITCODE -ne 0) { throw "App installation failed" }
 } else {
     Write-Host "Set `$env:RUN_START_COMMAND=1 if you want init.ps1 to launch the app directly."
 }
