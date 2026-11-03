@@ -10,6 +10,11 @@
 5. **Sin número de ticket → NO proceder con implementación de código**
 6. **Configuración del harness/documentación interna NO requiere ticket**
 ## REGLA DE RAMAS Y COMMITS
+Para las operaciones Git/GitHub de este repositorio, la única cuenta autenticada permitida es
+`ravalosv`. Verificar `gh api user --jq .login` antes de operaciones remotas; si es distinta,
+activar `ravalosv` y verificar de nuevo. Si no está disponible, detenerse, sin usar otra cuenta.
+Seguir [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md); no cambiar configuración global.
+
 **Todo commit y toda rama nueva se crean a partir de `main`, siempre, salvo que el propietario
 indique otra base explícitamente.**
 

@@ -16,6 +16,7 @@ Mantener y evolucionar Dashwheel, el launcher de coche abierto para unidades And
 10. Consulta el estado local con `./init.sh` (o `.\init.ps1` en Windows); no ejecuta Gradle por defecto.
 
 ## Reglas obligatorias
+- Para Git/GitHub de este repositorio, usar exclusivamente la cuenta autenticada `ravalosv`. Antes de operaciones remotas, comprobar `gh api user --jq .login`; si devuelve otra cuenta, activar `ravalosv` con `gh auth switch --hostname github.com --user ravalosv` y volver a verificar. Si no está disponible, detenerse; nunca usar otra cuenta ni cambiar configuración global. Ver detalles en `docs/agents/issue-tracker.md`.
 - No introduzcas microservicios, frameworks HTTP ni dependencias estructurales sin ADR aprobado.
 - El dominio (lógica de negocio) no debe depender de clases de Android UI.
 - Los módulos (`:app`, `:companion`, `:display`, `:link`, `:unitproto`, `:fakeunit`) deben respetar sus límites; no accedas a implementaciones privadas de otro módulo.
