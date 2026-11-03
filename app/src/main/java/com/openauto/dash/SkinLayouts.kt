@@ -11,6 +11,7 @@ import com.openauto.dash.BuiltinKind.TELEMETRY
 import com.openauto.dash.BuiltinKind.TRIP
 import com.openauto.dash.BuiltinKind.TYRES
 import com.openauto.dash.BuiltinKind.WEATHER
+import com.openauto.dash.mine.DashboardGridScale // MINE: #31
 
 /*
  * Each whole-design look comes with the Home it was drawn around: choosing it
@@ -24,11 +25,13 @@ import com.openauto.dash.BuiltinKind.WEATHER
  * The Home a look was drawn around. [home] lists its widgets, most important
  * first, for [TemplatePlacer] to fit any screen (upright, beside a Maps dock,
  * without an OBD adapter). [wide] is the look's own arrangement on the
- * 12 x 7 grid of a wide screen, as in its mockup; it is used as it is when
+ * 12 x 7 mockup grid of a wide screen, scaled to the current grid; it is used when // MINE: #31
  * the screen is wide, nothing is docked beside the pages and every widget in
  * it has something to show, else [home] is placed instead.
  */
-internal class SkinLayout(val home: TemplatePage, val wide: List<DashboardItem>? = null)
+internal class SkinLayout(val home: TemplatePage, wide: List<DashboardItem>? = null) { // MINE: #31
+    val wide: List<DashboardItem>? = wide?.let(DashboardGridScale::scale) // MINE: #31
+} // MINE: #31
 
 /** The look's Home, or null for a look that leaves Home alone. */
 internal fun skinLayout(mode: DashThemeMode): SkinLayout? = when (mode) {

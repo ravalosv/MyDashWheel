@@ -7,7 +7,7 @@ Mantener y evolucionar Dashwheel, el launcher de coche abierto para unidades And
 1. Lee `README.md`.
 2. Lee `docs/agents/domain.md` y el `GLOSSARY.md` raíz si existen.
 3. Revisa los ADR relevantes en `docs/adr/`.
-4. Identifica el issue de GitHub activo (`gh issue list --state open --label "ready-for-agent"`).
+4. Identifica el issue abierto solicitado en GitHub exclusivamente en `ravalosv/MyDashWheel`; no filtres por etiquetas upstream. Consulta `docs/agents/issue-tracker.md`.
 5. Comprueba dependencias y preguntas abiertas en el issue.
 6. Si una decisión P0 está sin resolver y afecta al cambio, pregunta antes de implementar.
 7. Usa el número de issue como identificador canónico en branches y commits (ej. `feat/#42-widget-settings`).
@@ -31,6 +31,8 @@ Mantener y evolucionar Dashwheel, el launcher de coche abierto para unidades And
 - Los cambios de UI deben funcionar en pantallas horizontales, verticales y de cualquier resolución.
 
 ## Flujo por issue
+Los issues de este fork viven en `ravalosv/MyDashWheel`. No apliques estados, etiquetas de triage ni gates de `deviloufr-ai/Dashwheel`; `ready-for-agent` no es requisito. Sigue las instrucciones del repositorio personal y confirma autorización explícita del propietario y decisiones pendientes antes de implementar.
+
 Antes de presentar un desarrollo como terminado, el agente debe ejecutar y verificar los checks de calidad configurados sobre la versión final. Es obligatorio cumplir el gate de `docs/harness/quality-gates.md`: pruebas fallidas, omitidas, ausentes o bloqueadas impiden Done/Listo y se reportan como incompleto/BLOCKED.
 
 1. Resumir objetivo y criterios de aceptación.

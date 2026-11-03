@@ -18,6 +18,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.math.abs
+import com.openauto.dash.mine.DashboardGridScale // MINE: #31
 
 /*
  * A dashboard from the driver's words: "a motorway dashboard with the speed
@@ -81,7 +82,7 @@ internal object DesignPrompt {
         appendLine("Tiles to choose from (kind: what it shows, minimum w x h):")
         catalog.forEach { appendLine("- ${it.kind}: ${it.label}. ${it.blurb} (min ${it.minW}x${it.minH})") }
         if (apps.isNotEmpty()) {
-            appendLine("- $APP_WINDOW: an installed app running inside the tile (a navigation or music app); set app to its package. (min 3x2)")
+            appendLine("- $APP_WINDOW: an installed app running inside the tile (a navigation or music app); set app to its package. (min ${DashboardGridScale.span(3)}x${DashboardGridScale.span(2)})") // MINE: #31
             appendLine("- $APP_ICON: an installed app's icon that opens it; set app to its package. (min 1x1)")
             appendLine("Installed apps (package = name): " + apps.joinToString("; ") { (pkg, name) -> "$pkg = $name" })
             appendLine("Use an app only when the driver asks for it by name or kind; prefer the built-in tiles otherwise.")
@@ -165,7 +166,7 @@ internal object DesignFit {
 
     private fun minSize(item: DashboardItem): Pair<Int, Int> = when (item) {
         is DashboardItem.BuiltinWidget -> item.kind.minSize()
-        is DashboardItem.AppWindow -> 3 to 2
+        is DashboardItem.AppWindow -> DashboardGridScale.size(3, 2) // MINE: #31
         else -> 1 to 1
     }
 

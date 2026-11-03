@@ -1,5 +1,5 @@
 # Definition of Done — verificación humana
-- [ ] Issue identificado y `ready-for-agent`, sin decisiones bloqueantes.
+- [ ] Issue identificado en `ravalosv/MyDashWheel`, autorización explícita confirmada y sin decisiones bloqueantes. No exigir etiquetas de triage upstream.
 - [ ] Criterios de aceptación cubiertos por pruebas trazables.
 - [ ] El agente ejecutó automáticamente lint, tests unitarios y build de compilación sobre la versión final.
 - [ ] Lint, tests y build satisfactorios; evidencia con fecha, comandos, resultados y códigos de salida.

@@ -11,7 +11,7 @@ class DashDesignerTest {
 
     private val kinds = setOf("SPEED_LIMIT", "MEDIA", "FUEL_TO_DEST", "NAVMAP", "CLOCK")
 
-    private fun fit(vararg t: ProposedTile, cols: Int = 12, rows: Int = 7, installed: Set<String> = emptySet()) =
+    private fun fit(vararg t: ProposedTile, cols: Int = GRID_COLS, rows: Int = GRID_ROWS, installed: Set<String> = emptySet()) =
         DesignFit.items(t.toList(), cols, rows, kinds, installed)
 
     private fun overlapFree(items: List<DashboardItem>): Boolean = items.indices.all { i ->
@@ -80,26 +80,26 @@ class DashDesignerTest {
         val map = items.first { (it as DashboardItem.BuiltinWidget).kind == BuiltinKind.NAVMAP }
         val (minW, minH) = BuiltinKind.NAVMAP.minSize()
         assertTrue(map.w >= minW && map.h >= minH)
-        assertTrue(map.x + map.w <= 12 && map.y + map.h <= 7)
-        items.forEach { assertTrue(it.x >= 0 && it.x + it.w <= 12) }
+        assertTrue(map.x + map.w <= GRID_COLS && map.y + map.h <= GRID_ROWS)
+        items.forEach { assertTrue(it.x >= 0 && it.x + it.w <= GRID_COLS) }
         assertTrue(overlapFree(items))
     }
 
     @Test
     fun aTileWithNoRoomLeftShrinksOrIsLeftOut() {
         val items = fit(
-            ProposedTile("NAVMAP", null, 0, 0, 12, 7),
+            ProposedTile("NAVMAP", null, 0, 0, GRID_COLS, GRID_ROWS),
             ProposedTile("CLOCK", null, 0, 0, 3, 2)
         )
         assertEquals(1, items.size)
         val upright = fit(
             ProposedTile("NAVMAP", null, 0, 0, 7, 10),
             ProposedTile("MEDIA", null, 0, 0, 7, 4),
-            cols = 7, rows = 12
+            cols = 14, rows = 24
         )
         assertEquals(2, upright.size)
         assertTrue(overlapFree(upright))
-        assertFalse(upright.any { it.y + it.h > 12 })
+        assertFalse(upright.any { it.y + it.h > 24 })
     }
 
     @Test
@@ -118,14 +118,15 @@ class DashDesignerTest {
     @Test
     fun thePromptGivesTheGridAndTheTiles() {
         val p = DesignPrompt.build(
-            "speed limit and music", listOf(CatalogEntry("MEDIA", "Media", "What plays.", 2, 2)),
-            listOf("com.waze" to "Waze"), 12, 7, AiLanguage.FRENCH, "Citroën C4 Picasso"
+            "speed limit and music", listOf(CatalogEntry("MEDIA", "Media", "What plays.", 4, 4)),
+            listOf("com.waze" to "Waze"), GRID_COLS, GRID_ROWS, AiLanguage.FRENCH, "Citroën C4 Picasso"
         )
-        assertTrue(p.contains("12 columns"))
-        assertTrue(p.contains("7 rows"))
-        assertTrue(p.contains("MEDIA: Media. What plays. (min 2x2)"))
+        assertTrue(p.contains("$GRID_COLS columns"))
+        assertTrue(p.contains("$GRID_ROWS rows"))
+        assertTrue(p.contains("APP_WINDOW: an installed app running inside the tile (a navigation or music app); set app to its package. (min 6x4)"))
+        assertTrue(p.contains("MEDIA: Media. What plays. (min 4x4)"))
         assertTrue(p.contains("com.waze = Waze"))
         assertTrue(p.contains("French"))
-        assertTrue(DesignPrompt.build(null, emptyList(), emptyList(), 7, 12, AiLanguage.ENGLISH, "car").contains("recording"))
+        assertTrue(DesignPrompt.build(null, emptyList(), emptyList(), 14, 24, AiLanguage.ENGLISH, "car").contains("recording"))
     }
 }

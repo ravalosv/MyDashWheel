@@ -1,6 +1,10 @@
 # Triage Labels
 
-The skills speak in terms of five canonical triage roles. This file maps those roles to the actual label strings used in this repo's issue tracker.
+> **Upstream reference only:** this label map is inherited documentation for workflows that use
+> `deviloufr-ai/Dashwheel` triage. It does not apply to `ravalosv/MyDashWheel`; do not require or
+> create these labels for personal-repository work. See `issue-tracker.md`.
+
+The upstream skills speak in terms of five canonical triage roles. This table documents those upstream labels only; it is not the label vocabulary for this personal repository.
 
 | Label in mattpocock/skills | Label in our tracker | Meaning                                  |
 | -------------------------- | -------------------- | ---------------------------------------- |
@@ -10,6 +14,6 @@ The skills speak in terms of five canonical triage roles. This file maps those r
 | `ready-for-human`          | `ready-for-human`    | Requires human implementation            |
 | `wontfix`                  | `wontfix`            | Will not be actioned                     |
 
-When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from this table.
+Do not apply these labels to issues in `ravalosv/MyDashWheel` merely because an upstream skill mentions a role.
 
-Edit the "Label in our tracker" column to match whatever vocabulary you actually use.
+The owner's explicit authorization and the personal repository's harness govern implementation readiness.

@@ -33,6 +33,7 @@ import com.openauto.dash.BuiltinKind.TYRES
 import com.openauto.dash.BuiltinKind.WARMUP
 import com.openauto.dash.BuiltinKind.WEATHER
 import com.openauto.dash.vehicle.Key
+import com.openauto.dash.mine.DashboardGridScale // MINE: #31
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.floor
@@ -132,7 +133,7 @@ data class TemplateScreen(
 ) {
     companion object {
         /** Widgets never get narrower than their resize minimum. */
-        const val MIN_COLS = 3
+        const val MIN_COLS = 3 * DashboardGridScale.FACTOR // MINE: #31
 
         /** Narrowest a widget stays readable at, in dp. */
         private const val MIN_TILE_WIDTH_DP = 180f
@@ -281,7 +282,7 @@ object TemplatePlacer {
             if (items.isEmpty() || untouched) return@mapIndexed page(templatePage, screen)
             val missing = kindsFor(templatePage, screen).filter { it in NEEDS_OBD && it !in kinds }
             missing.fold(items) { acc, kind ->
-                val fit = largestFit(acc, kind.defaultW, kind.defaultH, minW = screen.minCols, minH = 2) ?: return@fold acc
+                val fit = largestFit(acc, kind.defaultW, kind.defaultH, minW = screen.minCols, minH = DashboardGridScale.span(2)) ?: return@fold acc // MINE: #31
                 acc + DashboardItem.BuiltinWidget(kind, fit.x, fit.y, fit.w, fit.h)
             }
         }
@@ -290,9 +291,9 @@ object TemplatePlacer {
     /** One page's tiles: its widgets packed into the grid, plus the app dock along the bottom. */
     fun page(page: TemplatePage, screen: TemplateScreen): List<DashboardItem> {
         val dock = if (page.dock && screen.dockApps.isNotEmpty()) {
-            DashboardItem.LaunchBar(screen.dockApps, x = 0, y = GRID_ROWS - 1, w = GRID_COLS, h = 1)
+            DashboardItem.LaunchBar(screen.dockApps, x = 0, y = GRID_ROWS - DashboardGridScale.span(1), w = GRID_COLS, h = DashboardGridScale.span(1)) // MINE: #31
         } else null
-        val area = Cells(0, 0, GRID_COLS, if (dock != null) GRID_ROWS - 1 else GRID_ROWS)
+        val area = Cells(0, 0, GRID_COLS, if (dock != null) GRID_ROWS - DashboardGridScale.span(1) else GRID_ROWS) // MINE: #31
         var kinds = kindsFor(page, screen)
         while (kinds.isNotEmpty()) {
             val fit = Search(screen, kinds, area).best(kinds, area)
@@ -310,7 +311,7 @@ object TemplatePlacer {
         private val totalWeight = all.sumOf { shape(it).weight }.toDouble()
         private val totalArea = (area.w * area.h).toDouble()
         private val minCols = screen.minCols.coerceAtLeast(TemplateScreen.MIN_COLS)
-        private val minRows = 2
+        private val minRows = DashboardGridScale.span(2) // MINE: #31
 
         /** How far a tile at [r] is from its natural shape and fair share of the page, weighted by importance. */
         private fun cost(kind: BuiltinKind, r: Cells): Double {

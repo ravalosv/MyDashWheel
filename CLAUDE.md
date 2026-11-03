@@ -115,11 +115,11 @@ Seguir estrictamente los 6 incrementos de `docs/harness/reports/places-personali
 
 ### Issue tracker
 
-Issues live in GitHub Issues of deviloufr-ai/Dashwheel (public, testers read it), via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+Issues for this personal fork live only in `ravalosv/MyDashWheel`, via the `gh` CLI. Do not use the upstream issue tracker or inherit its triage labels/readiness states. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
-The five default roles, each label named as its role (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+`docs/agents/triage-labels.md` is an upstream-only reference. These labels are not required for issues in `ravalosv/MyDashWheel`.
 
 ### Domain docs
 

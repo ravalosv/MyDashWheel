@@ -40,6 +40,32 @@ class DashboardStoreTest {
     }
 
     @Test
+    fun gridHasTwiceTheCellsInBothOrientations() {
+        ScreenShape.vertical = false
+        assertEquals(24, GRID_COLS)
+        assertEquals(14, GRID_ROWS)
+        ScreenShape.vertical = true
+        try {
+            assertEquals(14, GRID_COLS)
+            assertEquals(24, GRID_ROWS)
+        } finally {
+            ScreenShape.vertical = false
+        }
+    }
+
+    @Test
+    fun existingLayoutCoordinatesLoadWithoutScalingOrMigration() {
+        ScreenShape.vertical = false
+        val legacy = """[[{"t":"builtin","k":"CLOCK","gx":2,"gy":1,"gw":4,"gh":3}]]"""
+        val clock = DashboardStore.parsePages(legacy)!!.first().single()
+
+        assertEquals(widget(BuiltinKind.CLOCK, 2, 1, 4, 3), clock)
+        assertTrue(clock.x + clock.w <= GRID_COLS)
+        assertTrue(clock.y + clock.h <= GRID_ROWS)
+        assertEquals(listOf(listOf(clock)), DashboardStore.parsePages(DashboardStore.serializePages(listOf(listOf(clock)))))
+    }
+
+    @Test
     fun canPlaceRespectsBoundsAndOtherTiles() {
         val page = listOf(widget(BuiltinKind.CLOCK, 0, 0, 3, 2))
         assertFalse(DashboardStore.canPlace(page, null, 1, 0, 3, 2))
@@ -395,9 +421,20 @@ class DashboardStoreTest {
             assertTrue("$kind minimum wider than the grid", w <= GRID_COLS && h <= GRID_ROWS)
         }
         // The kinds read at speed never shrink to one cell; a list keeps three columns.
-        assertEquals(2 to 2, BuiltinKind.SPEED_HUD.minSize())
-        assertEquals(3 to 2, BuiltinKind.QUICK_DIAL.minSize())
-        assertEquals(3 to 3, BuiltinKind.NAVMAP.minSize())
+        assertEquals(4 to 4, BuiltinKind.SPEED_HUD.minSize())
+        assertEquals(6 to 4, BuiltinKind.QUICK_DIAL.minSize())
+        assertEquals(6 to 6, BuiltinKind.NAVMAP.minSize())
+        assertEquals(10, BuiltinKind.NAVMAP.defaultW)
+        assertEquals(6, BuiltinKind.NAVMAP.defaultH)
+    }
+
+    @Test
+    fun nonBuiltinDefaultsKeepTheirPreviousPhysicalSize() {
+        assertEquals(4 to 4, DashboardItem.AppShortcut("com.example.app").let { it.w to it.h })
+        assertEquals(4 to 4, DashboardItem.SplitPair("a", "b").let { it.w to it.h })
+        assertEquals(16 to 2, DashboardItem.LaunchBar().let { it.w to it.h })
+        assertEquals(10 to 6, DashboardItem.SystemWidget(1).let { it.w to it.h })
+        assertEquals(10 to 6, DashboardItem.AppWindow("com.example.app").let { it.w to it.h })
     }
 
     @Test
@@ -413,7 +450,7 @@ class DashboardStoreTest {
         assertEquals(1, small.minW())
         assertEquals(1, small.minH())
         // In the open its minimum is its kind's.
-        assertEquals(2, widget(BuiltinKind.SPEED_HUD, 0, 0, 1, 1).minW())
+        assertEquals(4, widget(BuiltinKind.SPEED_HUD, 0, 0, 1, 1).minW())
         // withCell keeps a saved span; the placer passes the minimum itself.
         assertEquals(1, widget(BuiltinKind.SPEED_HUD, 0, 0, 1, 1).withCell(0, 0, 1, 1).w)
     }
@@ -473,13 +510,13 @@ class DashboardStoreTest {
         val before = wide.sumOf { it.size }
         ScreenShape.vertical = true
         try {
-            // Upright the grid is 7 x 12: every tile finds a place, in bounds, apart from the others.
+            // Upright the grid is 14 x 24: every tile finds a place, in bounds, apart from the others.
             val upright = DashboardStore.reflow(wide)
             assertEquals(DashboardStore.PAGE_COUNT, upright.size)
             assertEquals(before, upright.sumOf { it.size })
             upright.forEach { page ->
                 page.forEach { t ->
-                    assertTrue("$t out of the 7x12 grid", t.x >= 0 && t.y >= 0 && t.x + t.w <= GRID_COLS && t.y + t.h <= GRID_ROWS)
+                    assertTrue("$t out of the 14x24 grid", t.x >= 0 && t.y >= 0 && t.x + t.w <= GRID_COLS && t.y + t.h <= GRID_ROWS)
                     assertTrue("$t under its minimum", t.w >= t.minW() && t.h >= t.minH())
                 }
                 noOverlaps(page)
@@ -496,16 +533,14 @@ class DashboardStoreTest {
 
     @Test
     fun reflowSendsATileWithNoRoomLeftToTheNearestPage() {
-        // A page packed with 1x1 tiles beyond what the grid holds the other way up cannot happen,
-        // but a page of wide tiles can: twelve 12x1 strips on a wide screen are too many for 7 rows... as 7x1 strips they need 12 rows.
-        // Here: eight full-width strips of a kind whose minimum is 2x1 become 7-wide strips; 12 rows hold them all on their page.
+        // A page of full-width strips can need more rows when reflowed to the other orientation.
         val strips = List(8) { i -> DashboardItem.BuiltinWidget(BuiltinKind.AUDIO, 0, i.coerceAtMost(GRID_ROWS - 1), GRID_COLS, 1) }
         val pages = List(DashboardStore.PAGE_COUNT) { if (it == 0) strips else emptyList() }
         ScreenShape.vertical = true
         try {
             val out = DashboardStore.reflow(pages)
             assertEquals(8, out.sumOf { it.size })
-            // Fourteen tall 1x7 columns on the wide grid: upright (7 across) only seven fit at full height, and the
+            // Fourteen tall columns on the wide grid: upright only seven fit at full height, and the
             // placer shrinks the rest to what fits rather than losing one; none ends up dropped.
             val columns = List(14) { i -> DashboardItem.BuiltinWidget(BuiltinKind.AUDIO, i.coerceAtMost(GRID_COLS - 1), 0, 1, 7) }
             val tall = DashboardStore.reflow(List(DashboardStore.PAGE_COUNT) { if (it == 2) columns else emptyList() })
