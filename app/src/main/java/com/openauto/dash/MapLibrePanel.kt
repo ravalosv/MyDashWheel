@@ -516,6 +516,8 @@ fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = false) {
                 modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+            com.openauto.dash.mine.MapNavigationBanner(Modifier.padding(bottom = 2.dp)) // MINE: #30 current Maps/Waze maneuver on the map widget.
+            com.openauto.dash.mine.MapDestinationControls { // MINE: #30 hide destination selection while external navigation owns the map.
             Surface(
                 color = OverlayBg,
                 shape = DashShape.Medium,
@@ -640,6 +642,7 @@ fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = false) {
             // Out of the way once a destination is set: the route is what matters then.
             if (destination == null && searchResults.isEmpty()) PlaceChips(places, onPick = { routeToPlace(it) })
             }
+            } // MINE: #30 destination controls.
 
             val guiding = guidance
             if (guiding != null) {

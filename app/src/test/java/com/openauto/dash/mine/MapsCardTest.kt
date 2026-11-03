@@ -38,6 +38,14 @@ class MapsCardTest {
     }
 
     @Test
+    fun duplicateAccessibilityAddressPartsAreRemoved() {
+        assertEquals(
+            "C. Herodoto 109",
+            MapsCard.from(cardOf("Cómo llegar a C. Herodoto 109, C. Herodoto 109"))
+        )
+    }
+
+    @Test
     fun stepsAndButtonsAreNotADestination() {
         // The route preview: a step, a button, the header. Nothing to read.
         assertNull(
@@ -73,6 +81,15 @@ class MapsCardTest {
             "Gran Terraza Oblatos, Av. Circunvalación Oblatos 2700",
             maps.next(cardOf("Gira a la izquierda"), mapsGuiding = true, nowMs = 3_000)
         )
+    }
+
+    @Test
+    fun guidanceNotificationDeliversTheCachedCardWithoutAnotherScreenRead() {
+        val maps = MapsCard()
+        val address = cardOf("Cómo llegar a C. Herodoto 109, C. Herodoto 109")
+        assertNull(maps.next(address, mapsGuiding = false, nowMs = 1_000))
+        assertEquals("C. Herodoto 109", maps.next(emptyList(), mapsGuiding = true, nowMs = 4_119))
+        assertNull(maps.next(emptyList(), mapsGuiding = true, nowMs = 5_000))
     }
 
     @Test

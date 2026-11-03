@@ -7,6 +7,7 @@
 package com.openauto.dash.mine
 
 import android.util.Log
+import android.os.SystemClock
 import com.openauto.dash.NavHandoff
 import com.openauto.dash.WazeScreen
 import java.util.Locale
@@ -14,17 +15,27 @@ import java.util.Locale
 internal object MapsDestination {
     private const val TAG = "MapsDestination"
     private val card = MapsCard()
+    private var guidedFromCard: String? = null
+
+    fun onNavigationNotification(packageName: String) {
+        if (packageName == NavHandoff.MAPS) {
+            watch(emptyList(), mapsGuiding = true, nowMs = SystemClock.elapsedRealtime())
+        }
+    }
 
     /**
      * Reads Maps' screen for the place card and hands the destination over once
-     * Maps guides ([mapsGuiding]). [alreadyNoticed]: the inherited preview
-     * guess found one, so there is nothing to add.
+     * Maps guides ([mapsGuiding]). A place card's address is more precise than
+     * the name-only route preview and remains authoritative while it guides.
      */
-    fun watch(pieces: List<WazeScreen.Piece>, mapsGuiding: Boolean, nowMs: Long, alreadyNoticed: Boolean) {
-        if (alreadyNoticed) return
-        val destination = card.next(pieces, mapsGuiding, nowMs) ?: return
+    fun watch(pieces: List<WazeScreen.Piece>, mapsGuiding: Boolean, nowMs: Long): Boolean {
+        if (!mapsGuiding) guidedFromCard = null
+        val cardVisible = MapsCard.from(pieces) != null
+        val destination = card.next(pieces, mapsGuiding, nowMs) ?: return cardVisible || guidedFromCard != null
         Log.i(TAG, "place card: Maps is going to \"$destination\"")
         NavHandoff.noticed(destination)
+        guidedFromCard = destination
+        return true
     }
 }
 
@@ -84,10 +95,21 @@ internal class MapsCard(private val ttlMs: Long = DEFAULT_TTL_MS) {
                 val text = piece.text.trim()
                 val lower = text.lowercase(Locale.ROOT)
                 val prefix = PREFIXES.firstOrNull { lower.startsWith(it) } ?: continue
-                val destination = text.substring(prefix.length).trim()
+                val destination = deduplicateParts(text.substring(prefix.length).trim())
                 if (destination.length >= 4 && destination.any { it.isLetter() }) return destination
             }
             return null
+        }
+
+        private fun deduplicateParts(destination: String): String {
+            val seen = HashSet<String>()
+            return destination.split(',')
+                .map(String::trim)
+                .filter { part ->
+                    val key = part.lowercase(Locale.ROOT).replace(Regex("\\s+"), " ")
+                    part.isNotEmpty() && seen.add(key)
+                }
+                .joinToString(", ")
         }
     }
 }

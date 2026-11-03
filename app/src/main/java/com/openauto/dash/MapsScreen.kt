@@ -71,8 +71,12 @@ internal object MapsScreen {
         runCatching { collect(root, pieces, 0) }
         val destination = destinationOf(pieces, height)
         log(pieces, destination)
-        if (destination != null) noticed(destination)
-        com.openauto.dash.mine.MapsDestination.watch(pieces, NavDirections.running.value != null, SystemClock.elapsedRealtime(), destination != null) // MINE: #15
+        val cardIsPreferred = com.openauto.dash.mine.MapsDestination.watch(
+            pieces,
+            NavDirections.running.value != null,
+            SystemClock.elapsedRealtime()
+        ) // MINE: #30 prefer the selected place's full card address to a name-only preview.
+        MapsScreen.previewFallback(destination, cardIsPreferred)?.let(::noticed)
     }
 
     /** A destination read, here or off the tile's picture ([TileText]): handed off once per destination. */
@@ -120,6 +124,9 @@ internal object MapsScreen {
             .map { cleaned(it.text) }
             .firstOrNull { isPlaceName(it) }
     }
+
+    internal fun previewFallback(destination: String?, cardIsPreferred: Boolean): String? =
+        destination.takeUnless { cardIsPreferred }
 
     /** Whether [text] can be the destination: long enough, not the start, a figure, the empty field's words or a step of the route. */
     internal fun isPlaceName(text: String): Boolean {
