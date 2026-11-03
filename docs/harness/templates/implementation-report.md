@@ -1,22 +1,16 @@
-# Reporte de implementación — #<issue>
-**Fecha:**
-**Versión final validada (commit/estado del árbol):**
-**Lint GitHub (comandos, resultados, códigos de salida):**
-**Tests unitarios GitHub (comandos, suites, aprobadas/fallidas/omitidas):**
-**Build GitHub (comandos, resultados, códigos de salida):**
-**Lint Play (si aplica):**
-**Tests unitarios Play (si aplica):**
-**Build Play (si aplica):**
-**Comprobaciones requeridas ausentes, omitidas o bloqueadas:**
-**Gate automatizado final:** PASS / FAIL / BLOCKED
-**Alcance implementado:**
-**Archivos modificados:**
-**Criterios de aceptación cubiertos:**
-**Comandos ejecutados y resultado literal:**
-**Comandos no ejecutados y motivo:**
-**Compatibilidad entre ediciones (github/play):**
-**Hallazgos de seguridad:**
-**Documentos/ADR actualizados:**
-**Pendientes / riesgos:**
-**Estado recomendado:** In Review / Blocked
-**Aprobación del propietario:** Pendiente
+# Reporte breve — #<issue> o configuración del harness
+
+Usar en el issue o conversación; no crear un archivo por rutina.
+
+**Alcance y archivos modificados:**
+**Riesgo y criterios cubiertos:**
+**Fecha, versión/estado del árbol y entorno:**
+**Etapa:** Revisión focalizada / Regresión de lote
+**Checks ejecutados:** comandos, resultados, códigos de salida y cantidades de tests cuando el runner las informe.
+**Evidencia reutilizada:** versión, entorno, alcance y enlace a CI/reporte, si corresponde.
+**Checks no ejecutados y motivo:** distinguir No requerido de requerido pero bloqueado; Play solo si se solicitó.
+**Pruebas manuales requeridas y resultados reales:**
+**Pendientes/riesgos y documentación actualizada:**
+**Resultado de la etapa:** PASS / FAIL / BLOCKED
+**Estado recomendado:** Listo para revisión / Validado para uso habitual / BLOCKED
+**Aceptación y autorizaciones del propietario:**

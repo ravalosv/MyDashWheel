@@ -7,13 +7,13 @@ Mantener y evolucionar Dashwheel, el launcher de coche abierto para unidades And
 1. Lee `README.md`.
 2. Lee `docs/agents/domain.md` y el `GLOSSARY.md` raíz si existen.
 3. Revisa los ADR relevantes en `docs/adr/`.
-4. Identifica el issue abierto solicitado en GitHub exclusivamente en `ravalosv/MyDashWheel`; no filtres por etiquetas upstream. Consulta `docs/agents/issue-tracker.md`.
+4. Identifica el issue solicitado en `ravalosv/MyDashWheel`; no se requieren etiquetas del upstream. Consulta `docs/agents/issue-tracker.md`.
 5. Comprueba dependencias y preguntas abiertas en el issue.
 6. Si una decisión P0 está sin resolver y afecta al cambio, pregunta antes de implementar.
 7. Usa el número de issue como identificador canónico en branches y commits (ej. `feat/#42-widget-settings`).
 8. Revisa `docs/harness/quality-gates.md` antes de proponer un plan.
 9. Al crear o modificar pantallas/widgets, revisa los screenshots en `docs/screenshots/` como referencia visual para estilo y composición.
-10. Ejecuta `./init.sh` (o `init.ps1` en Windows) para verificar el estado base.
+10. Consulta el estado local con `./init.sh` (o `.\init.ps1` en Windows); no ejecuta Gradle por defecto.
 
 ## Reglas obligatorias
 - No introduzcas microservicios, frameworks HTTP ni dependencias estructurales sin ADR aprobado.
@@ -31,17 +31,16 @@ Mantener y evolucionar Dashwheel, el launcher de coche abierto para unidades And
 - Los cambios de UI deben funcionar en pantallas horizontales, verticales y de cualquier resolución.
 
 ## Flujo por issue
-Los issues de este fork viven en `ravalosv/MyDashWheel`. No apliques estados, etiquetas de triage ni gates de `deviloufr-ai/Dashwheel`; `ready-for-agent` no es requisito. Sigue las instrucciones del repositorio personal y confirma autorización explícita del propietario y decisiones pendientes antes de implementar.
+Los issues de este fork viven en `ravalosv/MyDashWheel`. No apliques estados, etiquetas de triage ni gates de `deviloufr-ai/Dashwheel`; `ready-for-agent` no es requisito. Confirma autorización explícita y decisiones bloqueantes antes de implementar.
 
-Antes de presentar un desarrollo como terminado, el agente debe ejecutar y verificar los checks de calidad configurados sobre la versión final. Es obligatorio cumplir el gate de `docs/harness/quality-gates.md`: pruebas fallidas, omitidas, ausentes o bloqueadas impiden Done/Listo y se reportan como incompleto/BLOCKED.
+La política canónica es [quality-gates.md](docs/harness/quality-gates.md): validación focalizada por riesgo durante desarrollo y regresión GitHub una vez por lote aceptado, antes de APK para uso habitual o cierre. Distinguir listo para revisión de validado para uso habitual. Fallos u omisiones de checks requeridos bloquean la etapa correspondiente; checks fuera de alcance se declaran No requeridos.
 
 1. Resumir objetivo y criterios de aceptación.
 2. Revisar especificaciones, dependencias y ADR.
-3. Proponer impacto en módulos, API, datos, seguridad y pruebas.
+3. Resumir impacto y pruebas; planes extensos y revisores especializados solo si el riesgo lo justifica.
 4. Implementar el cambio mínimo completo.
-5. Ejecutar lint, tests unitarios y build de compilación. El flavor por defecto es `github`:
-   - `./gradlew :app:lintGithubDebug :app:testGithubDebugUnitTest :app:assembleGithubDebug`
-   Verificar también `play` solo si el cambio toca código compartido o afecta esa edición.
+5. Ejecutar los checks del alcance definido en el gate, reutilizando evidencia válida de la misma versión y entorno. Documentación no requiere Gradle; scripts del harness solo requieren validación propia.
+   Play se verifica solo por solicitud explícita; conservar su código y declarar si no se verificó.
 6. Revisar compatibilidad entre ediciones (github/play), configuraciones de pantalla y permisos.
 7. Actualizar documentación/ADR cuando corresponda.
-8. Emitir reporte usando `docs/harness/templates/implementation-report.md`.
+8. Emitir reporte breve usando `docs/harness/templates/implementation-report.md`, sin archivos adicionales por rutina.

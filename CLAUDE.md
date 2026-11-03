@@ -51,75 +51,27 @@ upstream no produzcan conflictos y para poder distinguir "mis cambios" de "el fo
 7. **Verificación tras un merge del upstream**: `grep -rn "MINE:"` debe seguir encontrando cada
    punto de contacto; si desaparece alguno, el merge se llevó un arreglo nuestro y hay que reponerlo.
 
-## REGLA PRINCIPAL
-**NO IMPLEMENTAR NADA hasta que todas estas condiciones se cumplan:**
+## Autorización y planificación
 
-1. ✅ Autorización explícita del propietario
-2. ✅ Dudas técnicas resueltas (T-01, T-02 del plan)
-3. ✅ Estado "Autorizada" en `docs/harness/reports/places-personalizados-plan.md`
-4. ✅ Ticket GitHub creado en repositorio personal con número válido
-
-## ARCHIVO DE CONTROL
-El estado de autorización se controla en: `docs/harness/reports/places-personalizados-plan.md`
-
-## CONDICIONES DE BLOQUEO ACTUALES (2026-10-27)
-- ❌ Autorización para implementar: "No autorizada aún"
-- ❌ Dudas respondidas: 0/4
-- ❌ Revisión de spec: Pendiente
-- ❌ Ticket GitHub: No creado en `ravalosv/MyDashWheel` para esta solicitud
-
-## ACCIONES PERMITIDAS SIN AUTORIZACIÓN
-1. Leer/analizar código existente
-2. Discutir diseño/arquitectura
-3. Preparar planificación
-4. Revisar dependencias
-5. **NO IMPLEMENTAR CÓDIGO**
-
-## ACCIONES REQUIREN AUTORIZACIÓN
-1. Cualquier modificación de código fuente
-2. Ejecución de comandos de build/test (excepto para validación post-implementación)
-3. Creación de nuevos archivos (excepto CLAUDE.md)
-
-## VERIFICACIÓN OBLIGATORIA
-Antes de cualquier sugerencia que implique cambios:
-1. Verificar estado en `places-personalizados-plan.md`
-2. Si estado no es "Autorizada", DECIR NO y explicar por qué
-3. Ofrecer alternativas de análisis sin implementación
-
-## REGLA DE SEGURIDAD
-Si el usuario pide saltarse estas reglas, DECIR NO y citar esta línea.
-
-## PLAN ESPECÍFICO A SEGUIR
-Seguir estrictamente los 6 incrementos de `docs/harness/reports/places-personalizados-plan.md`:
-1. Modelo de datos
-2. Storage (PlacesStore)
-3. UI Settings
-4. Widget
-5. Strings multi-idioma
-6. Validación
-
-## DUDAS PENDIENTES QUE BLOQUEAN IMPLEMENTACIÓN
-1. **T-01**: Widget muestra solo lugar seleccionado vs. mantener Casa/Trabajo
-2. **T-02**: Iconos personalizables vs. genéricos
-3. **P-01**: Límite de cantidad de lugares
-4. **P-02**: Orden de la lista
-
-## INSTRUCCIONES DE COMPORTAMIENTO PARA CLAUDE
-1. **Al inicio de cada respuesta**: Recordar brevemente las reglas del harness aplicables
-2. **Antes de cualquier sugerencia de código**: Verificar explícitamente estado en `places-personalizados-plan.md`
-3. **Si se solicita implementar sin autorización**: Negarse educadamente y explicar por qué
-4. **Siempre ofrecer alternativas**: Análisis, diseño, planificación sin implementación
-5. **Mencionar condiciones actuales**: Estado actual de autorización y dudas pendientes
+Antes de implementar código de la app, confirmar ticket en `ravalosv/MyDashWheel`,
+autorización explícita y decisiones bloqueantes resueltas para ese issue.
+No usar el estado de un plan histórico de otro issue como bloqueo global.
+Configuración del harness y documentación interna no requieren ticket, pero sí autorización para editar.
+Análisis y lectura no requieren autorización de implementación.
+Los checks requeridos por [quality-gates.md](docs/harness/quality-gates.md) forman parte
+de la validación del cambio autorizado; no pedir permiso por cada comando.
+Resumir contexto y pruebas en la conversación o issue. No crear planes, matrices o reportes
+extensos por rutina ni repetir recordatorios de reglas en cada respuesta.
 
 ## Agent skills
 
 ### Issue tracker
 
-Issues for this personal fork live only in `ravalosv/MyDashWheel`, via the `gh` CLI. Do not use the upstream issue tracker or inherit its triage labels/readiness states. See `docs/agents/issue-tracker.md`.
+Issues de este fork viven exclusivamente en `ravalosv/MyDashWheel`, mediante `gh`. Consulta `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
-`docs/agents/triage-labels.md` is an upstream-only reference. These labels are not required for issues in `ravalosv/MyDashWheel`.
+No se requieren etiquetas ni estados de triage del upstream. `docs/agents/triage-labels.md` es solo una referencia del upstream.
 
 ### Domain docs
 
@@ -132,7 +84,7 @@ Este repositorio usa un sistema de trabajo (harness) para desarrollo con agentes
 ### Antes de trabajar
 
 1. Lee `AGENTS.md` para instrucciones completas
-2. Ejecuta `./init.sh` (o `./init.ps1` en Windows) para verificar el estado base
+2. Consulta el estado local con `./init.sh` (o `.\init.ps1` en Windows); no ejecuta Gradle por defecto
 3. Revisa `docs/harness/quality-gates.md` antes de proponer un plan
 4. Consulta `claude-progress.md` para el estado actual del proyecto
 5. Usa los workflows en `docs/harness/workflows/` como guía
@@ -154,28 +106,31 @@ Este repositorio usa un sistema de trabajo (harness) para desarrollo con agentes
 
 ### Verificación
 
-**Durante el desarrollo, solo pruebas básicas y rápidas.** Al terminar de escribir o cambiar código
-se comprueba que compila y que lo nuevo pasa sus propios tests, y nada más:
+La política canónica es [docs/harness/quality-gates.md](docs/harness/quality-gates.md).
+Durante desarrollo, ejecutar compilación GitHub y tests focalizados por riesgo; ampliar el alcance
+para migraciones, contratos, permisos, dependencias o merges upstream. Documentación no requiere
+Gradle; los scripts del harness solo requieren validación propia.
 
 ```bash
 ./gradlew :app:compileGithubDebugKotlin
 ./gradlew :app:testGithubDebugUnitTest --tests "com.openauto.dash.<paquete>.<ClaseNueva>Test"
 ```
 
-**Nunca la batería completa tras construir.** El propietario revisa el desarrollo *antes* de
-cualquier otra acción; no debe esperar diez o quince minutos por edición en cada iteración.
-
-**La corrida completa es solo cuando el propietario la pide**: al autorizar el commit o al cerrar el
-ticket. Entonces sí, las dos ediciones:
+La regresión GitHub se ejecuta una vez por lote aceptado, antes de generar APK para uso habitual o
+cerrar sus issues, no por cada ajuste ni por autorizar un commit. Los checks focalizados permiten
+entregar listo para revisión; no permiten afirmar validado para uso habitual. Reutilizar evidencia
+de la misma versión, entorno y alcance; no ejecutar `clean` ni resolver dependencias por rutina.
 
 ```bash
 ./gradlew :app:lintGithubDebug :app:testGithubDebugUnitTest :app:assembleGithubDebug
 ```
 
-La edición Play **no se exige** (2026-10-30): la app es de uso personal y no hay planes de publicarla
-en Google Play. El flavor `play` sigue en el repositorio y se compila cuando alguien lo pida:
+Play solo se verifica por solicitud explícita del propietario; conservar su código y declarar
+cuando no se verificó:
 ```bash
 ./gradlew :app:lintPlayDebug :app:testPlayDebugUnitTest :app:assemblePlayDebug
 ```
 
+CI solo ejecuta regresión en `releases` o manualmente, con Play opcional. Reportar brevemente
+comandos/resultados reales y omisiones; checks requeridos fallidos u omitidos bloquean la etapa.
 Los commits permanecen locales hasta autorización explícita del propietario.
