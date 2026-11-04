@@ -8,6 +8,25 @@
 - Característica inacabada de mayor prioridad actual: _pendiente_
 - Bloqueador actual: _ninguno_
 
+---
+
+## Sesión 010 (2026-11-03): historial del widget mapa: borrado puntual (#36)
+
+- Objetivo: permitir quitar del historial las ubicaciones buscadas que aparecen en el widget del mapa, sin tocar rutas guardadas ni Casa/Trabajo.
+- Cambios:
+  - `Places.filterRecent(place)`: método inmutable que elimina una entrada del historial por proximidad geográfica (misma calle ±150 m).
+  - `PlacesStore.forgetRecent(context, place)`: persiste la eliminación puntual.
+  - `MapLibrePanel.PlaceChips`: añade un botón `X` (`IconButton` con `Icons.Filled.Close`) junto a cada ficha de historial (icono de reloj); Home y Trabajo **no** lo muestran.
+  - Test unitario `PlacesTest` (5 casos): borrado puntual, coincidencia por cercanía, resistencia a desconocidos, conservación de Home/Trabajo, lista vacía.
+- Verificación ejecutada:
+  - `lintGithubDebug` + `testGithubDebugUnitTest` + `assembleGithubDebug` → **BUILD SUCCESSFUL (9m 1s)**, 1409 tests, 0 fallos, 0 warnings de lint.
+- Commits: `eeb846f7` en `main`; merge `d4151156` en `releases`; push a `ravalosv/MyDashWheel`.
+- CI en curso en `releases`: publica beta `v1.0.885` (aprox.) con el cambio.
+- Ticket #36 cerrado con comentario de cierre.
+- Riesgo conocido o problema sin resolver:
+  - La prueba en el head unit sigue pendiente: instalar la beta publicada y confirmar que la X elimina la entrada del historial en caliente sin reiniciar la app.
+- Mejor próximo paso: probar la beta publicada en el unit y, si funciona, continuar con la lista de pendientes (#35, #34, #33, #32, #30, #29, #28, #27, #26).
+
 ## Registro de Sesiones
 
 ### Sesión 001
@@ -335,3 +354,97 @@
   de pantalla, dos dedos mueven el mapa).
 - Lo que sigue sin funcionar y quedó anotado en #25: **tocar una ruta alternativa no la
   selecciona**. Se entregaron la generación y el dibujo; la selección por toque sigue pendiente.
+
+---
+
+## Sesión 010 (2026-10-31): historial del widget mapa: borrado puntual (#36)
+
+- Objetivo: permitir quitar del historial las ubicaciones buscadas que aparecen en el widget del mapa, sin tocar rutas guardadas ni Casa/Trabajo.
+- Cambios:
+  - `Places.filterRecent(place)`: método inmutable que elimina una entrada del historial por proximidad geográfica (misma calle ±150 m).
+  - `PlacesStore.forgetRecent(context, place)`: persiste la eliminación puntual.
+  - `MapLibrePanel.PlaceChips`: añade un botón `X` (`IconButton` con `Icons.Filled.Close`) junto a cada ficha de historial (icono de reloj); Home y Trabajo **no** lo muestran.
+  - Test unitario `PlacesTest` (5 casos): borrado puntual, coincidencia por cercanía de coordenadas, resistencia ante ubicaciones no existentes, conservación de Home/Trabajo, lista vacía.
+- Verificación ejecutada:
+  - `lintGithubDebug` + `testGithubDebugUnitTest` + `assembleGithubDebug` → **BUILD SUCCESSFUL (9m 1s)**, 1409 tests, 0 fallos, 0 warnings de lint.
+- Commits: `eeb846f7` en `main`; merge `d4151156` en `releases`; push a `ravalosv/MyDashWheel`.
+- CI en curso en `releases`: publica beta `v1.0.885` (aprox.) con el cambio.
+- Ticket #36 cerrado con comentario de cierre.
+- Riesgo conocido o problema sin resolver:
+  - La prueba en el head unit sigue pendiente: instalar la beta publicada y confirmar que la X elimina la entrada del historial en caliente sin reiniciar la app.
+- Mejor próximo paso: probar la beta publicada en el unit y, si funciona, continuar con la lista de pendientes (#35, #34, #33, #32, #30, #29, #28, #27, #26).
+
+---
+
+## Sesión 011 (2026-11-03): barra de apps vertical, nuevo widget (#34)
+
+- Objetivo: añadir un nuevo widget "Vertical launch bar" que muestra las apps favoritas en columna (no en fila como la barra horizontal), con editor para añadir, reordenar (arriba/abajo), quitar y elegir modo de etiquetas: siempre, solo icono, o automático (si hay espacio).
+- Cambios:
+  - `DashboardModel.kt`: nuevo `DashboardItem.VerticalLaunchBar(packages, labelMode)` con `LabelMode` enum (`ALWAYS`, `ICON_ONLY`, `AUTO`). Serialización JSON `"vbar"`.
+  - `AppTiles.kt`: `VerticalLaunchBarTile` (Column, iconos con etiqueta según modo) y `VerticalLaunchBarEditorDialog` (picker de apps, mover arriba/abajo, quitar, selector de modo de etiquetas).
+  - `AddSheet.kt`: tarjeta en la sección APPS del catálogo.
+  - Integración en `AutomotiveDashboard.kt`, `Skins.kt`, `DashboardGrid.kt`, `DashboardGridScale.kt`: enrutamiento, claves, escalado y fallback estándar.
+  - Strings: 10 nuevos en `strings_apps.xml` (inglés + español, `translatable="false"` para etiquetas de editor).
+- Verificación ejecutada:
+  - `lintGithubDebug` + `testGithubDebugUnitTest` + `assembleGithubDebug` → **BUILD SUCCESSFUL**, 1424 tests, 0 fallos, 0 warnings de lint.
+- Estado: commits `0ef12f47` (main) y merge `1c066256` (releases) **locales**; **push y publicación en CI retenidos** a la espera de prueba manual en el head unit.
+- Riesgo conocido o problema sin resolver:
+  - **Prueba manual pendiente**: instalar la beta publicada y confirmar que el widget aparece en el catálogo, se edita, se añaden apps, el modo de etiquetas funciona y el tile se renderiza correctamente en vertical sin romper skins existentes.
+- Mejor próximo paso: probar la beta en el unit; si OK, push a `origin/main` + `origin/releases`, cierre del issue #34 y continuar con #35, #33, #32, #30, #29, #28, #27, #26.
+
+### Pruebas manuales para validar #34 (widget "Vertical launch bar")
+1. **Instala la beta** publicada tras hacer push a `releases` (CI genera APK `MyDashwheel-<v>.apk`).
+2. **Abre el catálogo de widgets**: pantalla de edición → botón `+` → pestaña "APPS" → busca "Vertical launch bar".
+3. **Añade el widget** al dashboard: al tocarlo, se coloca con tamaño 1×6 celdas por defecto.
+4. **Edita el widget**: toca el lápiz (✎) → se abre el editor con:
+   - Lista vacía (o apps de ejemplo si venías del preview).
+   - Botón "Add app" para añadir desde el selector.
+   - Flechas ↑/↓ para reordenar.
+   - ✕ para quitar.
+   - Selector "Modo de etiquetas": **Siempre**, **Solo icono**, **Automático**.
+5. **Verifica cada modo de etiquetas**:
+   - "Siempre": nombre visible bajo cada icono.
+   - "Solo icono": solo el círculo con el icono.
+   - "Automático": nombre si el ancho del tile ≥ 140 dp, si no solo icono.
+6. **Lanza apps**: toca un icono → la app se abre.
+7. **Comprueba skins**: cambia de skin (Ajustes → Aspecto) y verifica que el tile sigue renderizando en vertical sin errores visuales.
+8. **Persistencia**: reinicia la app → el widget conserva apps, orden y modo de etiquetas.
+
+---
+
+## Sesión 012 (2026-11-03): actualizaciones: «Esta versión no» persistente (#28)
+
+- Objetivo: que al pulsar «Esta versión no» la versión rechazada quede guardada **entre sesiones**; el chequeo automático no la vuelve a ofrecer hasta que haya una versión **nueva** distinta; la ruta manual (Ajustes → Actualizaciones) siempre muestra la pendiente aunque esté rechazada.
+- Cambios:
+  - `UpdateManager.kt`: `dismiss()` ahora usa `commit()` (síncrono) en vez de `apply()` (asíncrono) para que la preferencia `dismissed_build` quede en disco aunque el proceso muera al instante.
+  - Lógica existente ya correcta: `checkForUpdate()` compara `prefs.getLong(KEY_DISMISSED, -1L) == info.buildNumber` y devuelve `UpdateStatus.Dismissed`.
+  - Test unitario `UpdateManagerTest.dismissedBuildIsSkippedUntilNewer()` verifica la regla: versión rechazada = omitida en chequeo automático; versión más nueva = avisada.
+- Verificación ejecutada:
+  - `lintGithubDebug` + `testGithubDebugUnitTest` + `assembleGithubDebug` → **BUILD SUCCESSFUL** (5m 45s), todos los tests OK.
+- Estado: commits locales en `feat/#28-update-dismiss-persist`; **push retenido** a la espera de prueba manual.
+- Riesgo conocido o problema sin resolver:
+  - **Prueba manual pendiente**: instalar beta, rechazar versión con «Esta versión no», cerrar app, volver a abrir → sin aviso; publicar versión nueva → aviso vuelve; Ajustes → Actualizaciones (manual) → sigue mostrando la rechazada.
+- Mejor próximo paso: probar en el head unit y, si OK, push + cierre del issue #28; luego #35, #33, #32, #30, #29, #27, #26.
+
+### Fix adicional (2026-11-03): persistencia más robusta en head units
+
+El head unit del propietario no persistía `dismissed_build` tras reinicio con `commit()` solo. Se ha reforzado:
+
+1. **Doble clave**: se guarda `dismissed_build` (número) + `dismissed_tag` (tag de versión) para doble verificación.
+2. **commit() + fallback apply()**: `commit()` devuelve `Boolean`; si es `false` (fallo silencioso en algunos head units), se hace `apply()` como respaldo.
+3. **checkForUpdate() robusto**: compara ambas claves (`dismissed_build` == `info.buildNumber` AND `dismissed_tag` == `info.versionName`) antes de tratar como `Dismissed`.
+4. **offerAgain() limpia ambas claves**.
+
+Verificación:
+- `lintGithubDebug`: 0 errores
+- `testGithubDebugUnitTest`: todos los tests OK (incluye `dismissedBuildIsSkippedUntilNewer`)
+- `assembleGithubDebug`: BUILD SUCCESSFUL
+
+Estado: commits locales en `feat/#28-update-dismiss-persist`; **push retenido** a la espera de prueba manual confirmada.
+Mejor próximo paso: probar en el head unit y, si OK, push + cierre del issue #28; luego #35, #33, #32, #30, #29, #27, #26.
+
+---
+
+### Regla de autorización (recordatorio)
+
+**No se hace push, commit público ni publicación en CI sin autorización explícita del propietario tras prueba manual.** Los commits se quedan en ramas locales (`feat/#...`) hasta que el propietario valida en el head unit y da el OK. Esto aplica a #28 y a todos los tickets futuros.
