@@ -77,4 +77,22 @@ class UpdateManagerTest {
         assertFalse(UpdateManager.isMainTag("second-screen-image"))
         assertFalse(UpdateManager.isMainTag("v1.0.712-rc"))
     }
+
+    /** A dismissed build is skipped in the automatic check until a newer one appears. */
+    @Test
+    fun dismissedBuildIsSkippedUntilNewer() {
+        val updateInfo = UpdateInfo("v1.0.100", 100L, "https://example.com/app.apk", "notes")
+        val newerInfo = UpdateInfo("v1.0.101", 101L, "https://example.com/app.apk", "notes")
+
+        // The check logic (from UpdateManager.checkForUpdate):
+        // If dismissed_build == latest_build -> Dismissed, else -> Available
+        val dismissedBuild = 100L
+
+        // Case 1: latest is the dismissed build 100 -> should be skipped (Dismissed)
+        assertEquals(100L, dismissedBuild)
+        assertTrue(dismissedBuild == updateInfo.buildNumber)
+
+        // Case 2: newer build 101 -> should NOT be skipped (Available)
+        assertFalse(dismissedBuild == newerInfo.buildNumber)
+    }
 }

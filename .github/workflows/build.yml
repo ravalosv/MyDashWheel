@@ -219,9 +219,8 @@ jobs:
           if-no-files-found: error
 
       # Readable changelog: one section per commit since the previous build of
-      # releases (beta or stable), using the commit subject as the heading and
-      # its body as the details. Commit bodies are written as user-facing notes,
-      # so this reads as a changelog rather than a bare "Full Changelog" link.
+      # releases (beta or stable). Commit subjects are rewritten to user-friendly
+      # language; internal IDs, ticket refs and prefixes are stripped.
       # Promoting to stable writes the notes again, since the previous stable.
       - name: Write release notes
         if: ${{ github.ref == 'refs/heads/releases' }}
@@ -232,8 +231,38 @@ jobs:
           {
             echo "## What's new in v$VERSION_NAME (beta)"
             echo
-            git log $range --no-merges -n 30 --format='### %s%n%n%b' \
-              | sed -e '/^Co-Authored-By:/d' -e '/^Signed-off-by:/d' -e '/^Claude-Session:/Id'
+            git log $range --no-merges -n 30 --format='%s|%b' \
+              | while IFS='|' read -r subject body; do
+                # Skip internal/automated commits
+                case "$subject" in
+                  *"Co-Authored-By:"*|*"Signed-off-by:"*|*"Claude-Session:"*|"chore("*|"ci("*|"build("*|"revert("*) continue ;;
+                esac
+                # Rewrite conventional commit prefixes to user-friendly text
+                friendly=$(echo "$subject" | \
+                  sed -E 's/^fix\([^)]+\):\s*/Fixed: /' \
+                      -e 's/^feat\([^)]+\):\s*/Added: /' \
+                      -e 's/^perf\([^)]+\):\s*/Improved performance: /' \
+                      -e 's/^refactor\([^)]+\):\s*/Refactored: /' \
+                      -e 's/^style\([^)]+\):\s*/UI tweak: /' \
+                      -e 's/^docs\([^)]+\):\s*/Documentation: /' \
+                      -e 's/^test\([^)]+\):\s*/Test coverage: /' \
+                      -e 's/^chore\([^)]+\):\s*/Maintenance: /' \
+                      -e 's/^ci\([^)]+\):\s*/CI: /' \
+                      -e 's/^build\([^)]+\):\s*/Build: /' \
+                      -e 's/^revert\([^)]+\):\s*/Reverted: /' \
+                      -e 's/\s*\(#[0-9]+\)$//' \
+                      -e 's/\s*\(#([0-9]+)\)/ (issue \1)/' \
+                      -e 's/^\s*//')
+                # Capitalize first letter
+                friendly=$(echo "$friendly" | sed 's/^./\u&/')
+                echo "### $friendly"
+                # Include body if present and not just metadata
+                if [ -n "$body" ] && ! echo "$body" | grep -qE '^(Co-Authored-By:|Signed-off-by:|Claude-Session:)'; then
+                  echo
+                  echo "$body" | sed -e '/^Co-Authored-By:/d' -e '/^Signed-off-by:/d' -e '/^Claude-Session:/Id'
+                fi
+                echo
+              done
             if [ -n "$prev" ]; then
               echo
               echo "_Changes since ${prev}._"
