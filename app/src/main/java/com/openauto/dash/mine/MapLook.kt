@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.platform.LocalContext
 import com.openauto.dash.DashColors
+import org.maplibre.android.location.modes.RenderMode
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
@@ -56,6 +57,14 @@ internal object MapLook {
         map.uiSettings.setAllGesturesEnabled(options.gestures)
         // Ours is drawn on top ([MapCompass]): the library's would only show when the map is turned.
         map.uiSettings.isCompassEnabled = false
+
+        // Car marker mode: simple dot (NORMAL), compass arrow (COMPASS), or auto.
+        val lc = map.locationComponent
+        lc.renderMode = when (options.carMarkerMode) {
+            CarMarkerMode.SIMPLE -> RenderMode.NORMAL
+            CarMarkerMode.COMPASS -> RenderMode.COMPASS
+            CarMarkerMode.AUTO -> RenderMode.NORMAL // fallback; auto logic handled in enableLocation
+        }
     }
 
     /** Maps already listened to: the listener survives recompositions, so it is added once. */
