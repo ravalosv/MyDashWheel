@@ -36,8 +36,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.Map
@@ -72,6 +74,7 @@ import androidx.core.graphics.drawable.toBitmap
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.unit.sp
 
 /*
  * App shortcut, split-pair and launch-bar tiles, the app picker and the all-apps drawer.
@@ -159,6 +162,216 @@ internal fun LaunchBarTile(
                 }
             }
         }
+    }
+}
+
+/** MINE: #34 vertical launch bar tile with configurable label mode. */
+@Composable
+internal fun VerticalLaunchBarTile(
+    item: DashboardItem.VerticalLaunchBar,
+    appsByPackage: Map<String, AppEntry>,
+    editing: Boolean,
+    onLaunch: (String) -> Unit,
+    onEdit: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val tap = rememberTapFeedback()
+    Card(modifier = modifier) {
+        BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 10.dp)) {
+            val showLabels = when (item.labelMode) {
+                DashboardItem.LabelMode.ALWAYS -> true
+                DashboardItem.LabelMode.ICON_ONLY -> false
+                DashboardItem.LabelMode.AUTO -> maxWidth >= 140.dp
+            }
+            val iconSize = (maxWidth.value * if (showLabels) 0.55f else 0.7f).coerceIn(32f, 64f).dp
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                if (item.packages.isEmpty()) {
+                    Text(
+                        stringResource(R.string.apps_vertical_launch_bar_empty),
+                        color = DashColors.Muted,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f).padding(top = 8.dp)
+                    )
+                } else {
+                    Column(
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        item.packages.forEach { pkg ->
+                            val app = appsByPackage[pkg]
+                            val name = app?.label ?: pkg.substringAfterLast('.')
+                            val labelSize = (iconSize.value * 0.3f).coerceIn(14f, 19f).sp
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(DashShape.Medium)
+                                    .clickable(enabled = !editing) { tap(); onLaunch(pkg) }
+                                    .padding(horizontal = 4.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(iconSize + 10.dp)
+                                        .clip(CircleShape)
+                                        .itemFill(DashColors.CardHi, CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (app != null) AppIcon(icon = app.icon, size = if (DashColors.Bare) iconSize + 6.dp else iconSize)
+                                    else Icon(Icons.Filled.Apps, contentDescription = null, tint = DashColors.Muted, modifier = Modifier.size(iconSize * 0.7f))
+                                }
+                                if (showLabels) {
+                                    Spacer(Modifier.width(10.dp))
+                                    Text(
+                                        text = name,
+                                        color = DashColors.TextSecondary,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                IconButton(onClick = onEdit, modifier = Modifier.size(48.dp)) {
+                    Icon(
+                        Icons.Filled.Edit,
+                        contentDescription = stringResource(R.string.apps_vertical_launch_bar_edit),
+                        tint = DashColors.Muted,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Editor for a vertical launch bar's apps: add, reorder, remove, change label mode, save. */
+@Composable
+internal fun VerticalLaunchBarEditorDialog(
+    apps: List<AppEntry>,
+    appsByPackage: Map<String, AppEntry>,
+    packages: List<String>,
+    labelMode: DashboardItem.LabelMode,
+    onSave: (List<String>, DashboardItem.LabelMode) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var current by remember { mutableStateOf(packages) }
+    var currentLabelMode by remember { mutableStateOf(labelMode) }
+    var showPicker by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        modifier = Modifier.keepClearOfWindows(),
+        onDismissRequest = onDismiss,
+        containerColor = DashColors.Card,
+        title = { Text(stringResource(R.string.apps_vertical_launch_bar_edit), color = DashColors.TextPrimary) },
+        text = {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                // Label mode picker
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(stringResource(R.string.apps_label_mode), color = DashColors.TextPrimary, modifier = Modifier.weight(1f).padding(top = 4.dp))
+                    DashboardItem.LabelMode.entries.forEach { mode ->
+                        val label = when (mode) {
+                            DashboardItem.LabelMode.ALWAYS -> stringResource(R.string.apps_label_mode_always)
+                            DashboardItem.LabelMode.ICON_ONLY -> stringResource(R.string.apps_label_mode_icon_only)
+                            DashboardItem.LabelMode.AUTO -> stringResource(R.string.apps_label_mode_auto)
+                        }
+                        val selected = currentLabelMode == mode
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(vertical = 8.dp, horizontal = 4.dp)
+                                .background(if (selected) DashColors.Accent.copy(alpha = 0.18f) else DashColors.CardHi)
+                                .clip(DashShape.Small)
+                                .clickable { currentLabelMode = mode },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                label,
+                                color = if (selected) DashColors.AccentInk else DashColors.TextSecondary,
+                                style = MaterialTheme.typography.labelMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+                if (current.isEmpty()) {
+                    Text(stringResource(R.string.apps_launch_bar_editor_empty), color = DashColors.Muted)
+                }
+                current.forEachIndexed { i, pkg ->
+                    val app = appsByPackage[pkg]
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(DashShape.Small)
+                            .background(DashColors.CardHi)
+                            .padding(start = 10.dp, end = 2.dp, top = 4.dp, bottom = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (app != null) AppIcon(icon = app.icon, size = 30.dp)
+                        else Icon(Icons.Filled.Apps, contentDescription = null, tint = DashColors.Muted, modifier = Modifier.size(30.dp))
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            app?.label ?: pkg,
+                            color = DashColors.TextPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(onClick = { current = current.swap(i, i - 1) }, enabled = i > 0, modifier = Modifier.size(40.dp)) {
+                            Icon(Icons.Filled.KeyboardArrowUp, contentDescription = stringResource(R.string.apps_move_up), tint = if (i > 0) DashColors.TextSecondary else DashColors.Muted)
+                        }
+                        IconButton(onClick = { current = current.swap(i, i + 1) }, enabled = i < current.lastIndex, modifier = Modifier.size(40.dp)) {
+                            Icon(Icons.Filled.KeyboardArrowDown, contentDescription = stringResource(R.string.apps_move_down), tint = if (i < current.lastIndex) DashColors.TextSecondary else DashColors.Muted)
+                        }
+                        IconButton(onClick = { current = current.filterIndexed { j, _ -> j != i } }, modifier = Modifier.size(40.dp)) {
+                            Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.apps_remove), tint = DashColors.Warning)
+                        }
+                    }
+                }
+                TextButton(onClick = { showPicker = true }, enabled = current.size < MAX_LAUNCH_BAR_APPS) {
+                    Icon(Icons.Filled.Add, contentDescription = null, tint = DashColors.Accent, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        if (current.size < MAX_LAUNCH_BAR_APPS) stringResource(R.string.apps_add_app)
+                        else pluralStringResource(R.plurals.apps_launch_bar_full, MAX_LAUNCH_BAR_APPS, MAX_LAUNCH_BAR_APPS),
+                        color = DashColors.AccentInk
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(current, currentLabelMode) }) { Text(stringResource(R.string.apps_save), color = DashColors.AccentInk) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.apps_cancel), color = DashColors.Muted) }
+        }
+    )
+
+    if (showPicker) {
+        AppPickerDialog(
+            apps = apps.filter { it.packageName !in current },
+            title = stringResource(R.string.apps_launch_bar_add_title),
+            onPick = { app ->
+                showPicker = false
+                if (app.packageName !in current) current = current + app.packageName
+            },
+            onDismiss = { showPicker = false }
+        )
     }
 }
 

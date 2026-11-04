@@ -85,6 +85,7 @@ internal fun AddSheet(
     previewTile: @Composable (DashboardItem) -> Unit,
     onPickBuiltin: (BuiltinKind) -> Unit,
     onPickLaunchBar: () -> Unit,
+    onPickVerticalLaunchBar: () -> Unit, // MINE: #34
     onPickSystemWidget: () -> Unit,
     onPickApp: (AppEntry) -> Unit,
     /** The app, and whether it runs inside the tile rather than in a window over it. */
@@ -134,7 +135,7 @@ internal fun AddSheet(
             Spacer(Modifier.height(10.dp))
             val q = query.trim()
             when (tab) {
-                AddTab.WIDGETS -> WidgetsTab(q, apps, previewTile, onPickBuiltin, onPickLaunchBar, onPickSystemWidget)
+                AddTab.WIDGETS -> WidgetsTab(q, apps, previewTile, onPickBuiltin, onPickLaunchBar, onPickVerticalLaunchBar, onPickSystemWidget)
                 AddTab.APPS -> AppsTab(apps.matching(q), onPickApp, onPickWindow, onPickPair)
             }
         }
@@ -207,6 +208,7 @@ private fun WidgetsTab(
     previewTile: @Composable (DashboardItem) -> Unit,
     onPickBuiltin: (BuiltinKind) -> Unit,
     onPickLaunchBar: () -> Unit,
+    onPickVerticalLaunchBar: () -> Unit, // MINE: #34
     onPickSystemWidget: () -> Unit
 ) {
     var category by rememberSaveable { mutableStateOf<WidgetCategory?>(null) }
@@ -252,6 +254,8 @@ private fun WidgetsTab(
     val extras = (category == null || category == WidgetCategory.APPS) && query.isEmpty()
     // The launch bar's preview holds a few of the installed apps, so it reads as a bar and not an empty strip.
     val sampleBar = remember(apps) { DashboardItem.LaunchBar(packages = apps.take(5).map { it.packageName }) }
+    // MINE: #34 vertical launch bar preview
+    val sampleVBar = remember(apps) { DashboardItem.VerticalLaunchBar(packages = apps.take(5).map { it.packageName }) }
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = PREVIEW_CARD_MIN_WIDTH),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -275,6 +279,12 @@ private fun WidgetsTab(
                     stringResource(R.string.apps_pick_launch_bar), stringResource(R.string.apps_pick_launch_bar_blurb),
                     tileAspect(sampleBar.w, sampleBar.h), onClick = onPickLaunchBar
                 ) { previewTile(sampleBar) }
+            }
+            item(key = "vbar") { // MINE: #34
+                WidgetCard(
+                    stringResource(R.string.apps_kind_vertical_launch_bar), stringResource(R.string.apps_kind_vertical_launch_bar_blurb),
+                    tileAspect(sampleVBar.w, sampleVBar.h), onClick = { onPickVerticalLaunchBar() }
+                ) { previewTile(sampleVBar) }
             }
             item(key = "system") {
                 // A system widget has no face of its own until one is picked from the list.
