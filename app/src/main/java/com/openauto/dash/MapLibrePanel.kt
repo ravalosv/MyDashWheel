@@ -133,7 +133,7 @@ private val OverlayBg = Color(0xE6141518)
  * the lower part of the screen, and at most [WALLPAPER_FPS] frames a second.
  */
 @Composable
-fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = false) {
+internal fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = false) {
     // Typing a destination waits until the car has stopped (the drive lock).
     val moving = LocalDriveLock.current.moving
     val context = LocalContext.current
@@ -144,6 +144,12 @@ fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = false) {
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { result -> hasLocation = result.values.any { it } }
+
+    // MINE: #35 AUTO car marker mode - observe heading reliability and switch render mode
+    val mapOptions by com.openauto.dash.mine.MapOptionsStore.current.collectAsState()
+    val carMarkerMode = mapOptions.carMarkerMode
+    val useAutoPuck = carMarkerMode == com.openauto.dash.mine.CarMarkerMode.AUTO
+    val isCompassMode by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         if (!hasLocation) {
@@ -476,7 +482,16 @@ fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = false) {
         if (!hasLocation || !styleReady) return@LaunchedEffect
         val map = mapRef ?: return@LaunchedEffect
         map.getStyle { style ->
-            enableLocation(map, style, context, scope, if (wallpaper) mapView else null) { stillNow }
+            val mapOptions = com.openauto.dash.mine.MapOptionsStore.current.value
+            val carMarkerMode = mapOptions.carMarkerMode
+            val isCompassMode = kotlinx.coroutines.flow.MutableStateFlow(false)
+            enableLocation(
+                map, style, context, scope,
+                if (wallpaper) mapView else null,
+                { stillNow },
+                carMarkerMode,
+                kotlinx.coroutines.flow.MutableStateFlow(false)
+            )
             // MINE: #16 inside the callback: this style is the loaded one, the only that takes new layers.
             com.openauto.dash.mine.MapLook.watch(context, scope, map, if (wallpaper) mapView else null, style)
         }
@@ -768,7 +783,11 @@ private fun enableLocation(
     /** Set when the map is a wallpaper: the camera sits lower and the car low on it. */
     wallpaper: MapView? = null,
     /** Whether the car stands still: a fix that only wanders a few metres then is not worth a camera move. */
-    still: () -> Boolean = { false }
+    still: () -> Boolean = { false },
+    /** Car marker mode from settings: SIMPLE, COMPASS, or AUTO. */
+    carMarkerMode: com.openauto.dash.mine.CarMarkerMode = com.openauto.dash.mine.CarMarkerMode.AUTO,
+    /** Mutable state for AUTO mode to switch between NORMAL/COMPASS dynamically. */
+    isCompassMode: kotlinx.coroutines.flow.MutableStateFlow<Boolean>? = null
 ) {
     if (!hasLocationPerm(context)) return
     val lc = map.locationComponent
@@ -821,10 +840,37 @@ private fun enableLocation(
             com.openauto.dash.mine.MapRecentering.watch(map, lc) { followVehicle(lc, wallpaper, null) }
         }
         lc.isLocationComponentEnabled = true
-        lc.renderMode = RenderMode.NORMAL
+        // Initial render mode based on car marker mode
+        val initialMode = when (carMarkerMode) {
+            com.openauto.dash.mine.CarMarkerMode.SIMPLE -> RenderMode.NORMAL
+            com.openauto.dash.mine.CarMarkerMode.COMPASS -> RenderMode.COMPASS
+            com.openauto.dash.mine.CarMarkerMode.AUTO -> RenderMode.NORMAL
+        }
+        lc.renderMode = initialMode
+        // MINE: #35 AUTO mode - observe heading reliability and switch render mode dynamically
+        if (carMarkerMode == com.openauto.dash.mine.CarMarkerMode.AUTO) {
+            val compassState = isCompassMode ?: kotlinx.coroutines.flow.MutableStateFlow(false)
+            scope.launch {
+                LocationFeed.headingDeg.collect { heading ->
+                    val loc = LocationFeed.location.value
+                    val isReliable = loc != null &&
+                        loc.hasSpeed() &&
+                        loc.speed > 1.39f && // ~5 km/h
+                        loc.hasBearing() &&
+                        (loc.hasAccuracy() && loc.accuracy < 30f || !loc.hasAccuracy())
+                    if (isReliable && !compassState.value) {
+                        compassState.value = true
+                        lc.renderMode = RenderMode.COMPASS
+                    } else if (!isReliable && compassState.value) {
+                        compassState.value = false
+                        lc.renderMode = RenderMode.NORMAL
+                    }
+                }
+            }
+        }
         // With a fix already known (the permission granted later, the style
         // swapped) the camera goes to it now; else the first fix above takes it
-        // there. Through the component either way: a plain animateCamera would
+        // there. Through the component either way, a plain animateCamera would
         // count as a developer move and cancel tracking straight away.
         followVehicle(lc, wallpaper, userZooms[map])
     }
