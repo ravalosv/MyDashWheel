@@ -640,7 +640,7 @@ fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = false) {
                 }
             }
             // Out of the way once a destination is set: the route is what matters then.
-            if (destination == null && searchResults.isEmpty()) PlaceChips(places, onPick = { routeToPlace(it) })
+            if (destination == null && searchResults.isEmpty()) PlaceChips(context, places, onPick = { routeToPlace(it) })
             }
             } // MINE: #30 destination controls.
 
@@ -913,7 +913,7 @@ private fun hasLocationPerm(context: Context): Boolean =
  * tap shows the route, moving or not, where typing has to wait for a stop.
  */
 @Composable
-private fun PlaceChips(places: Places, onPick: (Place) -> Unit) {
+private fun PlaceChips(context: Context, places: Places, onPick: (Place) -> Unit) {
     val home = stringResource(R.string.places_home)
     val work = stringResource(R.string.places_work)
     val chips = remember(places, home, work) {
@@ -928,6 +928,11 @@ private fun PlaceChips(places: Places, onPick: (Place) -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         chips.forEach { (icon, label, place) ->
+            // MINE: #36 the last destinations can be cleared one at a time; home and work cannot.
+            val isRecent = icon == Icons.Filled.History
+            val dismiss = if (isRecent) {
+                { _: Place -> com.openauto.dash.PlacesStore.forgetRecent(context, place) }
+            } else null
             Surface(onClick = { onPick(place) }, color = OverlayBg, shape = DashShape.Pill) {
                 Row(
                     modifier = Modifier.heightIn(min = DashSize.TouchPrimary).padding(horizontal = 18.dp),
@@ -936,6 +941,12 @@ private fun PlaceChips(places: Places, onPick: (Place) -> Unit) {
                     Icon(icon, contentDescription = null, tint = Accent, modifier = Modifier.size(22.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(label, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 220.dp))
+                    if (dismiss != null) {
+                        Spacer(Modifier.width(6.dp))
+                        IconButton(onClick = { dismiss(place) }, modifier = Modifier.size(20.dp)) {
+                            Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.places_forget), tint = Color(0xFF9AA0A6))
+                        }
+                    }
                 }
             }
         }
