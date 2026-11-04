@@ -92,6 +92,9 @@ internal data class Places(
     val workLabel: String? = null,
     val recent: List<Place> = emptyList()
 ) {
+    /** The same list without the destinations that are the same spot as [place]. */
+    fun filterRecent(place: Place): Places = copy(recent = recent.filterNot { it.sameSpot(place) })
+
     /** Home, work and the custom places, as one list for the settings sheet and the tile. */
     fun allPlaces(): List<SavedPlace> = buildList {
         home?.let { add(SavedPlace(PlaceCategories.HOME, it.name, it.lat, it.lng, PlaceCategories.HOME, true)) }
@@ -154,6 +157,9 @@ internal object PlacesStore {
     fun visited(context: Context, place: Place) = update(context) { it.visited(place) }
 
     fun forgetRecent(context: Context) = update(context) { it.copy(recent = emptyList()) }
+
+    /** One destination out of the last ones: the spot [place] is no longer a button under the map. */
+    fun forgetRecent(context: Context, place: Place) = update(context) { it.filterRecent(place) }
 
     /** Renaming home or work only changes the label: the spot and the id stay. */
     fun renamePlace(context: Context, placeId: String, newName: String) = update(context) { places ->
