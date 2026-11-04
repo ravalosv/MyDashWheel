@@ -239,20 +239,20 @@ jobs:
                 esac
                 # Rewrite conventional commit prefixes to user-friendly text
                 friendly=$(echo "$subject" | \
-                  sed -E 's/^fix\([^)]+\):\s*/Fixed: /' \
-                      -e 's/^feat\([^)]+\):\s*/Added: /' \
-                      -e 's/^perf\([^)]+\):\s*/Improved performance: /' \
-                      -e 's/^refactor\([^)]+\):\s*/Refactored: /' \
-                      -e 's/^style\([^)]+\):\s*/UI tweak: /' \
-                      -e 's/^docs\([^)]+\):\s*/Documentation: /' \
-                      -e 's/^test\([^)]+\):\s*/Test coverage: /' \
-                      -e 's/^chore\([^)]+\):\s*/Maintenance: /' \
-                      -e 's/^ci\([^)]+\):\s*/CI: /' \
-                      -e 's/^build\([^)]+\):\s*/Build: /' \
-                      -e 's/^revert\([^)]+\):\s*/Reverted: /' \
-                      -e 's/\s*\(#[0-9]+\)$//' \
-                      -e 's/\s*\(#([0-9]+)\)/ (issue \1)/' \
-                      -e 's/^\s*//')
+                  sed -e 's/^fix([^)]*): /Fixed: /' \
+                      -e 's/^feat([^)]*): /Added: /' \
+                      -e 's/^perf([^)]*): /Improved performance: /' \
+                      -e 's/^refactor([^)]*): /Refactored: /' \
+                      -e 's/^style([^)]*): /UI tweak: /' \
+                      -e 's/^docs([^)]*): /Documentation: /' \
+                      -e 's/^test([^)]*): /Test coverage: /' \
+                      -e 's/^chore([^)]*): /Maintenance: /' \
+                      -e 's/^ci([^)]*): /CI: /' \
+                      -e 's/^build([^)]*): /Build: /' \
+                      -e 's/^revert([^)]*): /Reverted: /' \
+                      -e 's/ *\(#[0-9]*\)$//' \
+                      -e 's/ *\(#\([0-9]*\)\)/ (issue \1)/' \
+                      -e 's/^ *//')
                 # Capitalize first letter
                 friendly=$(echo "$friendly" | sed 's/^./\u&/')
                 echo "### $friendly"
