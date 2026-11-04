@@ -67,6 +67,8 @@
     <string name="apps_move_left">Mover a la izquierda</string>
     <string name="apps_move_right">Mover a la derecha</string>
     <string name="apps_remove">Quitar</string>
+    <string name="apps_move_up" translatable="false">Mover arriba</string>
+    <string name="apps_move_down" translatable="false">Mover abajo</string>
     <string name="apps_add_app">Añadir app</string>
     <plurals name="apps_launch_bar_full">
         <item quantity="one">Barra llena (%1$d app)</item>
@@ -145,4 +147,15 @@
     <string name="apps_side_by_side">Lado a lado</string>
     <string name="apps_side_by_side_detail">Dos aplicaciones a la vez, en pantalla dividida</string>
     <string name="apps_icon_size">Tamaño de los iconos</string>
+
+    <!-- Vertical launch bar tile (MINE: #34) -->
+    <string name="apps_kind_vertical_launch_bar">Barra vertical de apps</string>
+    <string name="apps_kind_vertical_launch_bar_blurb">Tus apps favoritas en columna, con etiquetas opcionales</string>
+    <string name="apps_vertical_launch_bar_empty">Barra vertical: toca el lápiz para añadir apps</string>
+    <string name="apps_vertical_launch_bar_edit">Editar barra vertical</string>
+    <string name="apps_label_mode">Modo de etiquetas</string>
+    <string name="apps_label_mode_always">Siempre mostrar nombre</string>
+    <string name="apps_label_mode_icon_only">Solo icono</string>
+    <string name="apps_label_mode_auto">Automático (si hay espacio)</string>
+    <string name="dash_describe_vertical_launch_bar">Barra vertical de apps</string>
 </resources>

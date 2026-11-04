@@ -173,6 +173,20 @@ sealed interface DashboardItem {
         override val zoom: Float = 1f
     ) : DashboardItem
 
+    /** MINE: #34 vertical launch bar with configurable label mode. */
+    data class VerticalLaunchBar(
+        val packages: List<String> = emptyList(),
+        val labelMode: LabelMode = LabelMode.AUTO,
+        override val x: Int = 0, override val y: Int = 0,
+        override val w: Int = DashboardGridScale.span(1), override val h: Int = DashboardGridScale.span(6), // MINE: #31
+        override val zoom: Float = 1f
+    ) : DashboardItem
+
+    /** MINE: #34 label display mode for vertical launch bar. */
+    enum class LabelMode {
+        ALWAYS, ICON_ONLY, AUTO
+    }
+
     /** [design] is this tile's own look (see WidgetDesigns.kt); two clocks may differ. */
     data class BuiltinWidget(
         val kind: BuiltinKind,
@@ -283,6 +297,7 @@ fun DashboardItem.withZoom(zoom: Float): DashboardItem {
         is DashboardItem.AppShortcut -> copy(zoom = z)
         is DashboardItem.SplitPair -> copy(zoom = z)
         is DashboardItem.LaunchBar -> copy(zoom = z)
+        is DashboardItem.VerticalLaunchBar -> copy(zoom = z) // MINE: #34
         is DashboardItem.BuiltinWidget -> copy(zoom = z)
         is DashboardItem.SystemWidget -> copy(zoom = z)
         is DashboardItem.AppWindow -> copy(zoom = z)
@@ -304,6 +319,7 @@ fun DashboardItem.withCell(x: Int, y: Int, w: Int, h: Int): DashboardItem {
         is DashboardItem.AppShortcut -> copy(x = cx, y = cy, w = cw, h = ch)
         is DashboardItem.SplitPair -> copy(x = cx, y = cy, w = cw, h = ch)
         is DashboardItem.LaunchBar -> copy(x = cx, y = cy, w = cw, h = ch)
+        is DashboardItem.VerticalLaunchBar -> copy(x = cx, y = cy, w = cw, h = ch) // MINE: #34
         is DashboardItem.BuiltinWidget -> copy(x = cx, y = cy, w = cw, h = ch)
         is DashboardItem.SystemWidget -> copy(x = cx, y = cy, w = cw, h = ch)
         is DashboardItem.AppWindow -> copy(x = cx, y = cy, w = cw, h = ch)
@@ -929,6 +945,9 @@ object DashboardStore {
                 JSONObject().put("t", "split").put("a", primaryPackage).put("b", secondaryPackage)
             is DashboardItem.LaunchBar ->
                 JSONObject().put("t", "bar").put("pkgs", JSONArray(packages))
+            is DashboardItem.VerticalLaunchBar ->
+                JSONObject().put("t", "vbar").put("pkgs", JSONArray(packages))
+                    .apply { put("lm", labelMode.name) } // MINE: #34
             is DashboardItem.BuiltinWidget -> JSONObject().put("t", "builtin").put("k", kind.name)
                 .apply { if (design != WidgetDesign.STANDARD) put("d", design.name) }
             is DashboardItem.SystemWidget -> JSONObject().put("t", "widget").put("id", appWidgetId)
@@ -944,6 +963,7 @@ object DashboardStore {
         is DashboardItem.AppShortcut -> copy(x = -1)
         is DashboardItem.SplitPair -> copy(x = -1)
         is DashboardItem.LaunchBar -> copy(x = -1)
+        is DashboardItem.VerticalLaunchBar -> copy(x = -1) // MINE: #34
         is DashboardItem.BuiltinWidget -> copy(x = -1)
         is DashboardItem.SystemWidget -> copy(x = -1)
         is DashboardItem.AppWindow -> copy(x = -1)
@@ -980,6 +1000,12 @@ object DashboardStore {
                 val arr = optJSONArray("pkgs") ?: JSONArray()
                 val pkgs = (0 until arr.length()).mapNotNull { arr.optString(it).takeIf { s -> s.isNotBlank() } }
                 place(DashboardItem.LaunchBar(pkgs))
+            }
+            "vbar" -> { // MINE: #34
+                val arr = optJSONArray("pkgs") ?: JSONArray()
+                val pkgs = (0 until arr.length()).mapNotNull { arr.optString(it).takeIf { s -> s.isNotBlank() } }
+                val lm = runCatching { DashboardItem.LabelMode.valueOf(optString("lm")) }.getOrNull() ?: DashboardItem.LabelMode.AUTO
+                place(DashboardItem.VerticalLaunchBar(pkgs, lm))
             }
             // Default span comes from the kind (a clock is 3x2, a map 5x3), so a
             // legacy tile without coordinates is re-flowed at its proper size.

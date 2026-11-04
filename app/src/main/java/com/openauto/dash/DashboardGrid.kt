@@ -655,7 +655,7 @@ internal fun TileContent(
     when (item) {
         // The tiles a skin can redraw have one standard renderer, shared with the
         // skins' own fallback, so the two never drift apart.
-        is DashboardItem.LaunchBar, is DashboardItem.AppShortcut -> StandardSkinnedTile(item, env)
+        is DashboardItem.LaunchBar, is DashboardItem.VerticalLaunchBar, is DashboardItem.AppShortcut -> StandardSkinnedTile(item, env)
 
         is DashboardItem.AppWindow -> {
             val label = appsByPackage[item.packageName]?.label ?: item.packageName.substringAfterLast('.')
@@ -852,6 +852,7 @@ internal fun DashboardItem.describe(): String = when (this) {
     is DashboardItem.AppShortcut -> packageName.substringAfterLast('.')
     is DashboardItem.SplitPair -> stringResource(R.string.dash_describe_split_pair)
     is DashboardItem.LaunchBar -> stringResource(R.string.dash_describe_launch_bar)
+    is DashboardItem.VerticalLaunchBar -> stringResource(R.string.dash_describe_vertical_launch_bar) // MINE: #34
     is DashboardItem.SystemWidget -> stringResource(R.string.dash_describe_widget)
     is DashboardItem.AppWindow ->
         stringResource(if (runsInside(rememberInsideAllowed())) R.string.dash_app_inside else R.string.dash_app_window, packageName.substringAfterLast('.'))
@@ -886,6 +887,7 @@ internal fun tileKeys(items: List<DashboardItem>): List<String> {
         is DashboardItem.AppShortcut -> "app:${item.packageName}"
         is DashboardItem.SplitPair -> "split:${item.primaryPackage}|${item.secondaryPackage}"
         is DashboardItem.LaunchBar -> "bar"
+        is DashboardItem.VerticalLaunchBar -> "vbar" // MINE: #34
         is DashboardItem.BuiltinWidget -> "builtin:${item.kind.name}"
         is DashboardItem.SystemWidget -> "widget:${item.appWidgetId}"
         is DashboardItem.AppWindow -> (if (item.inside) "appin:" else "appwin:") + item.packageName

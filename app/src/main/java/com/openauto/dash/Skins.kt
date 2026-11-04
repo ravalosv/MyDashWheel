@@ -64,7 +64,7 @@ internal val SKINNED_KINDS = setOf(
 
 /** True when the active skin draws [item] itself (via [SkinTile]). */
 internal fun skinHandles(item: DashboardItem): Boolean = DashColors.Skin != DashSkin.STANDARD && when (item) {
-    is DashboardItem.AppShortcut, is DashboardItem.LaunchBar -> true
+    is DashboardItem.AppShortcut, is DashboardItem.LaunchBar, is DashboardItem.VerticalLaunchBar -> true
     is DashboardItem.BuiltinWidget -> item.kind in SKINNED_KINDS
     else -> false
 }
@@ -263,6 +263,7 @@ internal fun StandardSkinnedTile(item: DashboardItem, env: SkinTileEnv) {
             )
         }
         is DashboardItem.LaunchBar -> LaunchBarTile(item, env.appsByPackage, env.editing, env.onLaunchApp, env.onEditLaunchBar, full)
+        is DashboardItem.VerticalLaunchBar -> VerticalLaunchBarTile(item, env.appsByPackage, env.editing, env.onLaunchApp, env.onEditLaunchBar, full) // MINE: #34
         is DashboardItem.BuiltinWidget -> when (item.kind) {
             BuiltinKind.TELEMETRY -> ObdCard(env.obdConnection, env.onConnectObd, env.onPickDevice, full)
             BuiltinKind.SPEED_HUD -> SpeedHudCard(full)

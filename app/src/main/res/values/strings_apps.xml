@@ -67,6 +67,8 @@
     <string name="apps_move_left">Move left</string>
     <string name="apps_move_right">Move right</string>
     <string name="apps_remove">Remove</string>
+    <string name="apps_move_up" translatable="false">Move up</string>
+    <string name="apps_move_down" translatable="false">Move down</string>
     <string name="apps_add_app">Add app</string>
     <plurals name="apps_launch_bar_full">
         <item quantity="one">Bar is full (%1$d app)</item>
@@ -145,4 +147,15 @@
     <string name="apps_side_by_side">Side by side</string>
     <string name="apps_side_by_side_detail">Two apps at once, in split screen</string>
     <string name="apps_icon_size">Icon size</string>
+    <string name="dash_describe_vertical_launch_bar" translatable="false">Vertical launch bar</string>
+
+    <!-- Vertical launch bar tile (MINE: #34) -->
+    <string name="apps_kind_vertical_launch_bar" translatable="false">Vertical launch bar</string>
+    <string name="apps_kind_vertical_launch_bar_blurb" translatable="false">Your favourite apps in a column, with optional labels</string>
+    <string name="apps_vertical_launch_bar_empty" translatable="false">Vertical launch bar: tap the pencil to add apps</string>
+    <string name="apps_vertical_launch_bar_edit" translatable="false">Edit vertical launch bar</string>
+    <string name="apps_label_mode" translatable="false">Label mode</string>
+    <string name="apps_label_mode_always" translatable="false">Always show name</string>
+    <string name="apps_label_mode_icon_only" translatable="false">Icon only</string>
+    <string name="apps_label_mode_auto" translatable="false">Auto (show if space)</string>
 </resources>

@@ -1876,6 +1876,13 @@ fun AutomotiveDashboard(inSplitMode: Boolean = false) {
                             if (index >= 0) launchBarEditor = addTargetPage to index
                         }
                     },
+                    onPickVerticalLaunchBar = { // MINE: #34
+                        showAddSheet = false
+                        if (addTargetPage >= 0) {
+                            val index = addItemAt(addTargetPage, DashboardItem.VerticalLaunchBar())
+                            if (index >= 0) launchBarEditor = addTargetPage to index
+                        }
+                    },
                     onPickSystemWidget = {
                         showAddSheet = false
                         addSystemWidget.pickFromList()
@@ -2109,20 +2116,34 @@ fun AutomotiveDashboard(inSplitMode: Boolean = false) {
     }
 
     launchBarEditor?.let { (page, index) ->
-        val bar = pages.getOrNull(page)?.getOrNull(index) as? DashboardItem.LaunchBar
-        if (bar == null) {
-            LaunchedEffect(Unit) { launchBarEditor = null }
-        } else {
-            LaunchBarEditorDialog(
-                apps = apps,
-                appsByPackage = appsByPackage,
-                packages = bar.packages,
-                onSave = { pkgs ->
-                    updateItem(page, index, bar.copy(packages = pkgs))
-                    launchBarEditor = null
-                },
-                onDismiss = { launchBarEditor = null }
-            )
+        val item = pages.getOrNull(page)?.getOrNull(index)
+        when (item) {
+            is DashboardItem.LaunchBar -> {
+                LaunchBarEditorDialog(
+                    apps = apps,
+                    appsByPackage = appsByPackage,
+                    packages = item.packages,
+                    onSave = { pkgs ->
+                        updateItem(page, index, item.copy(packages = pkgs))
+                        launchBarEditor = null
+                    },
+                    onDismiss = { launchBarEditor = null }
+                )
+            }
+            is DashboardItem.VerticalLaunchBar -> { // MINE: #34
+                VerticalLaunchBarEditorDialog(
+                    apps = apps,
+                    appsByPackage = appsByPackage,
+                    packages = item.packages,
+                    labelMode = item.labelMode,
+                    onSave = { pkgs, mode ->
+                        updateItem(page, index, item.copy(packages = pkgs, labelMode = mode))
+                        launchBarEditor = null
+                    },
+                    onDismiss = { launchBarEditor = null }
+                )
+            }
+            else -> LaunchedEffect(Unit) { launchBarEditor = null }
         }
     }
 

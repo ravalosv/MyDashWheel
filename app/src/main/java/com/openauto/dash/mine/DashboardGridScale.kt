@@ -20,6 +20,7 @@ internal object DashboardGridScale {
             is DashboardItem.AppShortcut -> item.copy(x = x, y = y, w = w, h = h)
             is DashboardItem.SplitPair -> item.copy(x = x, y = y, w = w, h = h)
             is DashboardItem.LaunchBar -> item.copy(x = x, y = y, w = w, h = h)
+            is DashboardItem.VerticalLaunchBar -> item.copy(x = x, y = y, w = w, h = h) // MINE: #34
             is DashboardItem.BuiltinWidget -> item.copy(x = x, y = y, w = w, h = h)
             is DashboardItem.SystemWidget -> item.copy(x = x, y = y, w = w, h = h)
             is DashboardItem.AppWindow -> item.copy(x = x, y = y, w = w, h = h)
