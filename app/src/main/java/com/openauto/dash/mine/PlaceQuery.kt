@@ -40,7 +40,7 @@ internal object PlaceQuery {
     private const val SAME_PLACE_M = 60.0
 
     /** The hard box searched first, six or seven minutes of driving each way. */
-    private const val NEAR_DEG = 0.15
+    private const val NEAR_DEG = 0.25
 
     /** What was typed: the house number to respect, if any. */
     data class Typed(val number: String?)
@@ -166,10 +166,10 @@ internal object PlaceQuery {
                 return@withContext ranked(answers(raw, "", limit, language, null).map { it.place }, raw, null, null)
             }
             val country = CountryLookup.code(nearLat, nearLng)
-            // Around the car first, as a hard limit: "hacienda la palma" must find the street five
-            // minutes away, not the village of the same name in the next city. A soft box only
-            // reorders, and Nominatim ranked the far one first.
-            val near = answers(raw, around(nearLat, nearLng, NEAR_DEG), limit, language, country, bounded = true)
+            // Around the car first, as a soft preference: the box ranks nearby places first
+            // but doesn't exclude places slightly outside. Nominatim's soft box works well
+            // when the box is large enough to include the local area.
+            val near = answers(raw, around(nearLat, nearLng, NEAR_DEG), limit, language, country, bounded = false)
             // And the country's answer with no box at all: the only one that sees cities, towns and
             // villages further away. With a box —even a soft one— its eight rows fill with the
             // streets of that same name around the car, and the city is never offered (#24).
