@@ -97,4 +97,9 @@
     <!-- The whole-route button over the map widget (MapRouteOverview.kt, #23): its description only,
          the button shows no text. -->
     <string name="mine_route_overview" tools:ignore="MissingTranslation">Whole route</string>
+    <!-- Car marker mode (Ajustes → Aspecto → Mapa → Marcador del auto, #35) -->
+    <string name="mine_map_car_marker" tools:ignore="MissingTranslation">Car marker</string>
+    <string name="mine_map_car_simple" tools:ignore="MissingTranslation">Simple dot</string>
+    <string name="mine_map_car_compass" tools:ignore="MissingTranslation">Compass arrow</string>
+    <string name="mine_map_car_auto" tools:ignore="MissingTranslation">Auto (dot when stopped, arrow when moving)</string>
 </resources>

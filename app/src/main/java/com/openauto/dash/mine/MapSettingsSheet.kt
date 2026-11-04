@@ -120,7 +120,58 @@ internal fun MapSettingsSheet(onDismiss: () -> Unit) {
             stringResource(R.string.mine_map_alternatives_detail),
             options.alternatives
         ) { keep(options.copy(alternatives = it)) }
+
+        SettingsSection(stringResource(R.string.mine_map_car_marker))
+        CarMarkerModeRow(options.carMarkerMode) { keep(options.copy(carMarkerMode = it)) }
     }
+}
+
+/**
+ * Three pills for the car marker mode: Simple / Compass / Auto.
+ */
+@Composable
+private fun CarMarkerModeRow(value: CarMarkerMode, onChange: (CarMarkerMode) -> Unit) {
+    Column(Modifier.fillMaxWidth()) {
+        Spacer(Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            CarMarkerMode.entries.forEach { mode ->
+                val label = when (mode) {
+                    CarMarkerMode.SIMPLE -> stringResource(R.string.mine_map_car_simple)
+                    CarMarkerMode.COMPASS -> stringResource(R.string.mine_map_car_compass)
+                    CarMarkerMode.AUTO -> stringResource(R.string.mine_map_car_auto)
+                }
+                val chosen = value == mode
+                CarMarkerPill(label, chosen, Modifier.weight(1f)) { onChange(mode) }
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+    }
+}
+
+/**
+ * A pill for car marker mode selection.
+ */
+@Composable
+private fun CarMarkerPill(label: String, chosen: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) = Box(
+    modifier = modifier
+        .heightIn(min = DashSize.Bar)
+        .clip(DashShape.Medium)
+        .background(if (chosen) DashColors.Accent else DashColors.CardHi)
+        .border(1.dp, if (chosen) DashColors.Accent else DashColors.Line, DashShape.Medium)
+        .clickable(role = Role.RadioButton) { onClick() }
+        .padding(horizontal = 6.dp),
+    contentAlignment = Alignment.Center
+) {
+    Text(
+        label,
+        color = if (chosen) DashColors.OnAccent else DashColors.TextPrimary,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        style = MaterialTheme.typography.bodyMedium
+    )
 }
 
 /**
@@ -201,23 +252,21 @@ private fun StyleRow(label: String, choices: List<MapStyle>, kept: String, onPic
 
 /** A pill of a chooser: the accent when it is the one in use, a card otherwise. */
 @Composable
-private fun Pill(label: String, chosen: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Box(
-        modifier = modifier
-            .heightIn(min = DashSize.Bar)
-            .clip(DashShape.Medium)
-            .background(if (chosen) DashColors.Accent else DashColors.CardHi)
-            .border(1.dp, if (chosen) DashColors.Accent else DashColors.Line, DashShape.Medium)
-            .clickable(role = Role.RadioButton) { onClick() }
-            .padding(horizontal = 6.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            label,
-            color = if (chosen) DashColors.OnAccent else DashColors.TextPrimary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            style = MaterialTheme.typography.bodyMedium
-        )
-    }
+private fun Pill(label: String, chosen: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) = Box(
+    modifier = modifier
+        .heightIn(min = DashSize.Bar)
+        .clip(DashShape.Medium)
+        .background(if (chosen) DashColors.Accent else DashColors.CardHi)
+        .border(1.dp, if (chosen) DashColors.Accent else DashColors.Line, DashShape.Medium)
+        .clickable(role = Role.RadioButton) { onClick() }
+        .padding(horizontal = 6.dp),
+    contentAlignment = Alignment.Center
+) {
+    Text(
+        label,
+        color = if (chosen) DashColors.OnAccent else DashColors.TextPrimary,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        style = MaterialTheme.typography.bodyMedium
+    )
 }

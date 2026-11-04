@@ -19,6 +19,16 @@ internal enum class MapTheme {
     }
 }
 
+/** How the car's location is drawn on the map. */
+internal enum class CarMarkerMode {
+    /** Simple dot, no direction. */
+    SIMPLE,
+    /** Directional arrow, rotates with GPS heading (may show north when heading unknown). */
+    COMPASS,
+    /** Simple dot when stopped/unknown heading; directional when moving with reliable GPS heading. */
+    AUTO
+}
+
 internal data class MapOptions(
     /** Touches on the map: drag, pinch and turn it by hand (off, the camera keeps the car). */
     val gestures: Boolean = true,
@@ -29,7 +39,9 @@ internal data class MapOptions(
     /** The basemap's own light or dark, or the theme's (the default, which is what the map did before). */
     val theme: MapTheme = MapTheme.THEME,
     /** More than one route to the destination, the driver picking one (#25). */
-    val alternatives: Boolean = true
+    val alternatives: Boolean = true,
+    /** How the car's location is drawn on the map. */
+    val carMarkerMode: CarMarkerMode = CarMarkerMode.AUTO
 ) {
     val isDefault: Boolean get() = this == MapOptions()
 }
@@ -42,6 +54,7 @@ internal object MapOptionsStore {
     private const val KEY_TRAFFIC = "traffic"
     private const val KEY_THEME = "theme"
     private const val KEY_ALTERNATIVES = "alternatives"
+    private const val KEY_CAR_MARKER_MODE = "car_marker_mode"
 
     private val _current = MutableStateFlow(MapOptions())
     val current: StateFlow<MapOptions> = _current
@@ -55,12 +68,14 @@ internal object MapOptionsStore {
         val d = MapOptions()
         // A name that is no longer ours (a renamed enum, a file edited by hand) falls back to the default.
         val theme = MapTheme.entries.firstOrNull { it.name == p.getString(KEY_THEME, d.theme.name) } ?: d.theme
+        val carMarkerMode = CarMarkerMode.entries.firstOrNull { it.name == p.getString(KEY_CAR_MARKER_MODE, d.carMarkerMode.name) } ?: d.carMarkerMode
         _current.value = MapOptions(
             gestures = p.getBoolean(KEY_GESTURES, d.gestures),
             compass = p.getBoolean(KEY_COMPASS, d.compass),
             traffic = p.getBoolean(KEY_TRAFFIC, d.traffic),
             theme = theme,
-            alternatives = p.getBoolean(KEY_ALTERNATIVES, d.alternatives)
+            alternatives = p.getBoolean(KEY_ALTERNATIVES, d.alternatives),
+            carMarkerMode = carMarkerMode
         )
     }
 
@@ -71,6 +86,7 @@ internal object MapOptionsStore {
             .putBoolean(KEY_TRAFFIC, options.traffic)
             .putString(KEY_THEME, options.theme.name)
             .putBoolean(KEY_ALTERNATIVES, options.alternatives)
+            .putString(KEY_CAR_MARKER_MODE, options.carMarkerMode.name)
             .apply()
         _current.value = options
     }

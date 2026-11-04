@@ -95,4 +95,9 @@
     <!-- El botón de ver la ruta entera sobre el widget de mapa (MapRouteOverview.kt, #23): solo la
          descripción del icono, el botón no lleva texto. -->
     <string name="mine_route_overview">Ruta completa</string>
+    <!-- Marcador del auto (Ajustes → Aspecto → Mapa → Marcador del auto, #35) -->
+    <string name="mine_map_car_marker">Marcador del auto</string>
+    <string name="mine_map_car_simple">Punto simple</string>
+    <string name="mine_map_car_compass">Flecha brújula</string>
+    <string name="mine_map_car_auto">Automático (punto parado, flecha en movimiento)</string>
 </resources>

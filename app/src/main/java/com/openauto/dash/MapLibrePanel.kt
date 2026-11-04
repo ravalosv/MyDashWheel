@@ -821,9 +821,7 @@ private fun enableLocation(
             com.openauto.dash.mine.MapRecentering.watch(map, lc) { followVehicle(lc, wallpaper, null) }
         }
         lc.isLocationComponentEnabled = true
-        // Directional puck; the camera follows position AND heading (map rotates
-        // with the car) at a close zoom with pitch for the driving-nav look.
-        lc.renderMode = RenderMode.COMPASS
+        lc.renderMode = RenderMode.NORMAL
         // With a fix already known (the permission granted later, the style
         // swapped) the camera goes to it now; else the first fix above takes it
         // there. Through the component either way: a plain animateCamera would
