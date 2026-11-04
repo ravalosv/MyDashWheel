@@ -108,11 +108,21 @@ class UpdateManager(private val context: Context) {
         val info = withContext(Dispatchers.IO) { fetchLatestRelease() }
         val downloaded = info?.let { downloadedFile(it) }
         if (info != null && info.buildNumber <= currentVersionCode) withContext(Dispatchers.IO) { forgetDownloads() }
+        // A dismissed build is skipped unless a newer one appears.
+        // Use both build number and version tag for robustness across head units.
+        val dismissedBuild = prefs.getLong(KEY_DISMISSED, -1L)
+        val dismissedTag: String = prefs.getString(KEY_DISMISSED_TAG, "") ?: ""
+        val isDismissed = info != null &&
+            dismissedBuild == info.buildNumber &&
+            dismissedTag.isNotEmpty() &&
+            dismissedTag == info.versionName
+        Log.i(TAG, "checkForUpdate() latest=${info?.versionName} (${info?.buildNumber}) dismissed_build=$dismissedBuild dismissed_tag=$dismissedTag isDismissed=$isDismissed")
         _status.value = when {
             info == null -> UpdateStatus.Error(R.string.sys_update_check_failed)
             info.buildNumber <= currentVersionCode -> UpdateStatus.UpToDate
+            // A dismissed build is never offered, not even as Ready (already downloaded).
+            isDismissed -> UpdateStatus.Dismissed(info)
             downloaded != null -> UpdateStatus.Ready(info, downloaded)
-            prefs.getLong(KEY_DISMISSED, -1L) == info.buildNumber -> UpdateStatus.Dismissed(info)
             else -> UpdateStatus.Available(info)
         }
     }
@@ -405,21 +415,40 @@ class UpdateManager(private val context: Context) {
      * "Later": the update on offer stops asking (no dot, no prompt) until a
      * newer build comes along; Settings still lists it. A check's own outcome
      * (up to date, failed) just clears.
+     *
+     * The dismissal is committed synchronously so it survives an immediate
+     * process death. On some head units commit() can fail silently; we also
+     * store the version tag as a secondary key and fall back to apply().
      */
     fun dismiss() {
         val info = _status.value.updateInfo
         if (info == null) {
+            Log.w(TAG, "dismiss() called but no update info available")
             _status.value = UpdateStatus.Idle
             return
         }
-        prefs.edit().putLong(KEY_DISMISSED, info.buildNumber).apply()
+        val editor = prefs.edit()
+            .putLong(KEY_DISMISSED, info.buildNumber)
+            .putString(KEY_DISMISSED_TAG, info.versionName)
+        // commit() is synchronous; on some devices it returns false.
+        // Fall back to apply() if commit() fails, and always write both keys.
+        val ok = editor.commit()
+        Log.w(TAG, "dismiss() build=${info.buildNumber} tag=${info.versionName} commit_ok=$ok")
+        if (!ok) {
+            editor.apply()
+            Log.w(TAG, "dismiss() commit() failed, fell back to apply()")
+        }
         _status.value = UpdateStatus.Dismissed(info)
     }
 
     /** Offers a dismissed update again (Settings → Advanced). */
     fun offerAgain() {
         val d = _status.value as? UpdateStatus.Dismissed ?: return
-        prefs.edit().remove(KEY_DISMISSED).apply()
+        Log.i(TAG, "offerAgain() clearing dismissed_build and dismissed_tag")
+        prefs.edit()
+            .remove(KEY_DISMISSED)
+            .remove(KEY_DISMISSED_TAG)
+            .apply()
         _status.value = UpdateStatus.Available(d.info)
     }
 
@@ -429,6 +458,7 @@ class UpdateManager(private val context: Context) {
         /** Android's confirmation and the install itself, before an update still not installed is offered again. */
         private const val INSTALL_WAIT_MS = 45_000L
         private const val KEY_DISMISSED = "dismissed_build"
+        private const val KEY_DISMISSED_TAG = "dismissed_tag"
         private const val KEY_DOWNLOADED = "downloaded_build"
         private const val KEY_BETA = "beta"
 
