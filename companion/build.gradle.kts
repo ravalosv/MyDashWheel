@@ -106,9 +106,7 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     // MapLibre GL — free/open-source map (OpenFreeMap style, no token/API key) for drive detail screen (#41).
-    implementation("org.maplibre.gl:android-sdk:11.11.0") {
-        exclude(group = "org.maplibre.gl", module = "android-sdk-turf")
-    }
+    implementation("org.maplibre.gl:android-sdk:11.11.0")
     // Scans the pairing QR code the launcher shows.
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     // Reads the car's registration certificate off its photo, on the phone (RegistrationCard).
