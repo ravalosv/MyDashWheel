@@ -14,6 +14,7 @@ import android.hardware.SensorManager
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
+import com.openauto.dash.mine.DriveRouteRecorder
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -103,6 +104,18 @@ object LocationFeed {
 
     private val _trip = MutableStateFlow(TripState())
     val trip: StateFlow<TripState> = _trip
+
+    // MINE: #41 Keep each route keyed by its trip start so a reset cannot mix points from two drives.
+    private val driveRoutes = DriveRouteRecorder()
+
+    // MINE: #41 Consume only the route belonging to the drive being closed.
+    fun takeTrail(startedAt: Long): List<Pair<Double, Double>> = driveRoutes.take(startedAt)
+
+    // MINE: #41 Persist route progress with the trip so process restarts can resume it.
+    fun savedTrail(startedAt: Long): String = driveRoutes.encode(startedAt)
+
+    // MINE: #41 Restore only the saved route for the trip being resumed.
+    fun restoreTrail(startedAt: Long, encoded: String?) = driveRoutes.restore(startedAt, encoded)
 
     /**
      * Where the car points, from its GPS fixes ([HeadingTracker]): kept while
@@ -304,7 +317,13 @@ object LocationFeed {
         if (prev != null && l.accuracy <= 30f) {
             val d = prev.distanceTo(l).toDouble()
             val dt = (l.time - prev.time).coerceIn(0L, 60_000L)
-            tripStep(_trip.value, d, dt, speedKmh, System.currentTimeMillis())?.let { _trip.value = it }
+            val before = _trip.value
+            tripStep(before, d, dt, speedKmh, System.currentTimeMillis())?.let { next ->
+                _trip.value = next
+                // MINE: #41 Record only fixes that contributed to this trip's moving distance.
+                val origin = if (prev.accuracy <= 30f) prev.latitude to prev.longitude else l.latitude to l.longitude
+                driveRoutes.record(next.startedAt, origin, l.latitude to l.longitude)
+            }
         }
         lastFix = l
     }

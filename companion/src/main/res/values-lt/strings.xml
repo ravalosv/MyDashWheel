@@ -60,6 +60,15 @@
     <string name="drive_fuel">Degalai ≈ %1$s L · %2$s %3$s</string>
     <string name="drive_duration_hm">%1$d h %2$02d min</string>
     <string name="drive_duration_m">%1$d min</string>
+    <string name="drive_history_all_time">Visi važiavimai</string>
+    <string name="drive_stopped_label">Sustojimas</string>
+    <string name="drive_period">Nuo %1$s iki %2$s</string>
+    <string name="drive_route_unavailable">Šio važiavimo maršrutas neįrašytas.</string>
+    <string name="drive_detail_title">Važiavimo informacija</string>
+    <string name="drive_delete">Ištrinti</string>
+    <string name="drive_delete_confirm_title">Ištrinti šį važiavimą?</string>
+    <string name="drive_delete_confirm_body">Jis dings iš istorijos. Šio veiksmo negalima atšaukti.</string>
+    <string name="drives_clear_all">Ištrinti visus važiavimus</string>
     <!-- The phone as the car's keyboard (CarKeyboard, SendToCarActivity). -->
     <string name="keyboard_title">Rašyti automobilyje</string>
     <string name="keyboard_detail">Pasirinkite teksto lauką automobilio ekrane, tada rašykite čia: tekstas atsiranda rašant.</string>

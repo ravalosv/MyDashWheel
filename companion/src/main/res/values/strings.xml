@@ -60,6 +60,17 @@
     <string name="drive_fuel">Fuel ≈ %1$s L · %2$s %3$s</string>
     <string name="drive_duration_hm">%1$d h %2$02d min</string>
     <string name="drive_duration_m">%1$d min</string>
+    <string name="drive_history_all_time">All drives</string>
+    <string name="drive_stopped_label">Stopped</string>
+    <string name="drive_period">%1$s – %2$s</string>
+    <string name="drive_route_unavailable">No route was recorded for this drive.</string>
+    <!-- Drive detail screen (#41) -->
+    <string name="drive_detail_title">Drive detail</string>
+    <string name="drive_delete">Delete</string>
+    <string name="drive_delete_confirm_title">Delete this drive?</string>
+    <string name="drive_delete_confirm_body">It will be gone from the history. This cannot be undone.</string>
+    <string name="drives_clear_all">Clear all drives</string>
+
     <!-- The phone as the car's keyboard (CarKeyboard, SendToCarActivity). -->
     <string name="keyboard_title">Type on the car</string>
     <string name="keyboard_detail">Select a text field on the car screen, then type here: it follows as you type.</string>

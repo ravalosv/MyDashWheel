@@ -60,6 +60,15 @@
     <string name="drive_fuel">Carburante ≈ %1$s L · %2$s %3$s</string>
     <string name="drive_duration_hm">%1$d h %2$02d min</string>
     <string name="drive_duration_m">%1$d min</string>
+    <string name="drive_history_all_time">Tutti i viaggi</string>
+    <string name="drive_stopped_label">Fermo</string>
+    <string name="drive_period">Da %1$s a %2$s</string>
+    <string name="drive_route_unavailable">Nessun percorso registrato per questo viaggio.</string>
+    <string name="drive_detail_title">Dettagli del viaggio</string>
+    <string name="drive_delete">Elimina</string>
+    <string name="drive_delete_confirm_title">Eliminare questo viaggio?</string>
+    <string name="drive_delete_confirm_body">Scomparirà dalla cronologia. Questa operazione non può essere annullata.</string>
+    <string name="drives_clear_all">Elimina tutti i viaggi</string>
     <string name="keyboard_title">Scrivi sull\'auto</string>
     <string name="keyboard_detail">Seleziona un campo di testo sullo schermo dell\'auto, poi scrivi qui: segue mentre scrivi.</string>
     <string name="keyboard_hint">Testo per lo schermo dell\'auto</string>

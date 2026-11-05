@@ -60,6 +60,15 @@
     <string name="drive_fuel">Üzemanyag ≈ %1$s L · %2$s %3$s</string>
     <string name="drive_duration_hm">%1$d ó %2$02d perc</string>
     <string name="drive_duration_m">%1$d perc</string>
+    <string name="drive_history_all_time">Összes út</string>
+    <string name="drive_stopped_label">Állásidő</string>
+    <string name="drive_period">%1$s – %2$s</string>
+    <string name="drive_route_unavailable">Ehhez az úthoz nem készült útvonal.</string>
+    <string name="drive_detail_title">Út részletei</string>
+    <string name="drive_delete">Törlés</string>
+    <string name="drive_delete_confirm_title">Törli ezt az utat?</string>
+    <string name="drive_delete_confirm_body">Eltűnik az előzményekből. Ez a művelet nem vonható vissza.</string>
+    <string name="drives_clear_all">Összes út törlése</string>
     <!-- The phone as the car's keyboard (CarKeyboard, SendToCarActivity). -->
     <string name="keyboard_title">Gépelés az autóra</string>
     <string name="keyboard_detail">Válasszon ki egy szövegmezőt az autó képernyőjén, majd gépeljen itt: a szöveg menet közben megjelenik.</string>
