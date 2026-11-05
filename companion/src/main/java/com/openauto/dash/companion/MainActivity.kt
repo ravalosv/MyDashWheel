@@ -48,7 +48,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardReturn
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Support
@@ -58,6 +60,8 @@ import androidx.compose.material.icons.filled.BatteryFull
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Sms
+import com.openauto.dash.link.DriveSummary
+import com.openauto.dash.companion.mine.DriveDetailScreen
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.Call
@@ -316,8 +320,25 @@ private fun CompanionScreen(resumes: Int, offer: PairingOffer?, onScanned: (Stri
     // Settings and a tool open over the tabs; Back closes them.
     var settings by rememberSaveable { mutableStateOf(false) }
     var tool by rememberSaveable { mutableStateOf<Tool?>(null) }
+    // MINE: #41 Open a full-screen detail without nesting the map in the tab's scrolling column.
+    var driveDetail by remember { mutableStateOf<DriveSummary?>(null) }
     val opened = tool?.takeIf { paired }
-    BackHandler(enabled = settings || opened != null) { if (opened != null) tool = null else settings = false }
+    BackHandler(enabled = settings || opened != null || driveDetail != null) {
+        if (driveDetail != null) driveDetail = null
+        else if (opened != null) tool = null
+        else settings = false
+    }
+    driveDetail?.let { drive -> // MINE: #41
+        DriveDetailScreen(
+            drive = drive,
+            onClose = { driveDetail = null },
+            onDelete = {
+                DriveJournal.remove(context, drive.startedAt)
+                driveDetail = null
+            }
+        )
+        return
+    }
     val update by CompanionUpdate.status.collectAsState()
     // A dot on the gear where something waits: setup left to allow (once there is a car to allow it for), an update to install.
     val flagged = (paired && setup.missing > 0) || update is CompanionUpdate.Status.Ready
@@ -429,16 +450,45 @@ private fun CompanionScreen(resumes: Int, offer: PairingOffer?, onScanned: (Stri
                     }
                 }
                 shown == Tab.DRIVES -> {
-                    item { SectionTitle(stringResource(R.string.drives_title), top = 2.dp) }
+                    item {
+                        var menu by remember { mutableStateOf(false) }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            SectionTitle(stringResource(R.string.drives_title), top = 2.dp)
+                            IconButton(onClick = { menu = true }) {
+                                Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.more_options), tint = CompanionColors.Muted)
+                            }
+                        }
+                        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.drives_clear_all), color = CompanionColors.Red) },
+                                onClick = { menu = false; DriveJournal.clear(context) }
+                            )
+                        }
+                    }
                     val latest = drives.firstOrNull()
                     if (latest == null) {
                         item { HintCard(stringResource(R.string.drives_none)) }
                     } else {
+                        item { DriveHistorySummaryCard(drives) } // MINE: #41
                         // "Under way" only while the car is linked: once it is gone, the drive it reported last is simply the last one.
-                        item { LatestDriveCard(latest, underWay = latest.ongoing && connected) }
+                        item {
+                            LatestDriveCard(
+                                latest,
+                                underWay = latest.ongoing && connected,
+                                onOpen = { driveDetail = latest } // MINE: #41
+                            )
+                        }
                         item { WeekCard(drives) }
                         item { MonthCard(drives, fills) }
-                        driveHistory(drives.drop(1).take(PAST_DRIVES_SHOWN))
+                        driveHistory(
+                            drives.drop(1), // MINE: #41 Show every retained drive, not only the first 30.
+                            onOpen = { driveDetail = it },
+                            onDelete = { startedAt -> DriveJournal.remove(context, startedAt) }
+                        )
                     }
                 }
                 shown == Tab.ROAD -> {

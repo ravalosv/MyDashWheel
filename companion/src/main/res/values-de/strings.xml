@@ -60,6 +60,15 @@
     <string name="drive_fuel">Kraftstoff ≈ %1$s L · %2$s %3$s</string>
     <string name="drive_duration_hm">%1$d h %2$02d min</string>
     <string name="drive_duration_m">%1$d min</string>
+    <string name="drive_history_all_time">Alle Fahrten</string>
+    <string name="drive_stopped_label">Standzeit</string>
+    <string name="drive_period">Von %1$s bis %2$s</string>
+    <string name="drive_route_unavailable">Für diese Fahrt wurde keine Route aufgezeichnet.</string>
+    <string name="drive_detail_title">Fahrtdetails</string>
+    <string name="drive_delete">Löschen</string>
+    <string name="drive_delete_confirm_title">Diese Fahrt löschen?</string>
+    <string name="drive_delete_confirm_body">Sie wird aus dem Verlauf entfernt. Das kann nicht rückgängig gemacht werden.</string>
+    <string name="drives_clear_all">Alle Fahrten löschen</string>
     <string name="keyboard_title">Im Auto tippen</string>
     <string name="keyboard_detail">Wähle ein Textfeld auf dem Autobildschirm und tippe hier: Es folgt beim Tippen.</string>
     <string name="keyboard_hint">Text für den Autobildschirm</string>

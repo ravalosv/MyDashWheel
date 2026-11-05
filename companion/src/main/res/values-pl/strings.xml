@@ -60,6 +60,15 @@
     <string name="drive_fuel">Paliwo ≈ %1$s L · %2$s %3$s</string>
     <string name="drive_duration_hm">%1$d h %2$02d min</string>
     <string name="drive_duration_m">%1$d min</string>
+    <string name="drive_history_all_time">Wszystkie przejazdy</string>
+    <string name="drive_stopped_label">Postój</string>
+    <string name="drive_period">Od %1$s do %2$s</string>
+    <string name="drive_route_unavailable">Nie zapisano trasy tego przejazdu.</string>
+    <string name="drive_detail_title">Szczegóły przejazdu</string>
+    <string name="drive_delete">Usuń</string>
+    <string name="drive_delete_confirm_title">Usunąć ten przejazd?</string>
+    <string name="drive_delete_confirm_body">Zniknie z historii. Tej operacji nie można cofnąć.</string>
+    <string name="drives_clear_all">Usuń wszystkie przejazdy</string>
     <string name="keyboard_title">Pisz w aucie</string>
     <string name="keyboard_detail">Zaznacz pole tekstowe na ekranie auta, a potem pisz tutaj: tekst pojawia się na bieżąco.</string>
     <string name="keyboard_hint">Tekst na ekran auta</string>

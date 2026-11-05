@@ -60,6 +60,15 @@
     <string name="drive_fuel">Combustible ≈ %1$s L · %2$s %3$s</string>
     <string name="drive_duration_hm">%1$d h %2$02d min</string>
     <string name="drive_duration_m">%1$d min</string>
+    <string name="drive_history_all_time">Todo el historial</string>
+    <string name="drive_stopped_label">Detenido</string>
+    <string name="drive_period">De %1$s a %2$s</string>
+    <string name="drive_route_unavailable">No se registró la ruta de este trayecto.</string>
+    <string name="drive_detail_title">Detalle del trayecto</string>
+    <string name="drive_delete">Eliminar</string>
+    <string name="drive_delete_confirm_title">¿Eliminar este trayecto?</string>
+    <string name="drive_delete_confirm_body">Desaparecerá del historial. Esta acción no se puede deshacer.</string>
+    <string name="drives_clear_all">Borrar todos los trayectos</string>
     <string name="keyboard_title">Escribir en el coche</string>
     <string name="keyboard_detail">Selecciona un campo de texto en la pantalla del coche y escribe aquí: sigue lo que escribes.</string>
     <string name="keyboard_hint">Texto para la pantalla del coche</string>

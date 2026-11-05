@@ -60,6 +60,15 @@
     <string name="drive_fuel">Brandstof ≈ %1$s L · %2$s %3$s</string>
     <string name="drive_duration_hm">%1$d u %2$02d min</string>
     <string name="drive_duration_m">%1$d min</string>
+    <string name="drive_history_all_time">Alle ritten</string>
+    <string name="drive_stopped_label">Stilstand</string>
+    <string name="drive_period">Van %1$s tot %2$s</string>
+    <string name="drive_route_unavailable">Geen route opgenomen voor deze rit.</string>
+    <string name="drive_detail_title">Ritdetails</string>
+    <string name="drive_delete">Verwijderen</string>
+    <string name="drive_delete_confirm_title">Deze rit verwijderen?</string>
+    <string name="drive_delete_confirm_body">De rit verdwijnt uit de geschiedenis. Dit kan niet ongedaan worden gemaakt.</string>
+    <string name="drives_clear_all">Alle ritten verwijderen</string>
     <string name="keyboard_title">Typen in de auto</string>
     <string name="keyboard_detail">Kies een tekstveld op het autoscherm en typ hier: het volgt terwijl je typt.</string>
     <string name="keyboard_hint">Tekst voor het autoscherm</string>

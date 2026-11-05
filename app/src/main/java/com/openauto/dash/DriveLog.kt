@@ -74,6 +74,7 @@ internal object DriveLogRules {
      */
     fun summary(
         trip: TripState, eco: Drive?, car: CarProfile, ongoing: Boolean,
+        polyline: String? = null,
         use: Double = car.typicalUse, price: Double = car.fuelPrice,
         endLat: Double? = null, endLng: Double? = null
     ): DriveSummary {
@@ -95,7 +96,8 @@ internal object DriveLogRules {
             currency = car.currency,
             ongoing = ongoing,
             endLat = endLat,
-            endLng = endLng
+            endLng = endLng,
+            polyline = polyline
         )
     }
 }
@@ -135,12 +137,16 @@ internal object DriveLog {
             // The trip under way when the unit was last switched off: carried on
             // when that was moments ago (a reboot mid-drive), logged otherwise.
             val saved = p.getString("trip", null)?.let { runCatching { tripFrom(JSONObject(it)) }.getOrNull() }
+            val savedTrail = p.getString("trip_route", null) // MINE: #41
+            if (saved == null) p.edit().remove("trip_route").apply() // MINE: #41
             if (saved != null) {
                 if (DriveLogRules.isOver(saved, System.currentTimeMillis())) {
-                    if (DriveLogRules.isWorthLogging(saved)) log(summary(saved, ongoing = false))
-                    p.edit().remove("trip").apply()
+                    if (DriveLogRules.isWorthLogging(saved)) log(summary(saved, ongoing = false, polyline = savedTrail)) // MINE: #41
+                    p.edit().remove("trip").remove("trip_route").apply() // MINE: #41
                 } else {
                     LocationFeed.restoreTrip(saved)
+                    // MINE: #41 Resume the route with its saved trip; never reuse unrelated GPS fixes.
+                    LocationFeed.restoreTrail(saved.startedAt, savedTrail)
                 }
             }
             scope.launch { followTrip() }
@@ -197,7 +203,7 @@ internal object DriveLog {
             } else if (trip.updatedAt != savedAt) {
                 save(app, trip)
                 if (DriveLogRules.isWorthLogging(trip)) {
-                    val report = summary(trip, ongoing = true)
+                    val report = summary(trip, ongoing = true, polyline = null)
                     _current.value = report
                     reports.tryEmit(report)
                 }
@@ -208,26 +214,29 @@ internal object DriveLog {
     /** Ends [trip]: logged if it went anywhere, and told to the phone; then a fresh trip unless one has already replaced it. */
     private fun close(trip: TripState, restart: Boolean) {
         val app = appContext ?: return
+        // MINE: #41 Take this trip's route before the trip computer is reset.
+        val trail = LocationFeed.takeTrail(trip.startedAt)
         if (DriveLogRules.isWorthLogging(trip)) {
-            val done = summary(trip, ongoing = false)
+            val done = summary(trip, ongoing = false, polyline = Polyline.encode(trail))
             log(done)
             reports.tryEmit(done)
         }
         _current.value = null
         savedAt = 0L
-        prefs(app).edit().remove("trip").apply()
+        prefs(app).edit().remove("trip").remove("trip_route").apply() // MINE: #41
         if (restart) {
             followed = null
             LocationFeed.resetTrip()
         }
     }
 
-    private fun summary(trip: TripState, ongoing: Boolean): DriveSummary {
+    private fun summary(trip: TripState, ongoing: Boolean, polyline: String? = null): DriveSummary {
         val car = CarProfileStore.current
         // Where the car is when the drive closes: the commute history tells home and work by it.
         val here = if (ongoing) null else LocationFeed.location.value
         return DriveLogRules.summary(
             trip, DriveLogRules.ecoFor(trip, CarCare.state.value), car, ongoing,
+            polyline = polyline,
             use = FuelLog.litersPer100() ?: car.typicalUse,
             price = FuelLog.price(car),
             endLat = here?.latitude, endLng = here?.longitude
@@ -242,7 +251,11 @@ internal object DriveLog {
 
     private fun save(app: Context, trip: TripState) {
         savedAt = trip.updatedAt
-        prefs(app).edit().putString("trip", tripJson(trip).toString()).apply()
+        prefs(app).edit()
+            .putString("trip", tripJson(trip).toString())
+            // MINE: #41 Save the current encoded path alongside the trip snapshot.
+            .putString("trip_route", LocationFeed.savedTrail(trip.startedAt)) // MINE: #41
+            .apply()
     }
 
     private fun tripJson(t: TripState) = JSONObject()
