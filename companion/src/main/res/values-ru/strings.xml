@@ -60,6 +60,15 @@
     <string name="drive_fuel">Топливо ≈ %1$s л · %2$s %3$s</string>
     <string name="drive_duration_hm">%1$d ч %2$02d мин</string>
     <string name="drive_duration_m">%1$d мин</string>
+    <string name="drive_history_all_time">Все поездки</string>
+    <string name="drive_stopped_label">Стоянка</string>
+    <string name="drive_period">С %1$s по %2$s</string>
+    <string name="drive_route_unavailable">Маршрут этой поездки не записан.</string>
+    <string name="drive_detail_title">Сведения о поездке</string>
+    <string name="drive_delete">Удалить</string>
+    <string name="drive_delete_confirm_title">Удалить эту поездку?</string>
+    <string name="drive_delete_confirm_body">Поездка исчезнет из истории. Это действие нельзя отменить.</string>
+    <string name="drives_clear_all">Удалить все поездки</string>
     <!-- The phone as the car's keyboard (CarKeyboard, SendToCarActivity). -->
     <string name="keyboard_title">Ввод на автомобиле</string>
     <string name="keyboard_detail">Выберите текстовое поле на экране автомобиля и печатайте здесь: текст появляется сразу.</string>

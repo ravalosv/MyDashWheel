@@ -648,7 +648,9 @@ data class DriveSummary(
     val ongoing: Boolean = false,
     /** Where the drive ended, when known (the commute history tells home and work by it). */
     val endLat: Double? = null,
-    val endLng: Double? = null
+    val endLng: Double? = null,
+    /** MINE: #41 The route's GPS fixes, nullable for trips recorded by older versions. */
+    val polyline: String? = null // MINE: #41
 ) {
     val elapsedMs: Long get() = (endedAt - startedAt).coerceAtLeast(0L)
     val avgSpeedKmh: Int get() = if (movingMs <= 0L) 0 else Math.round(distanceKm / (movingMs / 3_600_000.0)).toInt()

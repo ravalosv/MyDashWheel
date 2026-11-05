@@ -31,6 +31,24 @@ class DriveSummaryTest {
     }
 
     @Test
+    fun aDriveFromBeforeRouteHistoryHasNoPolyline() {
+        val legacy = """{"t":"drive","drive":{"startedAt":1,"endedAt":2,"distanceKm":3.0,"movingMs":1,"maxSpeedKmh":4}}"""
+
+        val decoded = LinkCodec.decode(legacy.encodeToByteArray()) as DriveReport
+
+        assertNull(decoded.drive.polyline)
+    }
+
+    @Test
+    fun aDriveRouteSurvivesLinkEncoding() {
+        val drive = drive(1_000L).copy(polyline = "_p~iF~ps|U_ulLnnqC_mqNvxq`@")
+
+        val decoded = LinkCodec.decode(LinkCodec.encode(DriveReport(drive))) as DriveReport
+
+        assertEquals(drive.polyline, decoded.drive.polyline)
+    }
+
+    @Test
     fun theAverageAndElapsedTimeFollowFromTheFigures() {
         val d = drive(0L)
         assertEquals(25 * 60_000L, d.elapsedMs)

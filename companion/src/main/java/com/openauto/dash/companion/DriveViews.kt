@@ -40,15 +40,19 @@ import androidx.compose.ui.unit.dp
 import android.content.Intent
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.IconButton
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -58,14 +62,12 @@ import androidx.compose.ui.text.style.TextAlign
 import com.openauto.dash.link.DriveSummary
 import com.openauto.dash.link.FuelFill
 import com.openauto.dash.link.FuelFills
+import com.openauto.dash.companion.mine.DriveHistorySummary
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import kotlin.math.roundToInt
-
-/** Past drives listed under the latest one; older ones stay in [DriveJournal]. */
-internal const val PAST_DRIVES_SHOWN = 30
 
 private const val DAY_MS = 24 * 3600_000L
 
@@ -282,6 +284,34 @@ private fun Stat(value: String, label: String, tint: Color? = null) {
     }
 }
 
+// MINE: #41 All-time totals are separate from the existing weekly and monthly reports.
+/** All-time trip computer totals for the drives currently kept by the companion. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun DriveHistorySummaryCard(drives: List<DriveSummary>) {
+    val totals = remember(drives) { DriveHistorySummary.from(drives) }
+    Panel {
+        Column(Modifier.padding(18.dp)) {
+            Text(
+                stringResource(R.string.drive_history_all_time),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            FlowRow(
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Stat(kmText(totals.distanceKm), stringResource(R.string.drive_km))
+                Stat(durationText(totals.elapsedMs), stringResource(R.string.drive_time))
+                Stat(totals.averageSpeedKmh.toString(), stringResource(R.string.drive_average))
+                Stat(totals.maxSpeedKmh.toString(), stringResource(R.string.drive_top))
+                Stat(durationText(totals.stoppedMs), stringResource(R.string.drive_stopped_label))
+            }
+        }
+    }
+}
+
 /** Home's word on the last drive while parked: distance, time and eco score; a tap opens the Drives tab. */
 @Composable
 internal fun LastDriveGlance(d: DriveSummary, onAll: () -> Unit) {
@@ -304,8 +334,8 @@ internal fun LastDriveGlance(d: DriveSummary, onAll: () -> Unit) {
 /** The latest drive in full (see [DriveJournal]): the trip computer's figures around the eco-driving ring. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun LatestDriveCard(d: DriveSummary, underWay: Boolean) {
-    Panel {
+internal fun LatestDriveCard(d: DriveSummary, underWay: Boolean, onOpen: () -> Unit) { // MINE: #41
+    Panel(onClick = onOpen) {
         Column(Modifier.padding(18.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
@@ -383,10 +413,14 @@ private fun EcoRing(score: Int?, diameter: Int = 76) {
 }
 
 /** The drives before the latest, under one heading per day ("Today", "Yesterday", then the date). */
-internal fun LazyListScope.driveHistory(drives: List<DriveSummary>) {
+internal fun LazyListScope.driveHistory(
+    drives: List<DriveSummary>,
+    onOpen: (DriveSummary) -> Unit,
+    onDelete: (Long) -> Unit
+) {
     drives.groupBy { dayStart(it.startedAt) }.forEach { (day, list) ->
         item(key = "day-$day") { DayHeading(day) }
-        items(list, key = { it.startedAt }) { DriveRow(it) }
+        items(list, key = { it.startedAt }) { DriveRow(it, onOpen, onDelete) }
     }
 }
 
@@ -401,11 +435,17 @@ private fun DayHeading(day: Long) {
     Text(text, style = MaterialTheme.typography.labelLarge, color = CompanionColors.Muted, modifier = Modifier.padding(start = 4.dp, top = 6.dp))
 }
 
-/** One past drive on a line: the time, how far, how long and how fast, and its score. */
+/** One past drive on a line: the time, how far, how long and how fast, and its score.
+ * Tap opens the detail screen with the route on a map; menu has delete (#41). */
 @Composable
-private fun DriveRow(d: DriveSummary) {
-    Panel {
-        Row(Modifier.padding(horizontal = 18.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+private fun DriveRow(d: DriveSummary, onOpen: (DriveSummary) -> Unit, onDelete: (Long) -> Unit) {
+    var menu by remember { mutableStateOf(false) }
+    Panel(onClick = { onOpen(d) }) {
+        Row(Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 18.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(kmText(d.distanceKm) + " " + stringResource(R.string.drive_km), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -418,6 +458,18 @@ private fun DriveRow(d: DriveSummary) {
             }
             Spacer(Modifier.width(8.dp))
             EcoBadge(d.ecoScore)
+            Spacer(Modifier.width(8.dp))
+            Box {
+                IconButton(onClick = { menu = true }) {
+                    Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.more_options), tint = CompanionColors.Muted)
+                }
+                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.drive_delete), color = CompanionColors.Red) },
+                        onClick = { menu = false; onDelete(d.startedAt) }
+                    )
+                }
+            }
         }
     }
 }
@@ -435,26 +487,26 @@ private fun EcoBadge(score: Int?) {
 }
 
 /** The same verdict as the head unit's eco-driving card. */
-private fun ecoCall(score: Int): Int = when {
+internal fun ecoCall(score: Int): Int = when {
     score >= 80 -> R.string.drive_eco_smooth
     score >= 60 -> R.string.drive_eco_fair
     else -> R.string.drive_eco_harsh
 }
 
-private fun ecoTint(score: Int): Color = when {
+internal fun ecoTint(score: Int): Color = when {
     score >= 80 -> CompanionColors.Teal
     score >= 60 -> CompanionColors.Amber
     else -> CompanionColors.Red
 }
 
-private fun kmText(km: Double): String =
+internal fun kmText(km: Double): String = // MINE: #41 Shared with the new detail screen.
     if (km < 100) String.format(Locale.getDefault(), "%.1f", km) else km.roundToInt().toString()
 
-private fun decimal(value: Double, digits: Int): String = String.format(Locale.getDefault(), "%.${digits}f", value)
+internal fun decimal(value: Double, digits: Int): String = String.format(Locale.getDefault(), "%.${digits}f", value) // MINE: #41
 
 /** "1 h 05" / "25 min". */
 @Composable
-private fun durationText(ms: Long): String {
+internal fun durationText(ms: Long): String { // MINE: #41
     val minutes = (ms / 60_000L).toInt()
     return if (minutes >= 60) stringResource(R.string.drive_duration_hm, minutes / 60, minutes % 60)
     else stringResource(R.string.drive_duration_m, minutes.coerceAtLeast(1))
@@ -462,7 +514,7 @@ private fun durationText(ms: Long): String {
 
 /** Weekday, date and time, abbreviated: "Tue, 24 Sep, 08:12". */
 @Composable
-private fun dateText(at: Long): String = DateUtils.formatDateTime(
+internal fun dateText(at: Long): String = DateUtils.formatDateTime( // MINE: #41
     LocalContext.current, at,
     DateUtils.FORMAT_SHOW_WEEKDAY or DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME or DateUtils.FORMAT_ABBREV_ALL
 )

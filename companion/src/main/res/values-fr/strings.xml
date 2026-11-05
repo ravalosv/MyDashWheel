@@ -60,6 +60,15 @@
     <string name="drive_fuel">Carburant ≈ %1$s L · %2$s %3$s</string>
     <string name="drive_duration_hm">%1$d h %2$02d min</string>
     <string name="drive_duration_m">%1$d min</string>
+    <string name="drive_history_all_time">Tous les trajets</string>
+    <string name="drive_stopped_label">À l’arrêt</string>
+    <string name="drive_period">De %1$s à %2$s</string>
+    <string name="drive_route_unavailable">Aucun itinéraire enregistré pour ce trajet.</string>
+    <string name="drive_detail_title">Détail du trajet</string>
+    <string name="drive_delete">Supprimer</string>
+    <string name="drive_delete_confirm_title">Supprimer ce trajet ?</string>
+    <string name="drive_delete_confirm_body">Il sera supprimé de l’historique. Cette action est irréversible.</string>
+    <string name="drives_clear_all">Supprimer tous les trajets</string>
     <string name="keyboard_title">Taper sur la voiture</string>
     <string name="keyboard_detail">Sélectionnez un champ de texte sur l\'écran de la voiture, puis tapez ici : il suit à mesure.</string>
     <string name="keyboard_hint">Texte pour l\'écran de la voiture</string>
