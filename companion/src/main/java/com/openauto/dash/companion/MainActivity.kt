@@ -407,6 +407,7 @@ private fun CompanionScreen(resumes: Int, offer: PairingOffer?, onScanned: (Stri
                         }
                     }
                     item { SectionTitle(stringResource(R.string.update_section)) }
+                    item { com.openauto.dash.companion.mine.CompanionBetaSetting() } // MINE: #47
                     item { AppVersionCard(update) }
                 }
                 shown == Tab.HOME -> {

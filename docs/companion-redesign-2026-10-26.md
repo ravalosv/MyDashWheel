@@ -49,3 +49,15 @@ three) with **A's tabs and adaptive Home**. B is the safest fallback if a single
 **A was chosen** and is built in `MainActivity.kt`: Home · Drives · Road watch · Tools, Settings behind the gear on
 Home, Home following the link (in the car or parked), and nothing asked before a car is paired. Permissions still
 sit in one list (Settings › Setup) rather than being asked feature by feature; that is the next step.
+
+## Fork updates (#47)
+
+The GitHub edition checks `ravalosv/MyDashWheel` for `mydashwheel-companion.apk`.
+Settings > Updates includes **Receive beta updates**, off by default. Stable uses GitHub's
+latest stable release; beta selects the highest valid build across published releases, including
+pre-releases. Changing the channel clears the previous offer and checks again. It never
+downgrades an installed build. The switch is disabled while checking or downloading.
+
+Older Companion builds still use the upstream updater: install the first corrected fork APK
+manually over the existing fork installation, with the same signing key, without uninstalling.
+Google Play continues to handle updates for the Play edition; no beta switch is shown there.
