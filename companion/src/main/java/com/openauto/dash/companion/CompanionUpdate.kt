@@ -22,14 +22,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 
 /**
  * Keeps the companion up to date from the same GitHub release the launcher
- * updates from: the release's `dashwheel-companion.apk`, built with the same
+ * updates from: the fork release's `mydashwheel-companion.apk`, built with the same
  * run number as the launcher, so its tag (`v1.0.42`) tells the build.
  *
  * Checked when the app opens and when sharing starts, at most every few hours.
@@ -86,21 +85,21 @@ object CompanionUpdate {
         if (!force && checkedAt != 0L && now - checkedAt < CHECK_EVERY_MS) return
         checking = scope.launch {
             _checked.value = Check.Checking
-            val release = withContext(Dispatchers.IO) { fetchLatest() }
+            val release = withContext(Dispatchers.IO) { com.openauto.dash.companion.mine.CompanionUpdateChannel.fetch(app) } // MINE: #47
             if (release == null) {
                 _checked.value = Check.Failed
                 return@launch
             }
             checkedAt = now
-            _checked.value = Check.Done(System.currentTimeMillis())
             if (release.build <= installedBuild(app)) {
                 withContext(Dispatchers.IO) { apkFile(app).delete() }
                 _status.value = Status.None
+                _checked.value = Check.Done(System.currentTimeMillis()) // MINE: #47 Keep channel locked until the check finishes.
                 return@launch
             }
             val file = apkFile(app)
             _status.value = when {
-                prefs(app).getLong(KEY_DOWNLOADED, -1L) == release.build && file.length() > 0L -> Status.Ready(release, file)
+                prefs(app).getLong(KEY_DOWNLOADED, -1L) == release.build && prefs(app).getString("downloaded_url", null) == release.apkUrl && file.length() > 0L -> Status.Ready(release, file) // MINE: #47 Never reuse an upstream APK with a coincident build number.
                 else -> Status.Available(release)
             }
             when (val s = _status.value) {
@@ -108,7 +107,17 @@ object CompanionUpdate {
                 is Status.Available -> if (onUnmetered(app)) download(app)
                 else -> Unit
             }
+            _checked.value = Check.Done(System.currentTimeMillis()) // MINE: #47
         }
+    }
+
+    // MINE: #47 The channel toggle is disabled during checks/downloads; invalidate prior offers and notifications.
+    internal fun channelChanged(context: Context) {
+        _status.value = Status.None
+        checkedAt = 0L // MINE: #47 Retry the new channel after failure, without the prior channel's cooldown.
+        installPending = false
+        context.getSystemService(NotificationManager::class.java).cancel(NOTIFICATION_ID)
+        check(context, force = true)
     }
 
     /** "Later": the card stays away until a newer build comes along. */
@@ -137,7 +146,7 @@ object CompanionUpdate {
                 fetchApk(release.apkUrl, file) { percent -> _status.value = Status.Downloading(release, percent) }
             }
             if (ok) {
-                prefs(app).edit().putLong(KEY_DOWNLOADED, release.build).apply()
+                prefs(app).edit().putLong(KEY_DOWNLOADED, release.build).putString("downloaded_url", release.apkUrl).apply() // MINE: #47
                 _status.value = Status.Ready(release, file)
                 notifyReady(app, release)
             } else {
@@ -228,35 +237,6 @@ object CompanionUpdate {
             caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 
-    private fun fetchLatest(): Release? {
-        var connection: HttpURLConnection? = null
-        return try {
-            connection = (URL(LATEST_URL).openConnection() as HttpURLConnection).apply {
-                setRequestProperty("Accept", "application/vnd.github+json")
-                setRequestProperty("User-Agent", "Dashwheel-Companion-Updater")
-                connectTimeout = 10_000
-                readTimeout = 10_000
-            }
-            if (connection.responseCode != HttpURLConnection.HTTP_OK) return null
-            val json = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
-            val tag = json.optString("tag_name")
-            val build = Regex("(\\d+)").findAll(tag).lastOrNull()?.value?.toLongOrNull() ?: return null
-            val assets = json.optJSONArray("assets") ?: return null
-            for (i in 0 until assets.length()) {
-                val asset = assets.getJSONObject(i)
-                if (!asset.optString("name").equals(APK_ASSET, ignoreCase = true)) continue
-                val url = asset.optString("browser_download_url")
-                // The URL comes from a document fetched over the network: GitHub's own hosts only.
-                if (url.startsWith("https://") && Uri.parse(url).host in ALLOWED_HOSTS) return Release(build, tag, url)
-            }
-            null
-        } catch (e: Exception) {
-            null
-        } finally {
-            connection?.disconnect()
-        }
-    }
-
     /** Follows GitHub's redirect to its download host, staying on https and on GitHub's hosts. */
     private fun fetchApk(url: String, file: File, onProgress: (Int) -> Unit): Boolean {
         var next = url
@@ -315,9 +295,6 @@ object CompanionUpdate {
     private fun prefs(context: Context) = context.getSharedPreferences("updates", Context.MODE_PRIVATE)
 
     const val EXTRA_INSTALL = "install_update"
-    private const val LATEST_URL = "https://api.github.com/repos/deviloufr-ai/Dashwheel/releases/latest"
-    /** The companion's asset in each release (see .github/workflows/build.yml). */
-    private const val APK_ASSET = "dashwheel-companion.apk"
     private const val APK_MIME = "application/vnd.android.package-archive"
     private const val CHANNEL = "updates"
     private const val NOTIFICATION_ID = 0x0D7
