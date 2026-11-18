@@ -129,6 +129,7 @@ internal fun rememberWidgetFace(kind: BuiltinKind, env: SkinTileEnv): WidgetFace
     BuiltinKind.SPEED_LIMIT -> speedLimitFace()
     BuiltinKind.PARKING_TIMER -> parkingTimerFace()
     BuiltinKind.FUEL_LOG -> fuelLogFace()
+    BuiltinKind.CONSUMPTION -> consumptionFace()
     BuiltinKind.WEATHER_ALERTS -> weatherAlertsFace()
     BuiltinKind.ENGINE_TEMPS -> engineTempsFace()
     BuiltinKind.COMMUTE -> commuteFace()
@@ -147,16 +148,16 @@ internal fun rememberWidgetFace(kind: BuiltinKind, env: SkinTileEnv): WidgetFace
     BuiltinKind.CAR_STATUS -> carStatusFace()
     BuiltinKind.TYRES -> tyresFace()
     // Live views and the spec sheet: they keep their content and get the design's frame (DesignFrame).
-    BuiltinKind.NAVMAP, BuiltinKind.PIP_ANCHOR, BuiltinKind.MAPS_INSIDE, BuiltinKind.MY_CAR -> null
+    BuiltinKind.NAVMAP, BuiltinKind.PIP_ANCHOR, BuiltinKind.MAPS_INSIDE, BuiltinKind.MY_CAR, BuiltinKind.CAR_3D -> null
     // The bar has no designs of its own: it is buttons.
     BuiltinKind.DASH_BAR -> null
 }
 
 /**
- * Widgets framed rather than redrawn: live views (map, docked window) and
- * the car's spec sheet, whose tap opens the car settings.
+ * Widgets framed rather than redrawn: live views (map, docked window, the
+ * 3D car) and the car's spec sheet, whose tap opens the car settings.
  */
-internal val FRAMED_KINDS = setOf(BuiltinKind.NAVMAP, BuiltinKind.PIP_ANCHOR, BuiltinKind.MAPS_INSIDE, BuiltinKind.MY_CAR)
+internal val FRAMED_KINDS = setOf(BuiltinKind.NAVMAP, BuiltinKind.PIP_ANCHOR, BuiltinKind.MAPS_INSIDE, BuiltinKind.MY_CAR, BuiltinKind.CAR_3D)
 
 private fun fmt(pattern: String, vararg args: Any): String = String.format(Locale.getDefault(), pattern, *args)
 
@@ -199,7 +200,7 @@ private fun grantAccessAction(): FaceAction {
 private fun engineGauges(d: ObdData, rpmFirst: Boolean): List<FaceGauge> {
     val u = LocalUnits.current
     val speed = FaceGauge(stringResource(R.string.vehicle_speed), u.speed(d.speedKmh).toString(), u.speedUnit, d.speedKmh / 220f)
-    val rpm = FaceGauge(stringResource(R.string.vehicle_rpm), d.rpm.toString(), "rpm", d.rpm / 7000f)
+    val rpm = FaceGauge(stringResource(R.string.vehicle_rpm), d.rpm.toString(), "rpm", rememberRevScale().fraction(d.rpm))
     return (if (rpmFirst) listOf(rpm, speed) else listOf(speed, rpm)) + listOf(
         FaceGauge(stringResource(R.string.vehicle_coolant), u.temp(d.coolantTempC).toString(), u.tempUnit, d.coolantTempC / 130f),
         FaceGauge(stringResource(R.string.vehicle_battery), fmt("%.1f", d.voltage), "V", batteryFraction(d.voltage)),
@@ -247,7 +248,7 @@ private fun obdAllFace(env: SkinTileEnv): WidgetFace {
         title = BuiltinKind.OBD_ALL.label,
         value = d.rpm.toString(), unit = "rpm",
         caption = u.speedText(d.speedKmh),
-        fraction = d.rpm / 7000f,
+        fraction = rememberRevScale().fraction(d.rpm),
         gauges = engineGauges(d, rpmFirst = true),
         stats = listOfNotNull(
             FaceStat(stringResource(R.string.vehicle_speed), u.speedText(d.speedKmh)),
@@ -673,7 +674,9 @@ private fun mediaFace(env: SkinTileEnv): WidgetFace {
                 stringResource(R.string.info_media_play_pause), primary = true, onClick = { controller.playPause() }
             ),
             FaceAction(Icons.Filled.SkipNext, stringResource(R.string.info_media_next), onClick = { controller.next() })
-        )
+        ),
+        // A tap anywhere else on the tile opens the player itself.
+        onClick = { controller.openPlayer() }
     )
 }
 
@@ -742,8 +745,9 @@ private fun clockFace(): WidgetFace {
     val locale = Locale.getDefault()
     val u = LocalUnits.current
     // The digits alone: a 12-hour clock's AM / PM goes in the unit, which every design sets small.
-    val timeFmt = remember(locale, u.clock24) { SimpleDateFormat(u.digitsPattern(), locale) }
-    val dateFmt = remember(locale) { SimpleDateFormat(android.text.format.DateFormat.getBestDateTimePattern(locale, "EEEEdMMMM"), locale) }
+    val zone = rememberZone()
+    val timeFmt = remember(locale, u.clock24, zone) { SimpleDateFormat(u.digitsPattern(), locale).inZone(zone) }
+    val dateFmt = remember(locale, zone) { SimpleDateFormat(android.text.format.DateFormat.getBestDateTimePattern(locale, "EEEEdMMMM"), locale).inZone(zone) }
     val cal = remember(now) { Calendar.getInstance().apply { time = now } }
     val h = cal.get(Calendar.HOUR_OF_DAY)
     val m = cal.get(Calendar.MINUTE)
@@ -806,7 +810,7 @@ private fun agendaFace(): WidgetFace {
             action = if (agenda.phoneSent) null else FaceAction(Icons.Filled.Event, stringResource(R.string.info_open), onClick = openCalendar))
     }
     val timeFmt = rememberTimeFormat()
-    val dayFmt = remember(timeFmt) { SimpleDateFormat("EEE " + timeFmt.toPattern(), Locale.getDefault()) }
+    val dayFmt = remember(timeFmt) { SimpleDateFormat("EEE " + timeFmt.toPattern(), Locale.getDefault()).inZone(timeFmt.timeZone) }
     val noTitle = stringResource(R.string.info_agenda_no_title)
     val allDay = stringResource(R.string.info_agenda_all_day)
     val today = Calendar.getInstance().get(Calendar.DAY_OF_YEAR)
@@ -852,7 +856,7 @@ private fun quickDialFace(): WidgetFace {
     val source = rememberQuickDialSource()
     val perm = source.access
     val favourites = source.favourites
-    val dialer = FaceAction(Icons.Filled.Dialpad, stringResource(R.string.info_quickdial_dialer), onClick = { context.launchSafely(Intent(Intent.ACTION_DIAL)) })
+    val dialer = FaceAction(Icons.Filled.Dialpad, stringResource(R.string.info_quickdial_dialer), onClick = { PhoneScreen.open(context) })
     // Every call waits in the tile's strip first, as on the standard card: "Calling X", Cancel, three seconds.
     val pending = LocalPendingAction.current
     fun call(name: String, number: String) = pending.arm(context.getString(R.string.phone_calling, name)) { dialNumber(context, number) }
@@ -892,10 +896,12 @@ private fun quickDialFace(): WidgetFace {
 
 @Composable
 private fun notificationsFace(env: SkinTileEnv): WidgetFace {
-    if (!env.hasMediaAccess) {
+    val items by NotificationFeed.items.collectAsState()
+    val phoneConnected = PhoneLink.state.collectAsState().value is PhoneLinkState.Connected
+    // As the plain tile: the unit's access only while its own notifications are wanted, and never over the phone's (#123).
+    if (!env.hasMediaAccess && NotificationFeed.showsUnit(env.context) && !phoneConnected && items.none { it.fromPhone }) {
         return idleFace(Icons.Filled.Notifications, BuiltinKind.NOTIFICATIONS.label, stringResource(R.string.info_notif_needs_access), action = grantAccessAction())
     }
-    val items by NotificationFeed.items.collectAsState()
     val timeFmt = rememberTimeFormat()
     val latest = items.firstOrNull()
     return WidgetFace(
@@ -952,7 +958,8 @@ private fun filterFace(): WidgetFace {
     val call = filterCall(streak, LocalUnits.current.imperial)
     val drive = care.drive
     val last = care.filter.lastLongAt
-    val now = System.currentTimeMillis()
+    // Once a minute: "last long drive 3 h ago" otherwise stands still until the care state changes.
+    val now = rememberWallClock(60_000L).longValue
     // The real soot load, when the experimental reading finder got the car to give it up.
     val extra by PidExplorer.readings.collectAsState()
     val soot = extra[ExtraReading.SOOT_LOAD]?.value
@@ -1135,8 +1142,9 @@ private fun serviceFace(): WidgetFace {
     if (editing) UpkeepDialog(onDismiss = { editing = false })
     val reveal = rememberEditReveal()
     val lock = LocalDriveLock.current
-    val now = System.currentTimeMillis()
-    val dues = remember(state) { state.statuses(now) }
+    // Once an hour: a unit left on overnight otherwise keeps yesterday's "due in N days".
+    val now = rememberWallClock(3_600_000L).longValue
+    val dues = remember(state, now) { state.statuses(now) }
     val first = dues.firstOrNull { it.stage != UpkeepStage.UNKNOWN }
     val odo = state.odometer
     val u = LocalUnits.current

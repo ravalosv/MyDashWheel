@@ -320,10 +320,11 @@ internal object PlaceSearch {
             if (!resp.isSuccessful) return emptyList()
             val arr = JsonParser.parseString(resp.body?.string() ?: return emptyList()).asJsonArray
             if (arr.size() == 0) return emptyList()
-            return arr.map { o ->
+            return arr.mapNotNull { o ->
                 val obj = o.asJsonObject
-                val lat = obj.get("lat").asString.toDouble()
-                val lon = obj.get("lon").asString.toDouble()
+                // An answer without a position is "not found", not "offline" (a throw here reads as the latter).
+                val lat = obj.get("lat")?.asString?.toDoubleOrNull() ?: return@mapNotNull null
+                val lon = obj.get("lon")?.asString?.toDoubleOrNull() ?: return@mapNotNull null
                 val displayName = obj.get("display_name")?.asString ?: query
                 android.util.Log.d("PlaceSearch", "Found: '$displayName' lat=$lat, lon=$lon")
                 Place(displayName, lat, lon)

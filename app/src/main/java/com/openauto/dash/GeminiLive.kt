@@ -16,6 +16,7 @@ import android.view.WindowManager
 import android.widget.ImageView
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -48,6 +49,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -87,8 +89,8 @@ import kotlinx.coroutines.withTimeoutOrNull
  * display of its own (EmbeddedApp) drawn in the alert, so its captions and
  * buttons work there. While driving the bigger designs shrink to the pill
  * after a few seconds; reversing puts the alert aside and a phone call ends
- * the conversation. Dashwheel's own Gemini ends when reverse is engaged too,
- * and the car's voice waits while it talks ([CarVoice.holdForLive]). A second
+ * the conversation. Dashwheel's own Gemini ends when reverse is engaged too.
+ * The car's voice waits during either ([CarVoice.holdForLive]). A second
  * press, or the alert's close button, ends it.
  *
  * Live has no public way in: Gemini's home-screen widget opens it through an
@@ -114,6 +116,8 @@ internal object GeminiLive {
     private const val CURTAIN_MAX_MS = 4_000L
     /** And stays a moment more, while the unit draws Gemini where it now is. */
     private const val CURTAIN_AFTER_MS = 200L
+    /** A tap made before the shell probe answered waits this long for it; then Gemini opens as without root. */
+    private const val ROOT_WAIT_MS = 10_000L
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var started = false
     private var window: AlertWindow? = null
@@ -121,6 +125,8 @@ internal object GeminiLive {
     private var shown: AlertStyle? = null
     private var starting: Job? = null
     private var ticking: Job? = null
+    /** Counts the taps that open Live: the shell probe's answer to an earlier one must not open it over a later. */
+    private var tap = 0
 
     private val _active = MutableStateFlow(false)
     /** A conversation is open: the bar's button turns into its end button. */
@@ -213,11 +219,23 @@ internal object GeminiLive {
             HandsFree.say(app, R.string.ai_gemini_live_missing)
             return
         }
-        // This runs on a tap, on the main thread: the shell probe's answer when it has one
-        // (a "no" would otherwise spawn su and wait up to its timeout on every tap).
+        // This runs on a tap, on the main thread: the shell probe's answer, never `su` itself
+        // (a "no" would spawn it and wait up to its timeout on every tap, and a Magisk prompt
+        // held the launcher until it was answered). Before the probe has answered, the tap
+        // waits for it off the main thread and comes back here, unless a newer tap or an open
+        // conversation has overtaken it.
+        val mine = ++tap
         val root = when (PrivilegedShell.access.value) {
             PrivilegedShell.Access.ROOT -> true
-            PrivilegedShell.Access.UNKNOWN -> SystemInstaller.isRootAvailable()
+            PrivilegedShell.Access.UNKNOWN -> {
+                PrivilegedShell.probe()
+                scope.launch {
+                    val known = withTimeoutOrNull(ROOT_WAIT_MS) { PrivilegedShell.access.first { it != PrivilegedShell.Access.UNKNOWN } }
+                    if (mine != tap || _active.value) return@launch
+                    if (known != null) open(app) else fullScreen(app, root = false)
+                }
+                return
+            }
             else -> false
         }
         if (!root || !EmbeddedApp.allowed(app) || !window(app).canShow()) {
@@ -230,6 +248,7 @@ internal object GeminiLive {
         val fresh = host.displayId == null
         if (fresh) host.startCommand = LIVE
         _active.value = true
+        CarVoice.holdForLive(true)
         bigSince = SystemClock.elapsedRealtime()
         // The unit shows each new app full screen for a moment before it reaches its display:
         // a picture of the dashboard hides that, until Gemini is in place.
@@ -310,6 +329,7 @@ internal object GeminiLive {
             CarVoice.holdForLive(false)
             return
         }
+        CarVoice.holdForLive(false)
         starting?.cancel()
         starting = null
         LaunchCurtain.lift()
@@ -621,7 +641,9 @@ private fun EndButton(onEnd: () -> Unit) {
 private fun Conversation(modifier: Modifier) {
     val lines by DashAssistant.lines.collectAsState()
     val phase by DashAssistant.phase.collectAsState()
-    Column(modifier.padding(horizontal = 20.dp, vertical = 12.dp), verticalArrangement = Arrangement.Bottom) {
+    Box(modifier) {
+    VoiceGlow(Modifier.fillMaxWidth().height(160.dp).align(Alignment.BottomCenter))
+    Column(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 12.dp), verticalArrangement = Arrangement.Bottom) {
         lines.takeLast(4).forEach { line ->
             Text(
                 line.text,
@@ -647,6 +669,23 @@ private fun Conversation(modifier: Modifier) {
             Text(stringResource(status), color = DashColors.AccentInk, style = MaterialTheme.typography.labelLarge)
         }
     }
+    }
+}
+
+/** The glow at the bottom of the conversation, rising and falling with the voice heard or played, as in Gemini's app. */
+@Composable
+private fun VoiceGlow(modifier: Modifier) {
+    val level by DashAssistant.level.collectAsState()
+    val glow = animateFloatAsState((level * 6f).coerceAtMost(1f), tween(120), label = "voice")
+    Box(
+        modifier
+            .graphicsLayer {
+                transformOrigin = TransformOrigin(0.5f, 1f)
+                scaleY = 0.2f + 0.8f * glow.value
+                alpha = 0.3f + 0.7f * glow.value
+            }
+            .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0x665AA9FF), Color(0xCC9B72CB))))
+    )
 }
 
 /** "Try it": Live's dark screen and its glow, no conversation. */

@@ -35,6 +35,8 @@
     <string name="wheel_action_toggle_split">Écran partagé oui / non</string>
     <string name="wheel_action_screenshot">Capture d\'écran</string>
     <string name="wheel_action_play_pause">Lecture/pause</string>
+    <string name="wheel_action_play">Lecture</string>
+    <string name="wheel_action_pause">Pause</string>
     <string name="wheel_action_next">Piste suivante</string>
     <string name="wheel_action_previous">Piste précédente</string>
     <string name="wheel_action_volume_up">Monter le volume</string>
@@ -122,4 +124,19 @@
     <string name="wheel_reset_body">Chaque bouton quitte la carte et perd son action. Le volant revient à ce que fait l\'autoradio tout seul.</string>
     <string name="wheel_reset_confirm">Réinitialiser</string>
     <string name="wheel_action_stop_guidance">Arrêter la navigation</string>
+    <string name="wheel_unit_keys_off">Le firmware de cette unité garde les touches du volant pour lui. Laissez Dashwheel les prendre : ses propres applis les perdent pendant ce temps.</string>
+    <string name="wheel_unit_keys_take">Les prendre</string>
+    <string name="wheel_unit_keys_waiting">Dashwheel a demandé les touches du volant au firmware et ne les a pas encore. Les prendre demande root, Shizuku ou l\'ADB de l\'unité.</string>
+    <string name="wheel_unit_keys_live">À l\'écoute des touches du volant de l\'unité</string>
+    <string name="wheel_monitor_no_root">Sans root, seules les touches Android et celles de l\'unité apparaissent ici. L\'entrée brute et le journal demandent root.</string>
+    <string name="wheel_log_match_label">La ligne du journal contient</string>
+    <string name="wheel_log_hint">Agit chaque fois que le journal de l\'unité montre une ligne avec ce texte. Raccourcissez-le à la partie qui nomme le bouton.</string>
+    <string name="wheel_unit_muted">Muet activé</string>
+    <string name="wheel_unit_unmuted">Muet désactivé</string>
+    <string name="wheel_action_stop_audio">Arrêter musique / radio</string>
+    <string name="wheel_action_fast_forward">Avance rapide</string>
+    <string name="wheel_action_rewind">Retour rapide</string>
+    <string name="wheel_action_screen_off">Éteindre l\'écran</string>
+    <string name="wheel_action_brightness_up">Écran plus lumineux</string>
+    <string name="wheel_action_brightness_down">Écran plus sombre</string>
 </resources>

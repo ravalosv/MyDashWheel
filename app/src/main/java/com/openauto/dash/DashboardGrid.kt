@@ -58,6 +58,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.layer.GraphicsLayer
+import androidx.compose.ui.graphics.layer.drawLayer
+import androidx.compose.ui.graphics.rememberGraphicsLayer
+import androidx.compose.ui.draw.drawWithContent
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -87,6 +97,7 @@ import androidx.compose.runtime.key
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.filled.ViewInAr
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -212,6 +223,7 @@ internal fun DashboardPage(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(h)
+                            .tileFrame(item.frame)
                             .clip(DashShape.Large)
                             .background(DashColors.Bar)
                     ) { tileContent(index, item, null) }
@@ -262,15 +274,19 @@ internal fun DashboardPage(
         if (editing) {
             // Grid guide-lines while arranging. Under the tiles, so a tap here
             // is one between them.
+            // The coarse cells' lines as before; the finer cells between them faint, so the page stays readable.
             Canvas(modifier = Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures { onTapEmpty() } }) {
                 val line = DashColors.TextSecondary.copy(alpha = 0.28f)
+                val fine = DashColors.TextSecondary.copy(alpha = 0.1f)
                 for (c in 0..GRID_COLS) {
                     val x = (cellWpx * c).coerceAtMost(size.width - 0.5f)
-                    drawLine(line, Offset(x, 0f), Offset(x, size.height), 1f) // MINE: #31
+                    val coarse = c % GRID_SCALE == 0
+                    drawLine(if (coarse) line else fine, Offset(x, 0f), Offset(x, size.height), if (coarse) 2f else 1f)
                 }
                 for (r in 0..GRID_ROWS) {
                     val y = (cellHpx * r).coerceAtMost(size.height - 0.5f)
-                    drawLine(line, Offset(0f, y), Offset(size.width, y), 1f) // MINE: #31
+                    val coarse = r % GRID_SCALE == 0
+                    drawLine(if (coarse) line else fine, Offset(0f, y), Offset(size.width, y), if (coarse) 2f else 1f)
                 }
             }
 
@@ -370,7 +386,9 @@ private suspend fun PointerInputScope.detectPageHold(items: () -> List<Dashboard
         val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
         val col = (down.position.x / cellW).toInt()
         val row = (down.position.y / cellH).toInt()
-        val under = items().firstOrNull { col in it.x until it.x + it.w && row in it.y until it.y + it.h }
+        // The tile on top: the last of those over the others, else the grid's.
+        val hits = items().filter { col in it.x until it.x + it.w && row in it.y until it.y + it.h }
+        val under = hits.lastOrNull { !it.inGrid() } ?: hits.firstOrNull()
         if (under != null && under.takesEveryTouch()) return@awaitEachGesture
         val slop = viewConfiguration.touchSlop
         val ended = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
@@ -458,6 +476,9 @@ internal fun GridTile(
 
     // The drag and resize offsets are read in the layout phase only, so a
     // finger moving a tile re-lays it out each frame without recomposing it.
+    // A tile over the others stands above the grid's tiles (the ghost, at
+    // 0.5, above it, the tile in hand above all); two such tiles keep the
+    // page's order, the later on top.
     Box(
         modifier = Modifier
             .offset { IntOffset((basePxX + dragOffset.x).roundToInt(), (basePxY + dragOffset.y).roundToInt()) }
@@ -467,13 +488,14 @@ internal fun GridTile(
                 val placeable = measurable.measure(Constraints.fixed(w, h))
                 layout(w, h) { placeable.place(0, 0) }
             }
-            .zIndex(if (active) 1f else 0f)
+            .zIndex(if (active) 1f else if (item.inGrid()) 0f else OVER_Z)
             .padding(3.dp)
             .then(if (index == 0) Modifier.tourTarget(TourTarget.TILE) else Modifier)
             .graphicsLayer {
                 if (active) { scaleX = 1.03f; scaleY = 1.03f; shadowElevation = 20f }
             }
     ) {
+        val frameShape = skinChrome().shapes.large
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -482,15 +504,20 @@ internal fun GridTile(
                     when {
                         selected -> Modifier
                             .onGloballyPositioned { onSelectedBounds(it.boundsInRoot()) }
-                            .border(2.dp, DashColors.Accent, skinChrome().shapes.large)
-                        editing && DashColors.Bare -> Modifier.border(1.dp, DashColors.TextSecondary.copy(alpha = 0.35f), DashShape.Large)
+                            .border(2.dp, DashColors.Accent, frameShape)
+                        editing && (DashColors.Bare || item.frame.bare) -> Modifier.border(1.dp, DashColors.TextSecondary.copy(alpha = 0.35f), DashShape.Large)
                         else -> Modifier
                     }
                 )
+                // The tile's own border and opacity (TileFrame), under the arranging outline.
+                .tileFrame(item.frame)
                 // Dimmed while arranging: the tile is the thing being moved, not
                 // read. Not the one whose panel is open: its new design shows as is.
                 .graphicsLayer { alpha = if (editing && !selected) 0.7f else 1f }
-        ) { content() }
+        ) {
+            // Without its background (TileFrame.bare): the cards and panels inside leave theirs out.
+            CompositionLocalProvider(LocalTileBare provides item.frame.bare) { content() }
+        }
 
         if (editing) {
             // Transparent scrim over the content captures the long-press drag so
@@ -600,6 +627,69 @@ internal fun GridTile(
     }
 }
 
+/** Where the tiles over the others stand: above the grid's (0), under the snap ghost (0.5) and the tile in hand (1). */
+private const val OVER_Z = 0.25f
+
+/**
+ * A tile's frame ([TileFrame]) on its box: its border around what the widget
+ * draws ([widgetOutline]) and its opacity, which fades the border with the
+ * content. The opacity is always applied, at 1 too, so changing it never
+ * rebuilds the tile (and its map or widget).
+ */
+@Composable
+private fun Modifier.tileFrame(frame: TileFrame): Modifier {
+    val base = graphicsLayer { alpha = frame.opacity }
+    if (frame.border <= 0) return base
+    val colour = frame.borderColor.color()
+    val silhouette = rememberGraphicsLayer()
+    return base.widgetOutline(silhouette, frame.border.dp, colour)
+}
+
+/**
+ * A line of [width] in [colour] around whatever the content draws, not
+ * around its box: a round music tile gets a ring, a card its rounded edge, a
+ * bare widget's words and dial their own outline. The content is recorded
+ * into [silhouette], drawn in the colour alone (its alpha kept) a few times
+ * around itself, then drawn as it is on top.
+ */
+private fun Modifier.widgetOutline(silhouette: GraphicsLayer, width: Dp, colour: Color): Modifier = drawWithContent {
+    // The draw scope's own record: it points the content's drawing into the
+    // layer for the block. The layer's plain record would not, and the
+    // content would go straight to the screen, leaving the layer empty.
+    silhouette.record { this@drawWithContent.drawContent() }
+    silhouette.colorFilter = ColorFilter.tint(colour, BlendMode.SrcIn)
+    val w = width.toPx()
+    // A ring of copies at the line's width; wide lines get an inner ring too, so the corners fill in.
+    for (i in 0 until OUTLINE_STEPS) {
+        val a = i * 2.0 * PI / OUTLINE_STEPS
+        translate((cos(a) * w).toFloat(), (sin(a) * w).toFloat()) { drawLayer(silhouette) }
+    }
+    if (w > OUTLINE_INNER_RING_PX) {
+        for (i in 0 until OUTLINE_STEPS) {
+            val a = (i + 0.5) * 2.0 * PI / OUTLINE_STEPS
+            translate((cos(a) * w / 2).toFloat(), (sin(a) * w / 2).toFloat()) { drawLayer(silhouette) }
+        }
+    }
+    drawContent()
+}
+
+/** How many copies make the ring around the content, and the width from which a second ring is needed. */
+private const val OUTLINE_STEPS = 16
+private const val OUTLINE_INNER_RING_PX = 6f
+
+/** The colour a border is drawn in, from the palette on screen where it has one. */
+@Composable
+internal fun TileBorderColor.color(): Color = when (this) {
+    TileBorderColor.ACCENT -> DashColors.Accent
+    TileBorderColor.TEXT -> DashColors.TextPrimary
+    TileBorderColor.WHITE -> Color.White
+    TileBorderColor.BLACK -> Color.Black
+    TileBorderColor.RED -> Color(0xFFE53935)
+    TileBorderColor.YELLOW -> Color(0xFFFFC107)
+    TileBorderColor.GREEN -> Color(0xFF43A047)
+    TileBorderColor.BLUE -> Color(0xFF1E88E5)
+}
+
 /** How far the resize target reaches past the tile's corner. */
 private val HANDLE_REACH = 12.dp
 /** The bracket's arms, from the corner, and its line. */
@@ -630,16 +720,32 @@ internal fun TileContent(
     /** Grid only: grow this tile to at least the given pixel size (a docked window's minimum). */
     onFitToWindow: ((Int, Int) -> Unit)? = null
 ) {
-    val env = remember(editing, appsByPackage, media, mediaController, hasMediaAccess, context, obdConnection, onConnectObd, onPickDevice, onLaunchApp, onEditLaunchBar) {
+    // The callbacks the dashboard hands down are new objects at every root recomposition (once a
+    // minute, every swipe), which made this env new for every tile on every composed page. Built
+    // over holders that follow the latest callbacks, it stays the same object while nothing a tile
+    // reads has changed, so the tiles can skip.
+    val latestConnect = rememberUpdatedState(onConnectObd)
+    val latestPick = rememberUpdatedState(onPickDevice)
+    val latestLaunch = rememberUpdatedState(onLaunchApp)
+    val latestEditBar = rememberUpdatedState(onEditLaunchBar)
+    val env = remember(editing, appsByPackage, media, mediaController, hasMediaAccess, context, obdConnection) {
         SkinTileEnv(
             editing, appsByPackage, media, mediaController, hasMediaAccess, context,
-            obdConnection, onConnectObd, onPickDevice, onLaunchApp, onEditLaunchBar
+            obdConnection, { latestConnect.value() }, { latestPick.value() }, { latestLaunch.value(it) }, { latestEditBar.value() }
         )
+    }
+    // Heads-up's one face of its own: the music as a disc (HeadsUpSkin.kt), in place of Open's.
+    if (item is DashboardItem.BuiltinWidget && item.kind == BuiltinKind.MEDIA && item.design == WidgetDesign.STANDARD && headsUpLook()) {
+        HeadsUpMedia(env)
+        return
     }
     // A tile's own design beats the skin; its standard look is this same
     // routing with the design cleared (the skin's tile under a skin).
-    if (item is DashboardItem.BuiltinWidget && item.design != WidgetDesign.STANDARD) {
-        DesignedTile(item, env) {
+    // The Open look wears its design on every widget that has a face (framed ones and the bar have none, so no loop back here).
+    val open = item is DashboardItem.BuiltinWidget && item.design == WidgetDesign.STANDARD && DashColors.Open &&
+        item.kind !in FRAMED_KINDS && item.kind != BuiltinKind.DASH_BAR
+    if (item is DashboardItem.BuiltinWidget && (open || item.design != WidgetDesign.STANDARD)) {
+        DesignedTile(if (open) item.copy(design = WidgetDesign.OPEN) else item, env) {
             TileContent(
                 item.copy(design = WidgetDesign.STANDARD), editing, appsByPackage, media, mediaController, hasMediaAccess,
                 context, obdConnection, onConnectObd, onPickDevice, onLaunchApp, onLaunchSplitPair, onEditLaunchBar,
@@ -693,9 +799,9 @@ internal fun TileContent(
         is DashboardItem.BuiltinWidget -> SkinFallback(item.kind) { when (item.kind) {
             BuiltinKind.NAVMAP -> if (editing) {
                 EditPlaceholder(icon = Icons.Filled.Navigation, label = BuiltinKind.NAVMAP.label)
-            } else if (isEmulator) {
+            } else if (!gpuOk) {
                 // MapLibre's native renderer segfaults on the emulator's software GL.
-                EditPlaceholder(icon = Icons.Filled.Navigation, label = stringResource(R.string.dash_map_needs_gpu), hint = stringResource(R.string.dash_not_on_emulator))
+                EditPlaceholder(icon = Icons.Filled.Navigation, label = stringResource(R.string.dash_map_needs_gpu), hint = if (isEmulator) stringResource(R.string.dash_not_on_emulator) else "")
             } else Box(
                 modifier = Modifier.fillMaxSize().background(DashColors.Card)
             ) {
@@ -758,6 +864,7 @@ internal fun TileContent(
             BuiltinKind.SPEED_LIMIT -> SpeedLimitCard(modifier = Modifier.fillMaxSize())
             BuiltinKind.PARKING_TIMER -> ParkingTimerCard(modifier = Modifier.fillMaxSize())
             BuiltinKind.FUEL_LOG -> FuelLogCard(modifier = Modifier.fillMaxSize())
+            BuiltinKind.CONSUMPTION -> ConsumptionCard(modifier = Modifier.fillMaxSize())
             BuiltinKind.WEATHER_ALERTS -> WeatherAlertsCard(modifier = Modifier.fillMaxSize())
             BuiltinKind.ENGINE_TEMPS -> EngineTempsCard(modifier = Modifier.fillMaxSize())
             BuiltinKind.COMMUTE -> CommuteCard(modifier = Modifier.fillMaxSize())
@@ -776,6 +883,15 @@ internal fun TileContent(
             BuiltinKind.FUEL_PRICES -> FuelPricesCard(modifier = Modifier.fillMaxSize())
             BuiltinKind.CAR_STATUS -> CarStatusCard(modifier = Modifier.fillMaxSize())
             BuiltinKind.TYRES -> TyresCard(modifier = Modifier.fillMaxSize())
+            // The 3D view waits while the tiles are arranged, like the map.
+            BuiltinKind.CAR_3D -> if (editing) {
+                EditPlaceholder(icon = Icons.Filled.ViewInAr, label = BuiltinKind.CAR_3D.label)
+            } else Car3DStatusCard(
+                connection = obdConnection.value,
+                onConnect = onConnectObd,
+                onPickDevice = onPickDevice,
+                modifier = Modifier.fillMaxSize()
+            )
         } }
 
         is DashboardItem.SystemWidget -> if (editing) {
@@ -795,7 +911,7 @@ internal fun TileContent(
  */
 @Composable
 private fun SkinFallback(kind: BuiltinKind, content: @Composable () -> Unit) {
-    if (DashColors.Skin == DashSkin.STANDARD || !DashColors.Bare || kind in FRAMED_KINDS || kind == BuiltinKind.DASH_BAR || kind in SKINNED_KINDS) {
+    if (LocalTileBare.current || DashColors.Skin == DashSkin.STANDARD || !DashColors.Bare || kind in FRAMED_KINDS || kind == BuiltinKind.DASH_BAR || kind in SKINNED_KINDS) {
         content()
         return
     }

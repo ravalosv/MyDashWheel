@@ -20,6 +20,7 @@ import com.openauto.dash.vehicle.K
 import com.openauto.dash.vehicle.Source
 import com.openauto.dash.vehicle.SourceKind
 import com.openauto.dash.vehicle.Vehicle
+import com.openauto.dash.vehicle.speedKmhNow
 
 /*
  * The ignition, as the head unit's firmware announces it to every app
@@ -96,8 +97,13 @@ object CarPower {
         val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         // Read before [noteBoot] marks the ignition on.
         val wokeUp = acc != null && startedBySwitchOn(on, prefs.getLong(KEY_OFF_AT, 0L), prefs.getLong(KEY_ON_AT, 0L))
-        noteBoot(app, on)
-        val filter = IntentFilter().apply { src.actions.forEach(::addAction) }
+        noteBoot(app, acc)
+        readable = acc != null
+        val filter = IntentFilter().apply {
+            src.actions.forEach(::addAction)
+            // Nothing to read: the screen coming back on stands in for an "on" this firmware may never send.
+            if (!readable) addAction(Intent.ACTION_SCREEN_ON)
+        }
         ContextCompat.registerReceiver(app, receiver, filter, ContextCompat.RECEIVER_EXPORTED)
         // The unit kills the app while it sleeps (a new process at nearly every
         // wake-up in the logs), and the "on" broadcast goes out before the app
@@ -111,7 +117,7 @@ object CarPower {
      * is logged and kept in the prefs (last [KEY_LOST_KEEP] of them, newest
      * first) so a driver can report when it happens and what came before.
      */
-    private fun noteBoot(context: Context, ignitionOn: Boolean) {
+    private fun noteBoot(context: Context, ignition: Boolean?) {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val boot = runCatching { Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT) }.getOrDefault(-1)
         val lastBoot = prefs.getInt(KEY_BOOT, -1)
@@ -119,19 +125,17 @@ object CarPower {
         val now = System.currentTimeMillis()
         val edit = prefs.edit().putInt(KEY_BOOT, boot)
         val reason = listOfNotNull(systemProperty("sys.boot.reason"), systemProperty("ro.boot.bootreason")).filter { it.isNotBlank() }
-        DebugLog.note(
-            context,
-            "app start, boot $boot (last seen $lastBoot), uptime ${android.os.SystemClock.elapsedRealtime() / 1000} s, " +
-                "ignition ${if (ignitionOn) "on" else "off"}, boot reason $reason"
-        )
+        val uptimeS = android.os.SystemClock.elapsedRealtime() / 1000
+        // "unknown" on a firmware that only broadcasts the ignition: nothing to read until the first one.
+        val ignitionWord = when (ignition) { true -> "on"; false -> "off"; null -> "unknown" }
+        DebugLog.note(context, "app start, boot $boot (last seen $lastBoot), uptime $uptimeS s, ignition $ignitionWord, boot reason $reason")
         // A boot comes up with the ignition already on, and no "on" broadcast
         // follows: it is marked here, or the next reboot of the same drive
         // would count as another lost sleep.
         val lost = boot != -1 && lastBoot != -1 && boot != lastBoot && offAt > 0 && offAt > prefs.getLong(KEY_ON_AT, 0L)
-        if (ignitionOn) edit.putLong(KEY_ON_AT, now)
+        if (ignition == true) edit.putLong(KEY_ON_AT, now)
         if (lost) {
-            val note = "boot $lastBoot->$boot, off ${java.util.Date(offAt)}, back ${java.util.Date(now)}, " +
-                "${(now - offAt) / 60_000} min later, uptime ${android.os.SystemClock.elapsedRealtime() / 1000} s"
+            val note = lostSleepNote(lastBoot, boot, offAt, now, uptimeS)
             Log.w(TAG, "deep sleep lost: $note")
             DebugLog.note(context, "deep sleep lost: $note")
             val kept = (listOf(note) + prefs.getString(KEY_LOST, "").orEmpty().split('\n').filter { it.isNotBlank() })
@@ -155,6 +159,7 @@ object CarPower {
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action == Intent.ACTION_SCREEN_ON) return wokeUp()
             when (source?.decode(intent)) {
                 IgnitionEvent.ON, IgnitionEvent.WAKE -> if (ignition != true) switchedOn(context.applicationContext)
                 // "Ready to sleep" comes after ACC off; either is the car switched off.
@@ -174,6 +179,22 @@ object CarPower {
         val on = source?.read() ?: return
         if (on == ignition) return
         if (on) switchedOn(context) else switchedOff(context)
+    }
+
+    /** Whether the source can be asked ([IgnitionSource.read]); false: broadcasts only. */
+    private var readable = true
+
+    /** When the car was last seen switched off (elapsedRealtime). */
+    private var switchedOffAt = 0L
+
+    /**
+     * The screen came back on, or the dashboard came back to the front: on a
+     * unit that only announces its ignition (some never say "on": MTC), that
+     * is the car switched on again, or the adapter would stay undialled.
+     */
+    fun wokeUp() {
+        val context = appContext ?: return
+        if (wakeIsSwitchOn(readable, ignition, SystemClock.elapsedRealtime() - switchedOffAt)) switchedOn(context)
     }
 
     private fun switchedOn(context: Context) {
@@ -205,14 +226,21 @@ object CarPower {
     private fun switchedOff(context: Context) {
         UnitPlatform.markUsed(Cap.IGNITION)
         setIgnition(false)
+        switchedOffAt = SystemClock.elapsedRealtime()
         val now = System.currentTimeMillis()
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putLong(KEY_OFF_AT, now).apply()
         Log.i(TAG, "ignition off")
-        DebugLog.note(context, "ignition off")
+        // Moving at 14 V when it went off: the ACC signal flickered (wire, CAN box), not the car switched off.
+        DebugLog.note(context, "ignition off, ${speedKmhNow() ?: "?"} km/h, ${Vehicle.bus.now(K.BATTERY_VOLTS) ?: "?"} V")
         ResourceWatch.noteNow(context, "ignition off")
         DebugLog.snapshot(context, "ignition off")
         EmbeddedApp.carStopped(context)
         MediaResume.carStopped(context)
+        // What the drive counted is written now: the unit may kill the app within seconds.
+        if (!DemoMode.isOn) {
+            Maintenance.carStopped()
+            SensorWatch.carStopped()
+        }
         // A conversation with Gemini doesn't go on, microphone open, while the car sleeps.
         scope.launch { GeminiLive.end(context) }
         // The fix's age by the time since start, not the clock: a unit clock a
@@ -238,6 +266,18 @@ object CarPower {
 }
 
 /**
+ * One lost deep sleep for the log and the report: the boots, when the car
+ * went off and when the unit was back. A unit that boots with its clock
+ * behind the switch-off (many start at a date in the past until GPS or the
+ * network sets them, [UnitClock]) can't say how long it was off: the note
+ * says so instead of a negative wait.
+ */
+internal fun lostSleepNote(lastBoot: Int, boot: Int, offAt: Long, now: Long, uptimeS: Long): String {
+    val wait = if (now >= offAt) "${(now - offAt) / 60_000} min later" else "clock not set yet"
+    return "boot $lastBoot->$boot, off ${java.util.Date(offAt)}, back ${java.util.Date(now)}, $wait, uptime $uptimeS s"
+}
+
+/**
  * Whether switching on is a car start worth a briefing: after the car was
  * off at least [CarStart.OFF_GAP_MS] (a fuel stop doesn't re-brief), or when
  * it's not known how long it was off (the briefing's heartbeat decides then).
@@ -252,6 +292,17 @@ internal fun briefOnIgnition(offAt: Long?, now: Long): Boolean =
  */
 internal fun startedBySwitchOn(ignitionOn: Boolean, offAt: Long, onAt: Long): Boolean =
     ignitionOn && offAt > 0 && offAt > onAt
+
+/** The firmware closes the app in front as the car goes off, and the dashboard comes back: not a wake-up this soon after. */
+internal const val OFF_SETTLE_MS = 15_000L
+
+/**
+ * Whether the screen or the dashboard coming back is the car switched on:
+ * only where the ignition can't be read ([readable] false), it reads off,
+ * and the switch-off is [sinceOffMs] old, more than [OFF_SETTLE_MS].
+ */
+internal fun wakeIsSwitchOn(readable: Boolean, ignition: Boolean?, sinceOffMs: Long): Boolean =
+    !readable && ignition == false && sinceOffMs >= OFF_SETTLE_MS
 
 /** How long after the switch-on, or the unit's start, the car counts as just powered up. */
 internal const val POWER_UP_MS = 3 * 60_000L

@@ -5,6 +5,7 @@ package com.openauto.dash
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.SystemClock
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
@@ -86,6 +88,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
@@ -149,6 +152,7 @@ fun AutomotiveDashboard(inSplitMode: Boolean = false) {
     LaunchedEffect(Unit) { DashThemeStore.modeAsked.collect { themeMode = it } }
     var effects by remember { mutableStateOf(DashThemeStore.loadEffects(context)) }
     var barAutoHide by remember { mutableStateOf(DashThemeStore.loadBarAutoHide(context)) }
+    var motionWhileDriving by remember { mutableStateOf(DashThemeStore.loadMotionWhileDriving(context)) }
     var barHideSeconds by remember { mutableIntStateOf(DashThemeStore.loadBarHideSeconds(context)) }
     // Navigation (Settings, Display): the side rail in the bar's place, and tabs in it instead of swiping.
     var railChoice by remember { mutableStateOf(DashThemeStore.loadRail(context)) }
@@ -168,6 +172,8 @@ fun AutomotiveDashboard(inSplitMode: Boolean = false) {
         onArrangeHome = { if (skinLayout(themeMode) != null) lookLayoutAsk = themeMode },
         onAppearance = { appearance = it; DashThemeStore.saveAppearance(context, it) },
         onEffects = { effects = it; DashThemeStore.saveEffects(context, it) },
+        motionWhileDriving = motionWhileDriving,
+        onMotionWhileDriving = { motionWhileDriving = it; DashThemeStore.saveMotionWhileDriving(context, it) },
         barAutoHide = barAutoHide, barHideSeconds = barHideSeconds,
         onBarAutoHide = { barAutoHide = it; DashThemeStore.saveBarAutoHide(context, it) },
         onBarHideSeconds = { barHideSeconds = it; DashThemeStore.saveBarHideSeconds(context, it) },
@@ -420,7 +426,7 @@ fun AutomotiveDashboard(inSplitMode: Boolean = false) {
     LaunchedEffect(wantedMoment, dismissedMoment) {
         val target = wantedMoment?.takeIf { it != dismissedMoment }
         while (target != shownMoment && (
-                System.currentTimeMillis() - lastTouch[0] < MOMENT_TOUCH_QUIET_MS ||
+                SystemClock.elapsedRealtime() - lastTouch[0] < MOMENT_TOUCH_QUIET_MS ||
                     editing || showTemplates || fillPage != null || showMoments || ui.fullScreenSheet
                 )
         ) delay(500)
@@ -513,9 +519,6 @@ fun AutomotiveDashboard(inSplitMode: Boolean = false) {
     var pagesArea by remember { mutableStateOf(Rect.Zero) }
     var removeChoice by ui::removeChoice
     var confirmTemplate by ui::confirmTemplate
-    var confirmBringBack by ui::confirmBringBack
-    // A tile just sent to another dashboard: its chip, with the way there, for a moment.
-    var movedTo by remember { mutableStateOf<Int?>(null) }
     // A template, a shared dashboard or a look's Home just put on, said in words: the dashboard offers Undo for a while.
     var templateUndo by remember { mutableStateOf<String?>(null) }
     // Share (DashShare.kt): open from the edit bar, or by itself when the phone sends a code.
@@ -525,12 +528,6 @@ fun AutomotiveDashboard(inSplitMode: Boolean = false) {
         if (templateUndo != null) {
             delay(TEMPLATE_UNDO_MS)
             templateUndo = null
-        }
-    }
-    LaunchedEffect(movedTo) {
-        if (movedTo != null) {
-            delay(MOVED_CHIP_MS)
-            movedTo = null
         }
     }
     var setupDone by ui::setupDone
@@ -582,6 +579,7 @@ fun AutomotiveDashboard(inSplitMode: Boolean = false) {
     }
 
     var showSystemDialog by ui::showSystemDialog
+    var showObd by ui::showObd
 
     // The drive lock (DriveLock.kt): while the car moves, arranging, settings
     // and pickers wait. Anything open when it engages closes; a locked tap
@@ -703,29 +701,35 @@ fun AutomotiveDashboard(inSplitMode: Boolean = false) {
     // tile is not on the new page; waiting for the old page to be disposed left
     // a strip of the window visible for a few seconds after the swipe. They are
     // parked aside, still running, so a navigation or a song goes on.
-    LaunchedEffect(currentPage, pages, layout) {
+    fun insideApps(items: List<DashboardItem>) = items.mapNotNullTo(HashSet()) {
+        when {
+            it is DashboardItem.BuiltinWidget && it.kind == BuiltinKind.MAPS_INSIDE -> EmbeddedApp.MAPS_PACKAGE
+            it is DashboardItem.AppWindow && it.runsInside(insideAllowed) -> it.packageName
+            else -> null
+        }
+    }
+    // The apps in windows and inside tiles, page by page: what the two effects
+    // below act on. Keyed on this rather than on the pages, because a nudge, a
+    // zoom step or an Undo while arranging changes neither, and each one cost a
+    // privileged window listing and a parse of the other arrangement.
+    val appsPlaced = remember(pages, layout, insideAllowed) { pages.map { windowApps(it) to insideApps(it) } }
+    LaunchedEffect(currentPage, appsPlaced) {
         PipAnchor.placedPackages.value = windowAppsEverywhere()
-        PipAnchor.stashAllExcept(context, windowApps(pages.getOrNull(currentPage).orEmpty()))
+        PipAnchor.stashAllExcept(context, appsPlaced.getOrNull(currentPage)?.first.orEmpty())
     }
     // An app inside a tile runs until the last tile showing it goes, in either
     // arrangement; then its display is closed and the app with it (EmbeddedApp).
     // One the arrangement on screen shows in a window instead (Maps docked
     // beside the pages) is let go, so that window can have it.
-    LaunchedEffect(pages, layout, tabsMode, mapApp) {
+    LaunchedEffect(appsPlaced, tabsMode, mapApp) {
         // A look at the other arrangement, not a load: loading it marked its
         // kinds as the placed ones in the add sheet and swapped its unknown
         // tiles into this arrangement's next save.
         val other = withContext(Dispatchers.IO) { DashboardStore.peek(context, otherVariant()).orEmpty() }
-        fun insideApps(items: List<DashboardItem>) = items.mapNotNullTo(HashSet()) {
-            when {
-                it is DashboardItem.BuiltinWidget && it.kind == BuiltinKind.MAPS_INSIDE -> EmbeddedApp.MAPS_PACKAGE
-                it is DashboardItem.AppWindow && it.runsInside(insideAllowed) -> it.packageName
-                else -> null
-            }
-        }
-        val here = pages.flatten()
-        EmbeddedApp.tilePages = buildMap { pages.forEachIndexed { page, items -> insideApps(items).forEach { putIfAbsent(it, page) } } }
-        val inside = EmbeddedApp.keptInside(insideApps(here), insideApps(other), windowApps(here)).toHashSet()
+        EmbeddedApp.tilePages = buildMap { appsPlaced.forEachIndexed { page, (_, inside) -> inside.forEach { putIfAbsent(it, page) } } }
+        val insideHere = appsPlaced.flatMapTo(HashSet()) { it.second }
+        val windowsHere = appsPlaced.flatMapTo(HashSet()) { it.first }
+        val inside = EmbeddedApp.keptInside(insideHere, insideApps(other), windowsHere).toHashSet()
         // The app under Canvas runs as long as it is there.
         if (tabsMode) mapApp?.let { inside += it }
         EmbeddedApp.releaseUnless(inside)
@@ -792,35 +796,6 @@ fun AutomotiveDashboard(inSplitMode: Boolean = false) {
         releaseMapsAnchorIfGone()
     }
 
-    /**
-     * Moves the tile at [index] on [page] to the first free cell of [target];
-     * a full target page says so. The page being arranged stays on screen: a
-     * chip says where the tile went, and takes you there.
-     */
-    fun moveToPage(page: Int, index: Int, target: Int) {
-        val item = pages.getOrNull(page)?.getOrNull(index) ?: return
-        val list = pages.getOrNull(target) ?: return
-        val cell = DashboardStore.firstFreeCell(list, item.w, item.h)
-            ?: DashboardStore.firstFreeCell(list, item.minW(), item.minH())
-        if (cell == null) {
-            layoutNotice = context.getString(R.string.dash_notice_no_space)
-            return
-        }
-        val fits = DashboardStore.canPlace(list, null, cell.first, cell.second, item.w, item.h)
-        val placed = if (fits) item.withCell(cell.first, cell.second, item.w, item.h)
-            else item.withCell(cell.first, cell.second, item.minW(), item.minH())
-        history = (history + Snapshot(pages, barTabsState.value)).takeLast(MAX_UNDO)
-        pages = pages.mapIndexed { i, l ->
-            when (i) {
-                page -> l.filterIndexed { j, _ -> j != index }
-                target -> l + placed
-                else -> l
-            }
-        }
-        DashboardStore.save(context, pages, variant())
-        movedTo = target
-    }
-
     /** Replaces the tile at [index] (same cell) with [item], e.g. an edited launch bar. */
     fun updateItem(page: Int, index: Int, item: DashboardItem) {
         mutatePage(page) { list ->
@@ -858,6 +833,39 @@ fun AutomotiveDashboard(inSplitMode: Boolean = false) {
     /** Draws the tile at [index] with its text and icons [zoom] times their size. */
     fun zoomTile(page: Int, index: Int, zoom: Float) {
         mutatePage(page) { list -> list.mapIndexed { i, t -> if (i == index) t.withZoom(zoom) else t } }
+    }
+
+    /** Frames the tile at [index]: its opacity and border, and whether it lies over the others (TileFrame). */
+    fun frameTile(page: Int, index: Int, frame: TileFrame) {
+        mutatePage(page) { list -> list.mapIndexed { i, t -> if (i == index) t.withFrame(frame) else t } }
+    }
+
+    /**
+     * Lifts the tile at [index] over the other tiles, or lays it back into the
+     * grid: where it is when its cells are free, else at the nearest free ones.
+     * A page with no room for it says so, and the tile stays over the others.
+     */
+    fun setOverlap(page: Int, index: Int, over: Boolean) {
+        val list = pages.getOrNull(page) ?: return
+        val tile = list.getOrNull(index) ?: return
+        if (over) {
+            frameTile(page, index, tile.frame.copy(overlap = true))
+            return
+        }
+        val landed = DashboardStore.intoGrid(list, index)
+        if (landed == null) {
+            layoutNotice = context.getString(R.string.dash_notice_no_grid_spot)
+            return
+        }
+        mutatePage(page) { landed }
+    }
+
+    /** Puts the tile at [index], one over the others, on top of them ([toFront]) or under them; its panel follows it. */
+    fun layerTile(page: Int, index: Int, toFront: Boolean) {
+        val list = pages.getOrNull(page) ?: return
+        val (reordered, at) = DashboardStore.reorder(list, index, toFront)
+        mutatePage(page) { reordered }
+        tileOptions = page to at
     }
 
     /** Restores the layout from before the last add / move / resize / remove, and the dashboards' names and places with it. */
@@ -1034,8 +1042,10 @@ fun AutomotiveDashboard(inSplitMode: Boolean = false) {
         CarCare.setContext(context)
         Maintenance.setContext(context)
         DriveLog.start(context)
+        InAppNav.resume(context)
         FuelLog.start(context)
         SinceFill.start(context)
+        FuelUsed.start(context)
         LpgTank.start(context)
         BarItems.setContext(context)
         Radios.start(context)
@@ -1087,7 +1097,6 @@ fun AutomotiveDashboard(inSplitMode: Boolean = false) {
     }
     // The head unit running hot is said once, tile or not (HeadUnitMonitor).
     LaunchedEffect(Unit) { withContext(Dispatchers.IO) { HeadUnitMonitor.watchHeat(context) } }
-    val checkForUpdates: () -> Unit = { scope.launch { updateManager.checkForUpdate() } }
 
     // Installing restarts the launcher, and the permission screen is another
     // app's: neither while the car moves.
@@ -1113,9 +1122,17 @@ fun AutomotiveDashboard(inSplitMode: Boolean = false) {
         val info = updateStatus.updateInfo
         if (info != null) whenParked { releaseNotes = info }
     }
-    // Auto-download the build the check found (package-install permission and
-    // an unmetered network, once per build), then say it is ready — parked only,
-    // and once per build.
+    // Asked by hand (Settings, the beta switch): a build found opens its notes
+    // at once, "not this version" or not; the timed checks stay silent (issue #76).
+    val checkForUpdates: () -> Unit = {
+        scope.launch {
+            updateManager.checkForUpdate()
+            updateManager.status.value.updateInfo?.let { info -> whenParked { releaseNotes = info } }
+        }
+    }
+    // A newer build downloads by itself on a connection that costs nothing
+    // (never over a phone's hotspot), then asks once, parked: now or later.
+    // No strip on the dashboard: a dot on ⋮ and a row in Settings say the rest.
     var autoDownloadedBuild by remember { mutableLongStateOf(-1L) }
     var promptedBuild by remember { mutableLongStateOf(-1L) }
     var updatePrompt by remember { mutableStateOf<UpdateStatus.Ready?>(null) }
@@ -1245,9 +1262,14 @@ fun AutomotiveDashboard(inSplitMode: Boolean = false) {
             closeSheets()
             switchLayout(next)
         },
+        // The apps button opens the drawer and, tapped again, closes it.
         onApps = {
-            closeSheets()
-            showAllApps = true
+            if (showAllApps) {
+                showAllApps = false
+            } else {
+                closeSheets()
+                showAllApps = true
+            }
         },
         onConnectObd = onConnectObd,
         onSplit = {
@@ -1271,6 +1293,7 @@ fun AutomotiveDashboard(inSplitMode: Boolean = false) {
             }
         },
         onSystem = { whenParked { showSystemDialog = true } },
+        onObd = { showObd = true },
         onCheckUpdates = checkForUpdates,
         update = updateStatus,
         onUpdate = onUpdate,
@@ -1415,7 +1438,7 @@ fun AutomotiveDashboard(inSplitMode: Boolean = false) {
     CompositionLocalProvider(
         LocalViewConfiguration provides carTouch,
         LocalDriveLock provides driveLock,
-        LocalCarMoving provides carMoving,
+        LocalCarMoving provides (carMoving && !motionWhileDriving),
         LocalDashboards provides Dashboards(barTabs, tabbed = tabsShown),
         LocalDashBar provides barModel
     ) {
@@ -1426,7 +1449,8 @@ fun AutomotiveDashboard(inSplitMode: Boolean = false) {
                 awaitPointerEventScope {
                     while (true) {
                         awaitPointerEvent(PointerEventPass.Initial)
-                        lastTouch[0] = System.currentTimeMillis()
+                        // A clock GPS cannot set back: a jump would hold every moment off, or let one through under a finger.
+                        lastTouch[0] = SystemClock.elapsedRealtime()
                     }
                 }
             }
@@ -1714,14 +1738,6 @@ fun AutomotiveDashboard(inSplitMode: Boolean = false) {
                 wayHome = wayHomeShown,
                 modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp)
             )
-            // A tile just moved to another dashboard: where it went, one tap away.
-            movedTo?.let { target ->
-                MovedChip(
-                    name = pageName(target),
-                    onGo = { movedTo = null; showPage(target) },
-                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 6.dp)
-                )
-            }
             if (barAutoHide && !arranging && !railOn) BarHandle(barState, Modifier.align(Alignment.BottomCenter))
 
             // The tapped tile's panel, over the side of the pages that leaves
@@ -1734,8 +1750,10 @@ fun AutomotiveDashboard(inSplitMode: Boolean = false) {
                     // The tile went away (undo, template): close, but not mid-composition.
                     LaunchedEffect(Unit) { tileOptions = null }
                 } else key(page, index) {
+                    val hasDesigns = (tile as? DashboardItem.BuiltinWidget)?.kind?.let { it != BuiltinKind.DASH_BAR } == true
+                    val sideWidth = with(density) { sidePanelWidth(pagesArea.width.toDp(), pagesArea.height.toDp(), hasDesigns) }
                     val panelPx = if (vertical) min(pagesArea.height * 0.45f, with(density) { PANEL_SHEET_MAX.toPx() })
-                        else with(density) { PANEL_WIDTH.toPx() }
+                        else with(density) { sideWidth.toPx() }
                     val driverOnRight = CarProfileStore.current.driverOnRight
                     // Where the tile is, once it has said so (the frame after it was tapped).
                     val bounds = selectedTileBounds?.takeIf { it.first == selected }?.second
@@ -1743,13 +1761,14 @@ fun AutomotiveDashboard(inSplitMode: Boolean = false) {
                         ?: if (vertical) PanelSide.BOTTOM else if (driverOnRight) PanelSide.RIGHT else PanelSide.LEFT
                     val widget = tile as? DashboardItem.BuiltinWidget
                     val placing = when (side) {
-                        PanelSide.LEFT -> Modifier.align(AbsoluteAlignment.TopLeft).width(PANEL_WIDTH)
-                        PanelSide.RIGHT -> Modifier.align(AbsoluteAlignment.TopRight).width(PANEL_WIDTH)
+                        PanelSide.LEFT -> Modifier.align(AbsoluteAlignment.TopLeft).width(sideWidth)
+                        PanelSide.RIGHT -> Modifier.align(AbsoluteAlignment.TopRight).width(sideWidth)
                         PanelSide.TOP -> Modifier.align(Alignment.TopCenter).fillMaxWidth()
                         PanelSide.BOTTOM -> Modifier.align(Alignment.BottomCenter).fillMaxWidth()
                     }.then(
                         when {
-                            widget == null -> Modifier
+                            // A tile with no designs and no layer to set: the panel is as tall as its few controls.
+                            widget == null && !tile.canFrame(insideAllowed) -> Modifier
                             vertical -> Modifier.height(with(density) { panelPx.toDp() })
                             else -> Modifier.fillMaxHeight()
                         }
@@ -1763,7 +1782,6 @@ fun AutomotiveDashboard(inSplitMode: Boolean = false) {
                             }
                             else -> null
                         } ?: tile.describe(),
-                        page = page,
                         side = side,
                         designs = widget?.takeIf { it.kind != BuiltinKind.DASH_BAR }?.let {
                             { shelfModifier ->
@@ -1793,11 +1811,11 @@ fun AutomotiveDashboard(inSplitMode: Boolean = false) {
                             }
                         },
                         onZoom = { zoomTile(page, index, it) },
-                        onMoveTo = { target ->
-                            // A dashboard out of the swipes comes back with the tile; asked first.
-                            if (target in crossState.value) { tileOptions = null; moveToPage(page, index, target) }
-                            else confirmBringBack = Triple(page, index, target)
-                        },
+                        onFrame = { frameTile(page, index, it) },
+                        onOverlap = { over -> setOverlap(page, index, over) },
+                        onLayer = { toFront -> layerTile(page, index, toFront) },
+                        onNudge = { dx, dy -> moveCell(page, index, tile.x + dx, tile.y + dy) },
+                        onResize = { dw, dh -> resizeCell(page, index, tile.w + dw, tile.h + dh) },
                         barActions = if (widget?.kind == BuiltinKind.DASH_BAR) {
                             {
                                 DashBarPanelActions(
@@ -1809,6 +1827,7 @@ fun AutomotiveDashboard(inSplitMode: Boolean = false) {
                         } else null,
                         onRemove = { tileOptions = null; removeAt(page, index) },
                         onClose = { tileOptions = null },
+                        wide = !vertical && sideWidth > PANEL_WIDTH,
                         modifier = placing
                     )
                 }
@@ -2043,7 +2062,10 @@ fun AutomotiveDashboard(inSplitMode: Boolean = false) {
                     .forEach { WidgetHostHolder.retire(context, it.appWidgetId) }
                 mutatePage(page) { items }
                 look?.let { l ->
-                    themeState.onMode(l.mode)
+                    // The look's mode alone, not the Home it was drawn around: the share
+                    // brings its own, just put on the page (onMode would replace it a frame later).
+                    themeMode = l.mode
+                    DashThemeStore.save(context, l.mode)
                     themeState.onAppearance(l.appearance)
                     themeState.onEffects(l.effects)
                     l.rail?.let { themeState.onRail(it) }
@@ -2157,16 +2179,6 @@ fun AutomotiveDashboard(inSplitMode: Boolean = false) {
             onDismiss = { removeChoice = null }
         )
     }
-    confirmBringBack?.let { (page, index, target) ->
-        ConfirmDialog(
-            title = stringResource(R.string.dash_bring_back_title, pageName(target)),
-            body = stringResource(R.string.dash_bring_back_body),
-            action = stringResource(R.string.dash_bring_back),
-            onConfirm = { confirmBringBack = null; tileOptions = null; moveToPage(page, index, target) },
-            onDismiss = { confirmBringBack = null }
-        )
-    }
-
     // --- The dashboard bar's sheets (CanvasTabs.kt) ---
     val barKey = CanvasTabs.keyFor(variant())
     if (showBarChooser) {
@@ -2394,6 +2406,16 @@ fun AutomotiveDashboard(inSplitMode: Boolean = false) {
         )
     }
 
+    if (showObd) ObdDialog(obdConnection.value, onConnectObd, onPickDevice) { showObd = false }
+
+    // The Phone screen (PhoneScreen.kt): opened from any look's phone key and the Quick dial, shown here.
+    val showPhone by PhoneScreen.shown.collectAsState()
+    DisposableEffect(Unit) {
+        PhoneScreen.hosted(true)
+        onDispose { PhoneScreen.hosted(false) }
+    }
+    if (showPhone) PhoneDialog { PhoneScreen.close() }
+
     if (showSystemDialog) {
         AlertDialog(
             modifier = Modifier.keepClearOfWindows(),
@@ -2495,33 +2517,37 @@ private fun FadingPageIndicator(shown: Boolean, page: Int, cross: ShownCross, wa
         label = "pageIndicator"
     )
     if (fade > 0f) {
-        PageIndicator(page, cross, modifier = modifier.graphicsLayer { alpha = fade }, wayHome = wayHome)
+        // A docked app window is drawn above the dashboard: the indicator moves aside
+        // into the stretch the windows leave clear rather than show under one.
+        val view = LocalView.current
+        val windows by PipAnchor.dockedAreas.collectAsState(emptyList())
+        var at by remember { mutableStateOf<ScreenRect?>(null) }
+        val dx = at?.let { r ->
+            val origin = IntArray(2).also { view.getLocationOnScreen(it) }
+            val area = ScreenRect(origin[0], origin[1], origin[0] + view.width, origin[1] + view.height)
+            WindowListing.clearCentreX(r, area, windows)?.minus((r.left + r.right) / 2)
+        } ?: 0
+        PageIndicator(
+            page, cross,
+            modifier = modifier
+                .onGloballyPositioned { coords ->
+                    val b = coords.boundsInRoot()
+                    val origin = IntArray(2).also { view.getLocationOnScreen(it) }
+                    val r = ScreenRect(
+                        (b.left + origin[0]).roundToInt(), (b.top + origin[1]).roundToInt(),
+                        (b.right + origin[0]).roundToInt(), (b.bottom + origin[1]).roundToInt()
+                    )
+                    if (r != at) at = r
+                }
+                .offset { IntOffset(dx, 0) }
+                .graphicsLayer { alpha = fade },
+            wayHome = wayHome
+        )
     }
 }
 
 /** One Undo step while arranging: the pages, and the dashboards' names and places as they were. */
 private class Snapshot(val pages: List<List<DashboardItem>>, val tabs: List<CanvasTab>)
-
-/** How long the "Moved to ..." chip stays after a tile was sent to another dashboard. */
-private const val MOVED_CHIP_MS = 4_000L
-
-/** "Moved to Left of Home": a tile went to another dashboard; the chip takes you there. */
-@Composable
-private fun MovedChip(name: String, onGo: () -> Unit, modifier: Modifier = Modifier) {
-    val tap = rememberTapFeedback()
-    Text(
-        stringResource(R.string.dash_moved_to, name),
-        color = DashColors.OnAccent,
-        fontWeight = FontWeight.SemiBold,
-        style = MaterialTheme.typography.labelLarge,
-        maxLines = 1,
-        modifier = modifier
-            .clip(DashShape.Pill)
-            .background(DashColors.Accent)
-            .clickable(role = Role.Button) { tap(); onGo() }
-            .padding(horizontal = 16.dp, vertical = 10.dp)
-    )
-}
 
 /**
  * "Remove dashboard": empty it (the tiles go, it stays in the swipes), or

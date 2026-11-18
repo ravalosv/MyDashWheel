@@ -201,6 +201,14 @@ internal fun EffectsSetting(theme: ThemeState) {
         onChoose = theme.onEffects
     )
     SwitchHint(stringResource(theme.effects.hintRes))
+    if (theme.effects == DashEffects.NONE) return
+    SettingsToggle(
+        icon = Icons.Filled.DirectionsCar,
+        title = stringResource(R.string.dash_motion_driving),
+        detail = stringResource(R.string.dash_motion_driving_detail),
+        checked = theme.motionWhileDriving,
+        onChange = theme.onMotionWhileDriving
+    )
 }
 
 /**
@@ -470,12 +478,13 @@ internal fun <T> SegmentedSwitch(
     icon: (T) -> ImageVector,
     title: @Composable (T) -> String,
     enabled: (T) -> Boolean = { true },
+    modifier: Modifier = Modifier,
     onChoose: (T) -> Unit
 ) {
     val shape = DashShape.Medium
     val tap = rememberTapFeedback()
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .border(1.dp, DashColors.Line, shape)
             .background(DashColors.CardHi.copy(alpha = DashColors.CardHi.alpha * 0.5f), shape)

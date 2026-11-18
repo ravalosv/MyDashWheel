@@ -7,6 +7,7 @@
     <string name="dash_add">Hozzáadás</string>
     <string name="dash_selected">Kiválasztva</string>
     <string name="dash_dismiss">Elvetés</string>
+    <string name="dash_safe_mode">Csökkentett mód. A térképek, a 3D autó és az Android widgetek két sikertelen indítás után kikapcsolva.</string>
     <string name="dash_got_it">Értem</string>
 
     <!-- Top bar -->
@@ -56,6 +57,7 @@
     <string name="dash_notice_no_space">Ezen a műszerfalon nincs hely ehhez a csempéhez. Távolítson el vagy méretezzen át csempéket, vagy használjon másik műszerfalat.</string>
     <string name="dash_notice_no_room_to_move">Nincs hely a többi csempe elmozdításához. Előbb szabadítson fel helyet.</string>
     <string name="dash_notice_resize_overlap">Ez a méret átfed egy másik csempét. Átméretezés előtt csináljon helyet.</string>
+    <string name="dash_notice_no_grid_spot">Nincs szabad hely a rácsban ennek a csempének. Csináljon helyet, vagy hagyja a többi fölött.</string>
     <string name="dash_full_title">Ez a műszerfal megtelt</string>
     <string name="dash_full_body">Egy újabb hozzáadásához távolítson el egy csempét, vagy kicsinyítsen le egyet.</string>
 
@@ -113,9 +115,13 @@
     <string name="dash_effects_none_hint">Átlátszatlan kártyák, egyszerű számok, ragyogás nélkül: tűző napon is olvasható</string>
     <string name="dash_effects_reduced_hint">Lágyabb ragyogás, az üveg marad</string>
     <string name="dash_effects_full_hint">Minden téma teljes ragyogással és üveggel</string>
+    <string name="dash_motion_driving">Animációk vezetés közben</string>
+    <string name="dash_motion_driving_detail">A téma animációi menet közben is futnak; különben megállnak</string>
     <string name="dash_bar_title">Alsó sáv</string>
     <string name="dash_bar_auto_hide">A sáv automatikus elrejtése</string>
     <string name="dash_bar_auto_hide_detail">Használaton kívül eltűnik, hogy több hely jusson a műszerfalaknak</string>
+    <string name="dash_bar_nav_keys">Vissza és Legutóbbi appok</string>
+    <string name="dash_bar_nav_keys_detail">Még két gomb a sáv két végén, ha a képernyőn nincsenek ilyen gombok</string>
     <string name="dash_bar_hide_after">Elrejtés %1$d mp után</string>
     <string name="dash_bar_hide_now">Azonnali elrejtés</string>
     <string name="dash_bar_swipe_up_detail">Ha rejtve van, az alsó széltől felfelé húzva hozhatja vissza</string>
@@ -144,6 +150,10 @@
     <string name="dash_theme_sporty_desc">Piros sportpilótafülke</string>
     <string name="dash_theme_floating">Lebegő</string>
     <string name="dash_theme_floating_desc">Nincs csempeháttér: a widgetek és ikonok közvetlenül a háttéren ülnek</string>
+    <string name="dash_theme_open">Nyitott</string>
+    <string name="dash_theme_open_desc">Minden widget háttér és keret nélkül, közvetlenül a háttéren</string>
+    <string name="dash_theme_heads_up">Head-up</string>
+    <string name="dash_theme_heads_up_desc">A térkép kitölti a képernyőt, minden widget panel nélkül fekszik rajta, mint egy kijelző a szélvédőn. A zene lemezzé válik.</string>
     <string name="dash_theme_orbit">Orbit</string>
     <string name="dash_theme_orbit_desc">Minden kerek: forgó hanglemez, gyűrűs műszerek, buborékok</string>
     <string name="dash_theme_cockpit">Cockpit</string>
@@ -204,7 +214,6 @@
     <string name="dash_dashboard_options">Műszerfal beállításai</string>
     <string name="dash_remove_dashboard_title">%1$s eltávolítása?</string>
     <string name="dash_remove_dashboard_body">Kiürítheti, vagy a csempéivel együtt kiveheti a lapozásból. A Visszavonás visszahozza őket.</string>
-    <string name="dash_tile_move">Áthelyezés másik műszerfalra</string>
     <string name="dash_tile_remove">Eltávolítás</string>
     <string name="dash_tile_restart_app">Alkalmazás újraindítása</string>
     <!-- The bar's Apps button, labelled -->
@@ -225,11 +234,6 @@
     <string name="dash_dashboard_removed">%1$s eltávolítva</string>
     <string name="dash_remove_empty">Kiürítés</string>
     <string name="dash_remove_take_out">Kivétel a lapozásból</string>
-    <string name="dash_bring_back_title">%1$s visszahozása?</string>
-    <string name="dash_bring_back_body">A csempe oda kerül, és a műszerfal újra bekerül a lapozásba.</string>
-    <string name="dash_bring_back">Visszahozás</string>
-    <string name="dash_moved_to">Áthelyezve ide: %1$s</string>
-    <string name="dash_page_removed">%1$s, kivéve a lapozásból</string>
     <string name="dash_way_home_up">Húzza felfelé a Kezdőlapért</string>
     <string name="dash_way_home_down">Húzza lefelé a Kezdőlapért</string>
     <string name="dash_add_tile">Csempe hozzáadása</string>

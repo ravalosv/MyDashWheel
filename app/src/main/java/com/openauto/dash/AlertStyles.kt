@@ -1,6 +1,7 @@
 package com.openauto.dash
 
 import android.content.Context
+import android.content.res.Configuration
 import android.graphics.PixelFormat
 import android.os.SystemClock
 import android.util.Log
@@ -30,6 +31,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -246,6 +250,7 @@ internal class ShrinkOnTheMove {
 enum class CardAt(val gravity: Int, val alignment: Alignment) {
     TOP(Gravity.TOP or Gravity.CENTER_HORIZONTAL, Alignment.TopCenter),
     TOP_END(Gravity.TOP or Gravity.END, Alignment.TopEnd),
+    START(Gravity.START or Gravity.CENTER_VERTICAL, Alignment.CenterStart),
     END(Gravity.END or Gravity.CENTER_VERTICAL, Alignment.CenterEnd),
     BOTTOM(Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL, Alignment.BottomCenter)
 }
@@ -257,6 +262,10 @@ object AlertStyleStore {
 
     private val _styles = MutableStateFlow<Map<AlertKind, AlertStyle>>(emptyMap())
     val styles: StateFlow<Map<AlertKind, AlertStyle>> = _styles
+
+    private val _radarAt = MutableStateFlow<CardAt?>(null)
+    /** Where the driver put the parking radar's card; null until they do ([placementOf]). */
+    val radarAt: StateFlow<CardAt?> = _radarAt
 
     private val _spoken = MutableStateFlow(SPOKEN_FIRST)
     /** The alerts also said out loud ([AlertVoice]); the doors until the driver says otherwise. */
@@ -270,6 +279,7 @@ object AlertStyleStore {
             p.getString(kind.key, null)?.let { name -> AlertStyle.entries.firstOrNull { it.name == name } }?.let { kind to it }
         }.toMap()
         _spoken.value = AlertKind.entries.filter { p.getBoolean("speak_${it.key}", it in SPOKEN_FIRST) }.toSet()
+        _radarAt.value = p.getString("at_radar", null)?.let { name -> CardAt.entries.firstOrNull { it.name == name } }
         SpokenEvents.load(context)
     }
 
@@ -278,10 +288,33 @@ object AlertStyleStore {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(kind.key, style.name).apply()
     }
 
+    fun setRadarAt(context: Context, at: CardAt) {
+        _radarAt.value = at
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("at_radar", at.name).apply()
+    }
+
     fun setSpoken(context: Context, kind: AlertKind, on: Boolean) {
         _spoken.update { if (on) it + kind else it - kind }
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean("speak_${kind.key}", on).apply()
     }
+}
+
+/**
+ * Where [kind]'s card sits: the parking radar where the driver put it ([chosen],
+ * [AlertStyleStore.radarAt]), else beside a landscape camera picture and under a
+ * portrait one, where the right edge would cross it (#124); the rest in their fixed place.
+ */
+fun placementOf(kind: AlertKind, chosen: CardAt?, portrait: Boolean): CardAt =
+    if (kind != AlertKind.RADAR) kind.cardAt else chosen ?: if (portrait) CardAt.BOTTOM else CardAt.END
+
+fun placementOf(kind: AlertKind, chosen: CardAt?, context: Context): CardAt =
+    placementOf(kind, chosen, context.resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT)
+
+/** [placementOf] as the screen stands, following the driver's choice. */
+@Composable
+fun placementOf(kind: AlertKind): CardAt {
+    val chosen by AlertStyleStore.radarAt.collectAsState()
+    return placementOf(kind, chosen, LocalConfiguration.current.orientation == Configuration.ORIENTATION_PORTRAIT)
 }
 
 /** [kind]'s chosen design; its default until one is chosen (or when the chosen one doesn't suit it). */
@@ -402,7 +435,8 @@ internal class AlertWindow(
 
     /** Shows [content] in [style]'s window (a new one when the design changed); false when it can't be added. */
     fun show(style: AlertStyle, content: @Composable () -> Unit): Boolean {
-        val host = if (aboveCamera()) SplitAccessibilityService.overlayHost() else null
+        // Without "display over other apps" (not granted, or a build that cannot grant it) the service's window is the only one there is.
+        val host = if (aboveCamera() || !android.provider.Settings.canDrawOverlays(context)) SplitAccessibilityService.overlayHost() else null
         if (view != null && this.style == style && above == (host != null)) {
             visible?.targetState = true
             return true
@@ -417,14 +451,15 @@ internal class AlertWindow(
         val v = ComposeView(hostContext)
         v.setViewTreeLifecycleOwner(o)
         v.setViewTreeSavedStateRegistryOwner(o)
-        // The full screen runs from the very top of the screen. Its content sits under the
-        // status bar while one shows and flush with the top while the bar is hidden: the
+        // The full screen and the side panel run from the very top of the screen. Their content
+        // sits under the status bar while one shows and flush with the top while the bar is
+        // hidden (the dashboard hides it): the
         // window's visible frame starts under the bar only then (an overlay window gets no
         // content inset for it, and no insets callback when the bar comes or goes, but a layout
-        // pass). Black behind, for a firmware that hides the bar by its own means and still
-        // reports it: never the app below.
+        // pass). The full screen has black behind, for a firmware that hides the bar by its own
+        // means and still reports it: never the app below.
         val barTop = mutableIntStateOf(0)
-        if (style == AlertStyle.FULL) {
+        if (style == AlertStyle.FULL || style == AlertStyle.PANEL) {
             v.viewTreeObserver.addOnGlobalLayoutListener {
                 barTop.intValue = android.graphics.Rect().also(v::getWindowVisibleDisplayFrame).top.coerceAtLeast(0)
             }
@@ -433,9 +468,12 @@ internal class AlertWindow(
             OpenAutoDashTheme {
                 // Asked back while it animated out: it stays.
                 AlertMotion(style, state, onGone = { v.post { if (view === v && visible?.targetState == false) removeNow() } }) {
-                    if (style == AlertStyle.FULL) {
-                        Box(Modifier.fillMaxSize().background(Color.Black).padding(top = with(LocalDensity.current) { barTop.intValue.toDp() })) { content() }
-                    } else content()
+                    val underBar = with(LocalDensity.current) { barTop.intValue.toDp() }
+                    when (style) {
+                        AlertStyle.FULL -> Box(Modifier.fillMaxSize().background(Color.Black).padding(top = underBar)) { content() }
+                        AlertStyle.PANEL -> Box(Modifier.fillMaxSize().padding(top = underBar)) { content() }
+                        else -> content()
+                    }
                 }
             }
         }
@@ -481,7 +519,8 @@ internal class AlertWindow(
         if (style == AlertStyle.PANEL || style == AlertStyle.FULL) return null
         if (lp.gravity and Gravity.VERTICAL_GRAVITY_MASK != Gravity.TOP || v.width == 0 || v.height == 0) return null
         val dm = context.resources.displayMetrics
-        val left = when (lp.gravity and Gravity.HORIZONTAL_GRAVITY_MASK) {
+        // Absolute: END is the left in a right-to-left language, where the stack would otherwise be measured from the wrong edge.
+        val left = when (Gravity.getAbsoluteGravity(lp.gravity, v.layoutDirection) and Gravity.HORIZONTAL_GRAVITY_MASK) {
             Gravity.CENTER_HORIZONTAL -> (dm.widthPixels - v.width) / 2
             Gravity.RIGHT -> dm.widthPixels - lp.x - v.width
             else -> lp.x
@@ -496,7 +535,7 @@ internal class AlertWindow(
 
     /** Whether [show] can put a window up at all: over other apps, or through the accessibility service. */
     fun canShow(): Boolean =
-        aboveCamera() && SplitAccessibilityService.overlayHost() != null || android.provider.Settings.canDrawOverlays(context)
+        android.provider.Settings.canDrawOverlays(context) || SplitAccessibilityService.overlayHost() != null
 
     /** The system status bar's height, from the framework's own dimension; 0 where it has none. */
     private fun statusBarHeight(): Int {
@@ -513,15 +552,15 @@ internal class AlertWindow(
         val panel = (panelWidthDp((dm.widthPixels / dm.density).toInt()).value * dm.density).toInt()
         // The bar's height, its glass margin under it included (TopBar).
         val aboveBar = dm.heightPixels - ((DashSize.Bar.value + 10f) * dm.density).toInt()
-        // The side panel starts under the status bar: laid out in screen, its title sat on the
-        // bar's icons. The full screen follows the bar itself instead (show).
+        // The pill goes under the status bar: laid out in screen, it sat on the bar's icons. The
+        // side panel and the full screen follow the bar itself instead (show): placed under its
+        // height, the panel left a gap at the top while the dashboard hid the bar.
         val underStatus = statusBarHeight()
         val whole = if (clearOfBar) aboveBar else dm.heightPixels
-        val tall = whole - underStatus
         val (w, h) = when (style) {
             AlertStyle.PILL, AlertStyle.CARD, AlertStyle.BUBBLE, AlertStyle.ICON -> wrap to wrap
             AlertStyle.BANNER -> match to wrap
-            AlertStyle.PANEL -> panel to tall
+            AlertStyle.PANEL -> panel to whole
             AlertStyle.FULL -> match to whole
         }
         return WindowManager.LayoutParams(
@@ -548,7 +587,6 @@ internal class AlertWindow(
                     }
                 }
                 AlertStyle.PILL -> y = maxOf(margin / 2, underStatus)
-                AlertStyle.PANEL -> y = underStatus
                 else -> Unit
             }
             title = "Dashwheel $name"
@@ -631,6 +669,7 @@ internal fun AlertPopup(style: AlertStyle, cardAlignment: Alignment, content: @C
     val (alignment, offset) = when (style) {
         AlertStyle.CARD, AlertStyle.BUBBLE, AlertStyle.ICON -> cardAlignment to when (cardAlignment) {
             Alignment.TopEnd -> IntOffset(-margin, margin)
+            Alignment.CenterStart -> IntOffset(margin, 0)
             Alignment.CenterEnd -> IntOffset(-margin, 0)
             Alignment.BottomCenter -> IntOffset(0, -margin * 4)
             else -> IntOffset(0, margin)
@@ -677,6 +716,7 @@ internal fun FullScreenModal(onTap: () -> Unit, tone: Color = DashColors.Accent,
 @Composable
 internal fun <T : Any> rememberLast(value: T?): T? {
     val last = remember { mutableStateOf(value) }
-    if (value != null && last.value != value) last.value = value
+    // After the pass, not during it: a write to state just read here recomposed every alert twice.
+    SideEffect { if (value != null && last.value != value) last.value = value }
     return value ?: last.value
 }

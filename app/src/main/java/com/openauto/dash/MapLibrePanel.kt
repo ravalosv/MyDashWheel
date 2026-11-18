@@ -460,7 +460,9 @@ internal fun MapLibrePanel(modifier: Modifier = Modifier, wallpaper: Boolean = f
     LaunchedEffect(navRoute, guidedRoute) {
         val line = navRoute ?: return@LaunchedEffect
         if (guidedRoute != null) {
-            line.addRoute(guidedRoute)
+            // A long route the line cannot draw leaves the map without it, not the app dead.
+            runCatching { line.addRoute(guidedRoute) }
+                .onFailure { Log.w("MapLibrePanel", "guided route not drawn: ${it.message}") }
             wasGuiding = true
         } else if (wasGuiding) {
             wasGuiding = false

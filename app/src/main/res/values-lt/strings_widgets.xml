@@ -31,6 +31,7 @@
     <string name="widgets_light_manual">%1$d %%</string>
     <string name="widgets_cam_none">Priekyje nėra</string>
     <string name="widgets_osm_down">Žemėlapio duomenų serveris neatsako</string>
+    <string name="widgets_cam_none_kept">Priekyje nėra, pagal kameras magnetoloje</string>
     <string name="widgets_cam_speak">Balso įspėjimai</string>
     <string name="widgets_cam_speaking">Balso įspėjimai įjungti</string>
     <string name="widgets_cam_silent">Kai kuriose šalyse draudžiama, pvz., Prancūzijoje</string>
@@ -176,4 +177,6 @@
     <string name="widgets_switch_bluetooth_detail">Įjungia arba išjungia Bluetooth</string>
     <string name="widgets_switch_mobile_data_detail">Įjungia arba išjungia SIM kortelės duomenis</string>
     <string name="widgets_switch_screen_off_detail">Išjungia ekraną kaip įrenginio mygtukas</string>
+    <string name="widgets_consumption">Sąnaudos</string>
+    <string name="widgets_consumption_blurb">Kiek automobilis naudoja dabar, nuo paskutinio pylimo ir vidutiniškai</string>
 </resources>

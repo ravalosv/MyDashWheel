@@ -2,6 +2,7 @@ package com.openauto.dash
 
 import android.content.Context
 import android.location.Location
+import android.os.SystemClock
 import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -47,8 +48,8 @@ import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sqrt
 
-/** One road near the car: its limit and its shape. */
-internal class LimitedRoad(val limitKmh: Int, val points: List<Pair<Double, Double>>)
+/** One road near the car: its limit, its shape, and its OpenStreetMap id (0 when unknown) for [SpeedLimitStore]. */
+internal class LimitedRoad(val limitKmh: Int, val points: List<Pair<Double, Double>>, val id: Long = 0L)
 
 /** OpenStreetMap's speed limit text in km/h: "80", "50 mph", or a country's implied ones ("FR:urban"); null for none. */
 internal fun parseMaxspeed(tag: String?): Int? {
@@ -161,6 +162,8 @@ internal class LimitNag(
 internal object SpeedLimit {
     private const val TAG = "SpeedLimit"
     private const val RADIUS_M = 1_500
+    /** The unit's own roads are taken this far round the car: the servers are tried again only every [RETRY_AFTER_MS]. */
+    private const val STORE_RADIUS_M = 5_000
     private const val REFETCH_M = 1_000f
     /** After a failed read, the wait before the next: the servers are down, and every GPS fix asked again. */
     private const val RETRY_AFTER_MS = 60_000L
@@ -175,6 +178,7 @@ internal object SpeedLimit {
     @Volatile private var fetchedAt: Location? = null
     @Volatile private var fetching = false
     @Volatile private var failedAt = 0L
+    private var refreshedAreas = false
     private val nag = LimitNag(tolerance = TOLERANCE_KMH)
     /** The camera's sign, where it was read: it holds for [SIGN_HOLD_M] from there, or until the sign that ends it. */
     @Volatile private var signKmh: Int? = null
@@ -230,12 +234,24 @@ internal object SpeedLimit {
             // in turn on a dead link is a minute and more, during which the limit of
             // the roads already read must still follow the car.
             scope.launch(Dispatchers.IO) {
+                // The unit's own roads at once, for the first kilometres while the servers are tried.
+                if (last == null) fromStore(context, loc)
                 val got = runCatching { fetch(loc.latitude, loc.longitude) }
-                got.onSuccess { roads = it; fetchedAt = loc; failedAt = 0L }.onFailure {
+                got.onSuccess {
+                    roads = it; fetchedAt = loc; failedAt = 0L
+                    // The demo's drive is made up, and promises to save nothing.
+                    if (!DemoMode.isOn) SpeedLimitStore.remember(context, loc.latitude, loc.longitude, RADIUS_M, it)
+                }.onFailure {
                     failedAt = android.os.SystemClock.elapsedRealtime()
-                    Log.w(TAG, "limits unread: ${it.message}")
+                    Log.w(TAG, "limits unread, the unit's own used: ${it.message}")
+                    fromStore(context, loc)
                 }
                 fetching = false
+                // A server answers: the areas kept for a month and more are read again, once a drive.
+                if (got.isSuccess && !refreshedAreas) {
+                    refreshedAreas = true
+                    SpeedLimitStore.refreshStale(context)
+                }
             }
         }
         val road = roadAt(loc.latitude, loc.longitude, if (loc.hasBearing() && loc.speed > 2f) loc.bearing else null, roads)
@@ -244,21 +260,33 @@ internal object SpeedLimit {
         if (sign == null) signKmh = null
         val limit = sign ?: road?.limitKmh
         _limit.value = limit
-        if (nag.step(limit, kmh, System.currentTimeMillis()) && limit != null && SpokenEvents.isOn(context, SpokenEvent.SPEED_LIMIT)) {
+        // A clock that only goes forward: GPS sets the unit's time mid-drive, which would say the limit at once or never again.
+        if (nag.step(limit, kmh, SystemClock.elapsedRealtime()) && limit != null && SpokenEvents.isOn(context, SpokenEvent.SPEED_LIMIT)) {
             val app = AppLanguage.wrap(context)
             CarVoice.announce(app.getString(R.string.widgets_limit_say, Units.current.value.speed(limit)), InAppNav.locale(context))
         }
     }
 
+    /** The kept roads round [loc] stand in for the server's; with none kept there, the last answer stays. */
+    private fun fromStore(context: Context, loc: Location) {
+        val kept = SpeedLimitStore.near(context, loc.latitude, loc.longitude, STORE_RADIUS_M)
+        if (kept.isNotEmpty()) roads = kept
+    }
+
     private fun fetch(lat: Double, lng: Double): List<LimitedRoad> {
-        val query = "[out:json][timeout:25];way(around:$RADIUS_M,$lat,$lng)[highway][maxspeed];out tags geom;"
-        val elements = Overpass.query(query).optJSONArray("elements") ?: return emptyList()
+        val query = "[out:json][timeout:25];way(around:$RADIUS_M,${Overpass.coord(lat)},${Overpass.coord(lng)})[highway][maxspeed];out tags geom;"
+        return parse(Overpass.query(query))
+    }
+
+    /** The roads with a limit in an Overpass answer ("out tags geom"). */
+    fun parse(json: org.json.JSONObject): List<LimitedRoad> {
+        val elements = json.optJSONArray("elements") ?: return emptyList()
         return (0 until elements.length()).mapNotNull { i ->
             val e = elements.optJSONObject(i) ?: return@mapNotNull null
             val limit = parseMaxspeed(e.optJSONObject("tags")?.optString("maxspeed")) ?: return@mapNotNull null
             val geom = e.optJSONArray("geometry") ?: return@mapNotNull null
             val pts = (0 until geom.length()).mapNotNull { j -> geom.optJSONObject(j)?.let { it.optDouble("lat") to it.optDouble("lon") } }
-            if (pts.size < 2) null else LimitedRoad(limit, pts)
+            if (pts.size < 2) null else LimitedRoad(limit, pts, e.optLong("id"))
         }
     }
 }
@@ -320,6 +348,8 @@ internal fun speedLimitFace(): WidgetFace {
     return WidgetFace(
         icon = Icons.Filled.Speed,
         title = BuiltinKind.SPEED_LIMIT.label,
+        // The Road sign design draws the red ring for it (its else branch is a fuel pump).
+        sign = SignKind.SPEED,
         value = limit?.let { units.speed(it).toString() } ?: "--",
         unit = units.speedUnit,
         caption = stringResource(if (limit != null) R.string.widgets_limit_ok else if (down) R.string.widgets_osm_down else R.string.widgets_limit_unknown)

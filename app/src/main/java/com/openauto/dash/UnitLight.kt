@@ -41,6 +41,7 @@ import com.openauto.dash.vehicle.rememberHeadlights
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -99,7 +100,7 @@ object UnitLight {
         val p = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
         if (isNight) { _night.value = v; p.putInt(KEY_NIGHT, v) } else { _day.value = v; p.putInt(KEY_DAY, v) }
         p.apply()
-        scope.launch { write(context.applicationContext, v) }
+        scope.launch { write(context.applicationContext, v, fromTap = true) }
     }
 
     fun setFollow(context: Context, on: Boolean) {
@@ -108,18 +109,57 @@ object UnitLight {
         if (on) scope.launch { apply(context.applicationContext) }
     }
 
-    private suspend fun apply(context: Context) = write(context, current())
+    private suspend fun apply(context: Context) = write(context, current(), fromTap = false)
 
-    private suspend fun write(context: Context, level: Int) {
+    /** The unit put its own level back: said once in the event log. */
+    private var notTaken = false
+
+    /** The level last written. */
+    @Volatile private var wanted = -1
+
+    /**
+     * Reads the level back a moment after it was written: a unit whose
+     * backlight is the MCU's puts its own value back (or ignores Android's),
+     * and the tile then moves nothing. Noted once for the report.
+     */
+    private suspend fun checkTook(context: Context, level: Int) {
+        if (notTaken) return
+        delay(READ_BACK_MS)
+        // A newer level was written meanwhile (the slider): that one checks itself.
+        if (level != wanted) return
+        val now =runCatching { Settings.System.getInt(context.contentResolver, Settings.System.SCREEN_BRIGHTNESS) }.getOrNull()
+        if (brightnessTook(level, now)) return
+        notTaken = true
+        DebugLog.note(context, "screen light: wrote $level, the unit reads $now; its backlight is not Android's to set")
+    }
+
+    private const val READ_BACK_MS = 500L
+
+    /** The follow collector found no way to write: said once, not at every headlight change. */
+    private var gaveUp = false
+
+    /**
+     * Writes [level] to the screen. Without the settings permission or a shell,
+     * Android's permission page is opened only for a driver's tap ([fromTap]):
+     * the headlights collector runs while driving and must not cover the dashboard.
+     */
+    private suspend fun write(context: Context, level: Int, fromTap: Boolean) {
+        wanted = level
         val cr = context.contentResolver
         val direct = Settings.System.canWrite(context) && runCatching {
             Settings.System.putInt(cr, Settings.System.SCREEN_BRIGHTNESS_MODE, Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL)
             Settings.System.putInt(cr, Settings.System.SCREEN_BRIGHTNESS, level)
         }.getOrDefault(false)
-        if (direct) return
+        if (direct) return checkTook(context, level)
         try {
             DockShell.shell(context, "settings put system screen_brightness_mode 0; settings put system screen_brightness $level")
+            checkTook(context, level)
         } catch (e: Exception) {
+            if (!fromTap) {
+                if (!gaveUp) Log.w(TAG, "can't set the screen light: ${e.message}; following the headlights waits for the settings permission")
+                gaveUp = true
+                return
+            }
             Log.w(TAG, "can't set the screen light: ${e.message}")
             // No shell on this unit: Android's own "modify system settings" once, then it is written directly.
             runCatching {
@@ -155,7 +195,7 @@ internal fun UnitLightCard(modifier: Modifier = Modifier) {
                 }
             }
             Row(modifier = Modifier.weight(1f).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { UnitLight.nudge(context, -STEP) }, modifier = Modifier.size(DashSize.Touch)) {
+                IconButton(onClick = { UnitLight.nudge(context, -LIGHT_STEP) }, modifier = Modifier.size(DashSize.Touch)) {
                     Icon(Icons.Filled.Remove, contentDescription = stringResource(R.string.widgets_light_down), tint = DashColors.TextPrimary, modifier = Modifier.size(24.dp))
                 }
                 Slider(
@@ -169,7 +209,7 @@ internal fun UnitLightCard(modifier: Modifier = Modifier) {
                     ),
                     modifier = Modifier.weight(1f)
                 )
-                IconButton(onClick = { UnitLight.nudge(context, STEP) }, modifier = Modifier.size(DashSize.Touch)) {
+                IconButton(onClick = { UnitLight.nudge(context, LIGHT_STEP) }, modifier = Modifier.size(DashSize.Touch)) {
                     Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.widgets_light_up), tint = DashColors.TextPrimary, modifier = Modifier.size(24.dp))
                 }
             }
@@ -198,10 +238,13 @@ internal fun unitLightFace(): WidgetFace {
         value = (level * 100 / UnitLight.MAX).toString(), unit = "%",
         fraction = level / UnitLight.MAX.toFloat(),
         actions = listOf(
-            FaceAction(Icons.Filled.Remove, stringResource(R.string.widgets_light_down), onClick = { UnitLight.nudge(context, -STEP) }),
-            FaceAction(Icons.Filled.Add, stringResource(R.string.widgets_light_up), onClick = { UnitLight.nudge(context, STEP) })
+            FaceAction(Icons.Filled.Remove, stringResource(R.string.widgets_light_down), onClick = { UnitLight.nudge(context, -LIGHT_STEP) }),
+            FaceAction(Icons.Filled.Add, stringResource(R.string.widgets_light_up), onClick = { UnitLight.nudge(context, LIGHT_STEP) })
         )
     )
 }
 
-private const val STEP = 20
+internal const val LIGHT_STEP = 20
+
+/** Whether the level [wrote] is what the unit holds after: [readBack] null (it can't be read) is not a no. */
+internal fun brightnessTook(wrote: Int, readBack: Int?): Boolean = readBack == null || readBack == wrote

@@ -7,10 +7,12 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.SurfaceTexture
 import android.hardware.camera2.CameraCaptureSession
+import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.SystemClock
 import android.util.Log
 import android.view.Surface
 import android.view.TextureView
@@ -63,15 +65,19 @@ internal object ReverseCamera {
     private val ROM_APP: String get() = rom?.romApp ?: "com.qf.backcar"
     /** The car app's reversing camera on the K706 (camera 0 is the other input); the driver may pick another ([LearnedSignals.cameraId]). */
     private val CAMERA_ID: String get() = LearnedSignals.cameraId.value ?: rom?.defaultCameraId ?: "1"
-    /** The ROM app's 1080p stream (AHD_1080P25). */
-    private const val WIDTH = 1920
-    private const val HEIGHT = 1080
+    /** The ROM app's 1080p stream (AHD_1080P25), asked for when the camera offers it ([pictureSize]). */
+    internal const val WIDTH = 1920
+    internal const val HEIGHT = 1080
     /** The video chip's input switch: 2 is the reversing camera. */
     private const val INPUT_SWITCH = "/sys/class/tp9950_class/tp9950_class_dev/auxvideo_backcvbs_switch"
     /** The ROM app opens the camera about 0.5 s after the reverse key; past this, it's stopped anyway. */
     private const val ROM_OPEN_WAIT_MS = 2_500L
     /** The ROM app closes its camera within about 0.1 s. */
     private const val CLOSE_WAIT_MS = 1_500L
+    /** The longest the ROM app is given to take a stop before the reverse flag is put back. */
+    private const val ROM_STOP_MS = 300L
+    /** Dashwheel's own close ([close]) waits for the camera's driver: a second or more on some units (#109). */
+    private const val OWN_CLOSE_WAIT_MS = 3_000L
     /** The ROM app's picture shows about this long after it opened the camera (its signal check). */
     private const val ROM_PICTURE_MS = 700L
     /** The camera's first frame came within a second on the K706; past this, it's not coming. */
@@ -79,7 +85,17 @@ internal object ReverseCamera {
     /** The copy of the picture the ground map is read from. */
     private const val FRAME_W = 320
     private const val FRAME_H = 180
-    private const val SAMPLE_MS = 200L
+    private const val SAMPLE_MS = 100L
+    /**
+     * A picture that stays black this long after its first frame has no
+     * signal behind it: the camera Dashwheel opened is not the one the video
+     * chip feeds, or the chip was never switched to it (a TS10, which Dashwheel
+     * has no switch for). The car app's picture is put back.
+     */
+    private const val BLACK_GIVE_UP_MS = 3_000L
+    private const val BLACK_CHECK_MS = 300L
+    private const val CHECK_W = 64
+    private const val CHECK_H = 36
     /** The copy the second screen shows ([mirror]): enough for its stream, at its pace. */
     private const val MIRROR_W = 960
     private const val MIRROR_H = 540
@@ -107,8 +123,11 @@ internal object ReverseCamera {
     private var opening: Job? = null
     private var watchdog: Job? = null
     private var sampler: Job? = null
+    private var blackCheck: Job? = null
     private var frame: Bitmap? = null
     private val _cameraFree = MutableStateFlow(true)
+    /** The last [close] has run through on the camera's thread: its device is let go of. */
+    private val _closed = MutableStateFlow(true)
     private val _romPicture = MutableStateFlow(false)
     /** The ROM app's picture is on screen: the lines can go over it ([ReverseView]). */
     val romPicture: StateFlow<Boolean> = _romPicture.asStateFlow()
@@ -204,6 +223,15 @@ internal object ReverseCamera {
 
     /** The ROM app was stopped this reverse: on a failure, it has to be started again. */
     private var romStopped = false
+    /** The reverse flag and the front camera settings being put back after a stop ([stopRomCamera]). */
+    private var restoring: Job? = null
+    /** When this reverse's try at the picture began (uptime), for the debug log's account of it ([took]). */
+    private var startedAt = 0L
+    private var romHadAt = 0L
+    private var romLetGoAt = 0L
+    /** This reverse's second try at the picture, when and why ([openAgain]), for the debug log. */
+    private var retried: String? = null
+    private var picture = WIDTH to HEIGHT
 
     fun hasPermission(context: Context) =
         context.checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
@@ -222,14 +250,24 @@ internal object ReverseCamera {
         val app = context.applicationContext
         view.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
             override fun onSurfaceTextureAvailable(texture: SurfaceTexture, width: Int, height: Int) {
-                texture.setDefaultBufferSize(WIDTH, HEIGHT)
-                opening?.cancel()
+                // A try still going (a session on an earlier surface of this view) ends first.
+                close()
                 opening = scope.launch {
                     _state.value = State.TAKING
+                    startedAt = SystemClock.elapsedRealtime()
+                    romHadAt = 0L
+                    romLetGoAt = 0L
+                    retried = null
+                    // The last reverse's camera may still be closing on its thread (#126): opened
+                    // over it, the new device gets no picture, and the ROM app would be stopped
+                    // before it even took the camera, the "in use" being Dashwheel's own.
+                    withTimeoutOrNull(OWN_CLOSE_WAIT_MS) { _closed.first { it } }
                     // As soon as the ROM app has the camera, it's asked to let go of it.
                     withTimeoutOrNull(ROM_OPEN_WAIT_MS) { _cameraFree.first { !it } }
+                    if (!_cameraFree.value) romHadAt = SystemClock.elapsedRealtime()
                     if (!stopRomCamera(app)) return@launch fail(app, "the car app's camera could not be stopped")
                     withTimeoutOrNull(CLOSE_WAIT_MS) { _cameraFree.first { it } }
+                    if (_cameraFree.value) romLetGoAt = SystemClock.elapsedRealtime()
                     open(app, texture, retry = true)
                 }
             }
@@ -237,15 +275,18 @@ internal object ReverseCamera {
             override fun onSurfaceTextureSizeChanged(texture: SurfaceTexture, width: Int, height: Int) = Unit
 
             override fun onSurfaceTextureDestroyed(texture: SurfaceTexture): Boolean {
-                close()
-                return true
+                // Released by close itself, once the camera has let go of it.
+                close(texture)
+                return false
             }
 
             override fun onSurfaceTextureUpdated(texture: SurfaceTexture) {
                 if (_state.value == State.OPENING && device != null) {
                     _state.value = State.LIVE
                     watchdog?.cancel()
+                    DebugLog.note(app, "Reverse picture: ${took()}, first frame after ${sinceStart()} ms at ${picture.first}x${picture.second}")
                     sample(view)
+                    checkBlack(app, view)
                     liveView = view
                     startMirror(view)
                 }
@@ -264,19 +305,34 @@ internal object ReverseCamera {
      * left on the camera. The reverse flag is put back unless reverse really
      * ended meanwhile.
      */
-    private suspend fun stopRomCamera(context: Context): Boolean = runCatching {
+    private suspend fun stopRomCamera(context: Context): Boolean = if (rom == null) {
+        // No camera app Dashwheel knows how to stop on this firmware (Topway, FYT, HCN...):
+        // the K706's commands mean nothing here, and its video switch isn't there to write.
+        true
+    } else runCatching {
         val after = RomAfterReverse(systemProperty(RomAfterReverse.FRONT_TIME), systemProperty(RomAfterReverse.RIGHT_CAMERA))
         try {
-            DockShell.shell(context, (after.off + "setprop sys.qf.backcar_state false" + "am broadcast -a com.qf.action.BACKCAR_STOP -p $ROM_APP").joinToString("; "))
+            // Noted before the shell runs: a stop that went through but whose answer
+            // never came must still be undone on a failure ([fail]). A start the ROM
+            // app didn't need is harmless; its picture missing is not.
             romStopped = true
-            delay(300)
+            // The last stop's settings are back before this one turns them off again.
+            restoring?.join()
+            val held = !_cameraFree.value
+            DockShell.shell(context, (after.off + "setprop sys.qf.backcar_state false" + "am broadcast -a com.qf.action.BACKCAR_STOP -p $ROM_APP").joinToString("; "))
+            // Its camera let go, the ROM app has taken the stop: no need to sit out the rest (#109).
+            if (held) withTimeoutOrNull(ROM_STOP_MS) { _cameraFree.first { it } } else delay(ROM_STOP_MS)
         } catch (e: Throwable) {
             // The driver's front camera setting is never left off.
             withContext(NonCancellable) { if (after.back.isNotEmpty()) runCatching { DockShell.shell(context, after.back.joinToString("; ")) } }
             throw e
         }
         val still = reversingNow()
-        DockShell.shell(context, (after.back + if (still) listOf("setprop sys.qf.backcar_state true", "echo 2 > $INPUT_SWITCH") else listOf("true")).joinToString("; "))
+        // Put back alongside the camera's opening, not ahead of it: a root round trip the picture doesn't wait for (#109).
+        restoring = scope.launch {
+            runCatching { DockShell.shell(context, (after.back + if (still) listOf("setprop sys.qf.backcar_state true", "echo 2 > $INPUT_SWITCH") else listOf("true")).joinToString("; ")) }
+                .onFailure { Log.w(TAG, "could not put the car app's settings back", it) }
+        }
         still
     }.onFailure {
         // Reverse ended meanwhile: not a failure of this try.
@@ -292,6 +348,15 @@ internal object ReverseCamera {
         val manager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
         val id = runCatching { manager.cameraIdList.let { ids -> if (CAMERA_ID in ids) CAMERA_ID else ids.lastOrNull() } }.getOrNull()
             ?: return fail(context, "no camera")
+        // The size the camera offers, not the 1080p the ROM app streamed on the K706: the
+        // driver may have set it to 720p in the car app, and a buffer of the wrong size
+        // leaves the session unconfigured, with no picture from anyone (#108).
+        val offered = runCatching {
+            manager.getCameraCharacteristics(id).get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+                ?.getOutputSizes(SurfaceTexture::class.java)?.map { it.width to it.height }
+        }.getOrNull().orEmpty()
+        picture = pictureSize(offered)
+        texture.setDefaultBufferSize(picture.first, picture.second)
         val t = thread ?: HandlerThread("ReverseCamera").also { it.start(); thread = it }
         val handler = Handler(t.looper)
         _state.value = State.OPENING
@@ -299,7 +364,9 @@ internal object ReverseCamera {
         watchdog?.cancel()
         watchdog = scope.launch {
             delay(FIRST_FRAME_MS)
-            if (_state.value == State.OPENING) fail(context, "no picture")
+            if (_state.value != State.OPENING) return@launch
+            // Apart from this watchdog, which [openAgain]'s close cancels.
+            scope.launch { retryOrFail(context, texture, retry, "no picture") }
         }
         runCatching {
             manager.openCamera(id, object : CameraDevice.StateCallback() {
@@ -335,30 +402,39 @@ internal object ReverseCamera {
 
                 override fun onDisconnected(camera: CameraDevice) {
                     camera.close()
-                    scope.launch { if (mine == attempt && (device === camera || device == null)) fail(context, "camera taken back") }
+                    // The ROM app took it back (its start came after the stop): stopped once more.
+                    scope.launch { if (mine == attempt) retryOrFail(context, texture, retry, "camera taken back") }
                 }
 
                 override fun onError(camera: CameraDevice, error: Int) {
                     camera.close()
-                    scope.launch {
-                        if (mine != attempt) return@launch
-                        val busy = error == CameraDevice.StateCallback.ERROR_CAMERA_IN_USE || error == CameraDevice.StateCallback.ERROR_MAX_CAMERAS_IN_USE
-                        // The ROM app hadn't opened yet when it was stopped, and has since: once more.
-                        if (busy && retry && device == null) openAgain(context, texture, mine)
-                        else fail(context, "camera error $error")
-                    }
+                    // In use (the ROM app hadn't opened yet when it was stopped, and has since) or a
+                    // device fault while it was letting go: once more, unless the camera is disabled.
+                    val fatal = error == CameraDevice.StateCallback.ERROR_CAMERA_DISABLED
+                    scope.launch { if (mine == attempt) retryOrFail(context, texture, retry && !fatal, "camera error $error") }
                 }
             }, handler)
         }.onFailure { e ->
             // Refused at once: the ROM app opened the camera again in between. Once more.
-            if (retry && e is android.hardware.camera2.CameraAccessException && e.reason == android.hardware.camera2.CameraAccessException.CAMERA_IN_USE) {
-                scope.launch { openAgain(context, texture, mine) }
-            } else fail(context, "open refused: $e")
+            val busy = e is android.hardware.camera2.CameraAccessException && e.reason == android.hardware.camera2.CameraAccessException.CAMERA_IN_USE
+            scope.launch { if (mine == attempt) retryOrFail(context, texture, retry && busy, "open refused: $e") }
         }
     }
 
-    /** The second and last try of [attempt] number [mine], unless reverse ended while the ROM app was stopped. */
-    private suspend fun openAgain(context: Context, texture: SurfaceTexture, mine: Int) {
+    private suspend fun retryOrFail(context: Context, texture: SurfaceTexture, retry: Boolean, why: String) =
+        if (retry) openAgain(context, texture, why) else fail(context, why)
+
+    /**
+     * The second and last try of this reverse, [why] the first went wrong:
+     * Dashwheel's own device closed and let go of, the ROM app stopped once
+     * more, the camera opened again on the same surface. Unless reverse ended
+     * meanwhile.
+     */
+    private suspend fun openAgain(context: Context, texture: SurfaceTexture, why: String) {
+        retried = "second try after ${sinceStart()} ms ($why)"
+        close()
+        val mine = attempt
+        withTimeoutOrNull(OWN_CLOSE_WAIT_MS) { _closed.first { it } }
         val stopped = stopRomCamera(context)
         if (mine != attempt) return
         if (!stopped) return fail(context, "the car app's camera could not be stopped")
@@ -373,6 +449,7 @@ internal object ReverseCamera {
     private fun fail(context: Context, why: String) {
         if (_state.value == State.FAILED) return
         Log.w(TAG, "own picture given up: $why")
+        DebugLog.note(context, "Reverse picture given up after ${sinceStart()} ms ($why): ${took()}")
         close()
         // Given up for this reverse. Once reverse is over (it ended while the
         // camera was being taken) there is nothing to give up, and "failed"
@@ -381,6 +458,8 @@ internal object ReverseCamera {
         if (romStopped && reversingNow()) {
             romStopped = false
             scope.launch {
+                // After the reverse flag is back: the ROM app ignores a start without it.
+                restoring?.join()
                 runCatching { DockShell.shell(context, "am broadcast -a com.qf.action.BACKCAR_START -p $ROM_APP") }
                     .onFailure { Log.w(TAG, "could not restart the car app's camera", it) }
             }
@@ -388,7 +467,7 @@ internal object ReverseCamera {
     }
 
     /**
-     * A small copy of the picture five times a second while it's live, for
+     * A small copy of the picture ten times a second while it's live, for
      * the ground map and the camera's measure of how far the car moved
      * ([GroundMemory], [ParkingMotion]).
      */
@@ -398,7 +477,8 @@ internal object ReverseCamera {
             val pixels = IntArray(FRAME_W * FRAME_H)
             while (isActive && _state.value == State.LIVE) {
                 delay(SAMPLE_MS)
-                if (ParkingMotion.pose.value == null || view.width == 0) continue
+                // Sampled even before the manoeuvre's pose: the live ground behind the car needs no pose.
+                if (view.width == 0) continue
                 val b = frame ?: Bitmap.createBitmap(FRAME_W, FRAME_H, Bitmap.Config.ARGB_8888).also { frame = it }
                 if (runCatching { view.getBitmap(b) }.isFailure) continue
                 b.getPixels(pixels, 0, FRAME_W, 0, 0, FRAME_W, FRAME_H)
@@ -418,23 +498,95 @@ internal object ReverseCamera {
         }
     }
 
-    private fun close() {
+    /**
+     * Watches the first seconds of the live picture: black all along, it is
+     * given up ([BLACK_GIVE_UP_MS]); one frame with something in it and the
+     * watch ends.
+     */
+    private fun checkBlack(context: Context, view: TextureView) {
+        blackCheck?.cancel()
+        val mine = attempt
+        blackCheck = scope.launch {
+            val small = Bitmap.createBitmap(CHECK_W, CHECK_H, Bitmap.Config.ARGB_8888)
+            val pixels = IntArray(CHECK_W * CHECK_H)
+            val liveAt = SystemClock.elapsedRealtime()
+            try {
+                while (isActive && mine == attempt && _state.value == State.LIVE) {
+                    delay(BLACK_CHECK_MS)
+                    if (view.width == 0 || runCatching { view.getBitmap(small) }.isFailure) continue
+                    small.getPixels(pixels, 0, CHECK_W, 0, 0, CHECK_W, CHECK_H)
+                    if (!isBlackPicture(pixels)) return@launch
+                    if (SystemClock.elapsedRealtime() - liveAt >= BLACK_GIVE_UP_MS) {
+                        if (mine == attempt) fail(context, "the picture stayed black: no signal on camera $CAMERA_ID")
+                        return@launch
+                    }
+                }
+            } finally {
+                small.recycle()
+            }
+        }
+    }
+
+    private fun sinceStart() = SystemClock.elapsedRealtime() - startedAt
+
+    /** How this reverse's take went so far, for the debug log. */
+    private fun took(): String {
+        val had = if (romHadAt == 0L) "car app never took the camera" else "car app took the camera after ${romHadAt - startedAt} ms"
+        val let = if (romLetGoAt == 0L) "never let go" else "let go after ${romLetGoAt - startedAt} ms"
+        return listOfNotNull(had, let, retried).joinToString(", ")
+    }
+
+    /** Ends this try at the picture; [texture], the view's surface when it is going, is released once the camera is closed. */
+    private fun close(texture: SurfaceTexture? = null) {
         attempt++
         stopMirror()
         liveView = null
         sampler?.cancel()
         sampler = null
+        blackCheck?.cancel()
+        blackCheck = null
         opening?.cancel()
         opening = null
         watchdog?.cancel()
         watchdog = null
-        runCatching { session?.close() }
+        val s = session
+        val d = device
+        val sf = surface
         session = null
-        runCatching { device?.close() }
         device = null
-        surface?.release()
         surface = null
+        if (s == null && d == null && sf == null) {
+            // On the camera's thread, behind a close still running there: its surface wraps this texture.
+            val t = texture ?: return
+            thread?.let { Handler(it.looper).post { t.release() } } ?: t.release()
+            return
+        }
+        // Closing the camera waits for its driver, a second or more on some units:
+        // on the camera's own thread, or the screen hangs on the last frame after
+        // reverse ends (#109). The next open waits for it ([_closed]).
+        _closed.value = false
+        val release = Runnable {
+            runCatching { s?.close() }
+            runCatching { d?.close() }
+            sf?.release()
+            texture?.release()
+            _closed.value = true
+        }
+        thread?.let { Handler(it.looper).post(release) } ?: release.run()
     }
+}
+
+/**
+ * The picture size asked of the camera: [wantW] x [wantH] (the ROM app's
+ * 1080p stream) when [offered]; else the largest offered that fits in it,
+ * the car app's resolution setting having put the stream at 720p or 480p;
+ * else the smallest offered. Nothing offered (an older driver that lists no
+ * sizes): what was wanted, as before.
+ */
+internal fun pictureSize(offered: List<Pair<Int, Int>>, wantW: Int = ReverseCamera.WIDTH, wantH: Int = ReverseCamera.HEIGHT): Pair<Int, Int> {
+    if (offered.isEmpty() || (wantW to wantH) in offered) return wantW to wantH
+    return offered.filter { it.first <= wantW && it.second <= wantH }.maxByOrNull { it.first * it.second }
+        ?: offered.minByOrNull { it.first * it.second }!!
 }
 
 /** The camera's picture, full screen under the lines, turned the way the car app turns it. */
@@ -468,6 +620,18 @@ internal fun romMirror(setting: Int, platform: String): Int {
 }
 
 private val UNISOC_PLATFORMS = listOf("7862", "8581", "7861", "7870")
+
+/**
+ * Whether a picture's [pixels] (ARGB) are a camera with no signal: every one
+ * of them all but black. A dark scene at night still has the reversing
+ * lights, the sensor's noise and the camera's own date stamp in it.
+ */
+internal fun isBlackPicture(pixels: IntArray, threshold: Int = 16): Boolean = pixels.all { p ->
+    val r = (p shr 16) and 0xFF
+    val g = (p shr 8) and 0xFF
+    val b = p and 0xFF
+    maxOf(r, g, b) <= threshold
+}
 
 /** Turns a [w] x [h] picture's [pixels] in place: left to right with [flipX], upside down with [flipY]. */
 internal fun turnPixels(pixels: IntArray, w: Int, h: Int, flipX: Boolean, flipY: Boolean) {

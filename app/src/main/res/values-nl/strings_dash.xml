@@ -7,6 +7,7 @@
     <string name="dash_add">Toevoegen</string>
     <string name="dash_selected">Geselecteerd</string>
     <string name="dash_dismiss">Sluiten</string>
+    <string name="dash_safe_mode">Veilige modus. Kaarten, 3D-auto en Android-widgets staan uit na twee mislukte starts.</string>
     <string name="dash_got_it">Begrepen</string>
 
     <!-- Top bar -->
@@ -56,6 +57,7 @@
     <string name="dash_notice_no_space">Dit dashboard heeft geen ruimte voor die tegel. Verwijder of verklein tegels, of gebruik een ander dashboard.</string>
     <string name="dash_notice_no_room_to_move">Geen ruimte om de andere tegels opzij te schuiven. Maak eerst wat ruimte vrij.</string>
     <string name="dash_notice_resize_overlap">Dit formaat overlapt een andere tegel. Maak eerst ruimte vrij.</string>
+    <string name="dash_notice_no_grid_spot">Geen vrije plek in het raster voor deze tegel. Maak ruimte vrij, of laat hem over de andere liggen.</string>
     <string name="dash_full_title">Dit dashboard is vol</string>
     <string name="dash_full_body">Verwijder een tegel of maak er een kleiner om er nog een toe te voegen.</string>
 
@@ -122,6 +124,10 @@
     <string name="dash_theme_sporty_desc">Rode sportcockpit</string>
     <string name="dash_theme_floating">Zwevend</string>
     <string name="dash_theme_floating_desc">Geen tegelachtergrond: widgets en pictogrammen staan op de achtergrond</string>
+    <string name="dash_theme_open">Open</string>
+    <string name="dash_theme_open_desc">Elke widget opnieuw getekend zonder achtergrond en zonder rand, direct op de achtergrond</string>
+    <string name="dash_theme_heads_up">Head-up</string>
+    <string name="dash_theme_heads_up_desc">De kaart vult het scherm en elke widget ligt erop zonder paneel, als een display in de voorruit. Muziek wordt een plaat.</string>
     <string name="dash_theme_orbit">Orbit</string>
     <string name="dash_theme_orbit_desc">Alles rond: een draaiende plaat, ringmeters, bellen</string>
     <string name="dash_theme_cockpit">Cockpit</string>
@@ -163,9 +169,13 @@
     <string name="dash_effects_none_hint">Dekkende kaarten, sobere cijfers, geen gloed: leesbaar in volle zon</string>
     <string name="dash_effects_reduced_hint">Zachtere gloed, glas blijft</string>
     <string name="dash_effects_full_hint">Elk thema met al zijn gloed en glas</string>
+    <string name="dash_motion_driving">Animaties tijdens het rijden</string>
+    <string name="dash_motion_driving_detail">De animaties van het uiterlijk lopen door als de auto rijdt; anders staan ze stil</string>
     <string name="dash_bar_title">Onderste balk</string>
     <string name="dash_bar_auto_hide">Balk automatisch verbergen</string>
     <string name="dash_bar_auto_hide_detail">Schuift weg als hij niet wordt gebruikt, voor meer ruimte op de dashboards</string>
+    <string name="dash_bar_nav_keys">Terug en Recente apps</string>
+    <string name="dash_bar_nav_keys_detail">Twee extra knoppen aan de uiteinden van de balk, voor een scherm zonder die toetsen</string>
     <string name="dash_bar_hide_after">Verbergen na %1$d s</string>
     <string name="dash_bar_hide_now">Meteen verbergen</string>
     <string name="dash_bar_swipe_up_detail">Verborgen: veeg omhoog vanaf de onderrand om hem terug te halen</string>
@@ -200,7 +210,6 @@
     <string name="dash_dashboard_options">Dashboardopties</string>
     <string name="dash_remove_dashboard_title">%1$s verwijderen?</string>
     <string name="dash_remove_dashboard_body">Leegmaken, of uit het vegen halen met de tegels. Ongedaan maken brengt ze terug.</string>
-    <string name="dash_tile_move">Naar een ander dashboard</string>
     <string name="dash_tile_remove">Verwijderen</string>
     <string name="dash_tile_restart_app">App opnieuw starten</string>
     <string name="dash_apps">Apps</string>
@@ -219,11 +228,6 @@
     <string name="dash_dashboard_removed">%1$s verwijderd</string>
     <string name="dash_remove_empty">Leegmaken</string>
     <string name="dash_remove_take_out">Uit het vegen halen</string>
-    <string name="dash_bring_back_title">%1$s terughalen?</string>
-    <string name="dash_bring_back_body">De tegel gaat erheen en het dashboard doet weer mee met vegen.</string>
-    <string name="dash_bring_back">Terughalen</string>
-    <string name="dash_moved_to">Verplaatst naar %1$s</string>
-    <string name="dash_page_removed">%1$s, buiten het vegen</string>
     <string name="dash_way_home_up">Veeg omhoog voor Start</string>
     <string name="dash_way_home_down">Veeg omlaag voor Start</string>
     <string name="dash_add_tile">Tegel toevoegen</string>

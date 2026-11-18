@@ -7,6 +7,7 @@
     <string name="dash_add">Ajouter</string>
     <string name="dash_selected">Sélectionné</string>
     <string name="dash_dismiss">Ignorer</string>
+    <string name="dash_safe_mode">Mode sans échec. Cartes, voiture 3D et widgets Android coupés après deux démarrages ratés.</string>
     <string name="dash_got_it">Compris</string>
 
     <!-- Top bar -->
@@ -56,6 +57,7 @@
     <string name="dash_notice_no_space">Ce tableau de bord n\'a plus de place pour cette tuile. Retirez ou redimensionnez des tuiles, ou utilisez un autre tableau de bord.</string>
     <string name="dash_notice_no_room_to_move">Pas assez de place pour écarter les autres tuiles. Libérez d\'abord de l\'espace.</string>
     <string name="dash_notice_resize_overlap">Cette taille chevauche une autre tuile. Faites de la place avant de redimensionner.</string>
+    <string name="dash_notice_no_grid_spot">Aucune place libre dans la grille pour cette tuile. Faites de la place, ou laissez-la par-dessus les autres.</string>
     <string name="dash_full_title">Ce tableau de bord est plein</string>
     <string name="dash_full_body">Retirez une tuile ou réduisez-en une pour en ajouter une autre.</string>
 
@@ -122,6 +124,10 @@
     <string name="dash_theme_sporty_desc">Cockpit sportif rouge</string>
     <string name="dash_theme_floating">Flottant</string>
     <string name="dash_theme_floating_desc">Sans fond de tuile : widgets et icônes posés sur l\'arrière-plan</string>
+    <string name="dash_theme_open">Ouvert</string>
+    <string name="dash_theme_open_desc">Chaque widget redessiné sans fond ni bordure, posé sur l\'arrière-plan</string>
+    <string name="dash_theme_heads_up">Tête haute</string>
+    <string name="dash_theme_heads_up_desc">La carte remplit l\'écran et chaque widget s\'y pose sans panneau, comme un affichage dans le pare-brise. La musique devient un disque.</string>
     <string name="dash_theme_orbit">Orbite</string>
     <string name="dash_theme_orbit_desc">Tout en rondeur : vinyle qui tourne, jauges circulaires, bulles</string>
     <string name="dash_theme_cockpit">Cockpit</string>
@@ -164,9 +170,13 @@
     <string name="dash_effects_none_hint">Cartes opaques, chiffres sobres, sans lueur : lisible en plein soleil</string>
     <string name="dash_effects_reduced_hint">Halos atténués, verre conservé</string>
     <string name="dash_effects_full_hint">Chaque thème avec tous ses halos et son verre</string>
+    <string name="dash_motion_driving">Animations en roulant</string>
+    <string name="dash_motion_driving_detail">Les animations du thème continuent quand la voiture roule ; sinon elles se figent</string>
     <string name="dash_bar_title">Barre du bas</string>
     <string name="dash_bar_auto_hide">Masquer la barre automatiquement</string>
     <string name="dash_bar_auto_hide_detail">Se retire quand elle ne sert pas, pour laisser plus de place aux tableaux de bord</string>
+    <string name="dash_bar_nav_keys">Retour et Apps récentes</string>
+    <string name="dash_bar_nav_keys_detail">Deux boutons de plus aux bouts de la barre, pour un écran sans ces touches</string>
     <string name="dash_bar_hide_after">Masquer après %1$d s</string>
     <string name="dash_bar_hide_now">Masquer tout de suite</string>
     <string name="dash_bar_swipe_up_detail">Une fois masquée, glissez vers le haut depuis le bord inférieur pour la faire réapparaître</string>
@@ -204,7 +214,6 @@
     <string name="dash_dashboard_options">Options du tableau de bord</string>
     <string name="dash_remove_dashboard_title">Supprimer %1$s ?</string>
     <string name="dash_remove_dashboard_body">Le vider, ou le retirer des balayages avec ses tuiles. Annuler les ramène.</string>
-    <string name="dash_tile_move">Vers un autre tableau de bord</string>
     <string name="dash_tile_remove">Retirer</string>
     <string name="dash_tile_restart_app">Relancer l\'appli</string>
     <string name="dash_apps">Applis</string>
@@ -224,11 +233,6 @@
     <string name="dash_dashboard_removed">%1$s supprimé</string>
     <string name="dash_remove_empty">Le vider</string>
     <string name="dash_remove_take_out">Le retirer des balayages</string>
-    <string name="dash_bring_back_title">Rétablir %1$s ?</string>
-    <string name="dash_bring_back_body">La tuile y va et le tableau de bord revient dans les balayages.</string>
-    <string name="dash_bring_back">Rétablir</string>
-    <string name="dash_moved_to">Déplacé vers %1$s</string>
-    <string name="dash_page_removed">%1$s, hors des balayages</string>
     <string name="dash_way_home_up">Balayez vers le haut pour l\'Accueil</string>
     <string name="dash_way_home_down">Balayez vers le bas pour l\'Accueil</string>
     <string name="dash_add_tile">Ajouter une tuile</string>

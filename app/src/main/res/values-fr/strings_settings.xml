@@ -63,6 +63,11 @@
     <string name="alert_enlarge">Afficher</string>
     <string name="alert_speak">Le dire à voix haute</string>
     <string name="alert_also_spoken">Aussi dit à voix haute</string>
+    <string name="alert_at">Où il se place</string>
+    <string name="alert_at_top">En haut</string>
+    <string name="alert_at_start">À gauche</string>
+    <string name="alert_at_end">À droite</string>
+    <string name="alert_at_bottom">En bas</string>
     <string name="alert_show">Afficher cette alerte</string>
     <string name="alert_speak_call_detail">Dit qui appelle pendant la sonnerie</string>
     <string name="alert_speak_doors_detail">Dit quelle porte est ouverte si elle s\'ouvre en roulant ou si vous partez porte ouverte</string>
@@ -169,6 +174,8 @@
     <string name="bar_items_left">Plus tôt dans la barre</string>
     <string name="bar_items_right">Plus loin dans la barre</string>
     <string name="bar_items_reset">Réinitialiser à la sélection de départ</string>
+    <string name="bar_items_no_room">Certains indicateurs ne tiennent pas dans la barre, même sans légende : remontez-les, ou retirez-en un autre.</string>
+    <string name="bar_items_left_out">Ne tient pas : absent de la barre</string>
     <string name="bar_item_fuel">Carburant</string>
     <string name="bar_item_speed">Vitesse</string>
     <string name="bar_item_revs">Régime</string>
@@ -211,6 +218,8 @@
     <string name="about_tip_thanks">Merci, ça aide vraiment.</string>
     <string name="about_project">Page du projet</string>
     <string name="about_project_detail">Code source, versions et signalement de bugs</string>
+    <string name="about_telegram">Groupe Telegram</string>
+    <string name="about_telegram_detail">Questions, nouveautés et autres conducteurs : t.me/Dashwheel</string>
     <string name="help_title">Aide</string>
     <string name="help_row_detail">Chaque fonction expliquée, sur le wiki</string>
     <string name="help_detail">Chaque fonction expliquée sur le wiki. Scannez-le avec votre téléphone ou ouvrez-le ici.</string>
@@ -337,6 +346,7 @@
     <string name="report_crash_intro">Envoyez l\'erreur pour qu\'elle soit corrigée. Le rapport contient l\'erreur, le modèle et le firmware, rien de personnel.</string>
     <string name="report_scan">Scannez avec votre téléphone pour l\'envoyer</string>
     <string name="report_open">Ouvrir ici</string>
+    <string name="report_send_phone">Envoyer au téléphone</string>
     <string name="report_delete">Supprimer</string>
     <string name="report_later">Pas maintenant</string>
     <string name="report_works">Marche</string>
@@ -377,11 +387,11 @@
     <string name="settings_section_region">Langue et unités</string>
     <string name="settings_sum_sound">Volume, touches et musique</string>
     <string name="settings_sum_dashboard">Barre, rail latéral et onglets</string>
-    <string name="settings_sum_expert">Labo, clés API, serveurs</string>
     <string name="alerts_say">Dire</string>
     <string name="alerts_show">Afficher</string>
     <string name="alerts_intro">Dire l\'annonce à voix haute, Afficher montre la fenêtre de Dashwheel. Touchez une fenêtre pour choisir son style.</string>
     <string name="alerts_group_car">De la voiture</string>
     <string name="alerts_group_road">Sur la route</string>
     <string name="alerts_group_start">Au départ</string>
+    <string name="settings_system_app_on">Installée. Les widgets Android s\'ajoutent sans demande.</string>
 </resources>

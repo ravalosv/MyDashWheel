@@ -8,7 +8,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import android.Manifest
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -158,12 +157,20 @@ internal fun canvasGlass(shape: Shape = GlassShape): Modifier {
 internal fun CanvasBackdrop(modifier: Modifier) {
     val bg = DashColors.Background
     Box(modifier = modifier.background(bg)) {
-        if (isEmulator) StreetGridStandIn(Modifier.fillMaxSize()) else MapLibrePanel(Modifier.fillMaxSize(), wallpaper = true)
+        if (!gpuOk) StreetGridStandIn(Modifier.fillMaxSize()) else MapLibrePanel(Modifier.fillMaxSize(), wallpaper = true)
         Spacer(
             Modifier.fillMaxSize().background(
                 Brush.verticalGradient(0f to bg, 0.2f to bg.copy(alpha = 0.8f), 0.45f to bg.copy(alpha = 0f))
             )
         )
+        // Heads-up has no panels to read against: the foot of the map fades too, under the music and the bar.
+        if (headsUpLook()) {
+            Spacer(
+                Modifier.fillMaxSize().background(
+                    Brush.verticalGradient(0.55f to bg.copy(alpha = 0f), 0.8f to bg.copy(alpha = 0.7f), 1f to bg.copy(alpha = 0.92f))
+                )
+            )
+        }
         // MINE: #16 over the veil, not under it: up top the gradient is opaque enough to hide it.
         com.openauto.dash.mine.MapCompass(Modifier.align(Alignment.BottomEnd).padding(end = 24.dp, bottom = 24.dp))
     }
@@ -228,8 +235,8 @@ internal fun CanvasRail(m: TopBarModel, onHome: () -> Unit, modifier: Modifier =
             RailButton(Icons.Filled.Apps, stringResource(R.string.dash_all_apps), onClick = m.onApps)
             RailButton(Icons.Filled.MusicNote, stringResource(R.string.apps_kind_media)) { openMusic(context, m.onApps) }
             RailButton(Icons.Filled.Phone, stringResource(R.string.settings_section_phone)) {
-                // A head unit without a dialler (its phone is a car app of its own) gets the drawer, not a dead button.
-                if (!context.launchSafely(Intent(Intent.ACTION_DIAL))) m.onApps()
+                // Dashwheel's own phone screen; where none can show, the unit's phone app, else the drawer.
+                PhoneScreen.open(context, m.onApps)
             }
             RailButton(Icons.Filled.DirectionsCar, obdStatusLabel(m.obdConnection), dot = obdStatusColor(m.obdConnection), onClick = m.onConnectObd)
         }
@@ -550,7 +557,8 @@ private fun CanvasWeather() {
     val weather = rememberWeather()
     val time = rememberTimeFormat()
     val units = LocalUnits.current
-    val now = System.currentTimeMillis()
+    // A clock that ticks: "rain from" turns into "rain until" when the rain starts, not at the next refresh.
+    val now = rememberWallClock(60_000L).longValue
     Column(modifier = Modifier.fillMaxSize().then(canvasGlass()).padding(20.dp), verticalArrangement = Arrangement.Center) {
         if (weather == null) {
             // Say why, as the other looks do: "--°" alone reads as broken.
@@ -750,7 +758,8 @@ private fun JourneyLine(
     val faint = DashColors.Muted
     // The hours as the dashboard's clock writes them: "15:00", or "3 PM" on a 12-hour clock.
     val clock24 = LocalUnits.current.clock24
-    val hourFmt = remember(clock24) { java.text.SimpleDateFormat(if (clock24) "H:mm" else "h a", Locale.getDefault()) }
+    val zone = rememberZone()
+    val hourFmt = remember(clock24, zone) { java.text.SimpleDateFormat(if (clock24) "H:mm" else "h a", Locale.getDefault()).inZone(zone) }
     BoxWithConstraints(modifier = modifier) {
         val w = maxWidth
         val lineY = maxHeight * if (header != null) 0.40f else 0.34f

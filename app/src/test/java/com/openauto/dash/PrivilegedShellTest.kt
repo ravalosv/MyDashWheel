@@ -31,6 +31,8 @@ class PrivilegedShellTest {
         for (kind in listOf(BuiltinKind.PIP_ANCHOR, BuiltinKind.DOORS, BuiltinKind.CAR_STATUS)) {
             assertEquals(kind.name, setOf(Access.ROOT, Access.SHIZUKU, Access.ADB), Access.entries.filter { it.allows(kind) }.toSet())
         }
+        // Doors taught in Car signals need no shell.
+        assertTrue(Access.entries.all { it.allows(BuiltinKind.DOORS, learnedDoors = true) })
         val plain = BuiltinKind.entries - setOf(BuiltinKind.DOORS, BuiltinKind.CAN_MON, BuiltinKind.PIP_ANCHOR, BuiltinKind.CAR_STATUS)
         for (kind in plain) for (access in Access.entries) assertTrue("$kind under $access", access.allows(kind))
     }
@@ -80,5 +82,25 @@ class PrivilegedShellTest {
     fun untilProbed_nothingIsOffered() {
         assertEquals(Access.UNKNOWN, PrivilegedShell.access.value)
         assertFalse(PrivilegedShell.access.value.shell)
+    }
+
+    @Test
+    fun onlyAKernelThatSaysQemuIsAnEmulatorForTheShell() {
+        assertTrue(qemuKernel("1", null))
+        assertTrue(qemuKernel(null, "1"))
+        // A head unit whose product name holds "sdk": neither property.
+        assertFalse(qemuKernel(null, null))
+        assertFalse(qemuKernel("0", ""))
+    }
+
+    @Test
+    fun unaskedCommandsRunOnlyThroughAShellThatRaisesNoPrompt() {
+        assertTrue(shellWithoutPrompt(Access.ROOT, adbAccepted = false))
+        assertTrue(shellWithoutPrompt(Access.SHIZUKU, adbAccepted = false))
+        // The unit's ADB asks "allow USB debugging?" until a connection was accepted once.
+        assertFalse(shellWithoutPrompt(Access.ADB, adbAccepted = false))
+        assertTrue(shellWithoutPrompt(Access.ADB, adbAccepted = true))
+        assertFalse(shellWithoutPrompt(Access.NONE, adbAccepted = true))
+        assertFalse(shellWithoutPrompt(Access.UNKNOWN, adbAccepted = true))
     }
 }

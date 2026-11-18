@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -44,6 +45,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -126,6 +128,13 @@ internal enum class ReverseRadarLook(val titleRes: Int, val hintRes: Int) {
     ALERT(R.string.reverse_radar_alert, R.string.reverse_radar_alert_hint)
 }
 
+/** Where the radar sits over the camera picture (#125): a strip along the bottom, or a box on the right. */
+internal enum class RadarSpot(val titleRes: Int) {
+    BOTTOM(R.string.reverse_radar_spot_bottom),
+    RIGHT(R.string.reverse_radar_spot_right),
+    BOTTOM_RIGHT(R.string.reverse_radar_spot_bottom_right)
+}
+
 /**
  * Where the guide lines sit on the camera picture, set on the reverse screen
  * itself: [shift] moves them sideways (a share of the screen width), [bumper]
@@ -184,6 +193,15 @@ internal object ReverseView {
     /** Experimental: Dashwheel shows the camera's picture itself ([ReverseCamera]). */
     val ownCamera: StateFlow<Boolean> = _ownCamera.asStateFlow()
 
+    private val _voiceQuiet = MutableStateFlow(true)
+    /**
+     * The car's voice holds what it has to say while reversing, so the parking
+     * sensors are heard, and says it after ([AlertVoice], [CarVoice.hold]); off,
+     * it keeps talking. On by default, and set here, with the reverse view's
+     * settings, whether or not the view itself is on.
+     */
+    val voiceQuiet: StateFlow<Boolean> = _voiceQuiet.asStateFlow()
+
     private val _hideStock = MutableStateFlow(false)
     /** The car app's own lines are off: the angle is read from its log. */
     val hideStock: StateFlow<Boolean> = _hideStock.asStateFlow()
@@ -197,6 +215,13 @@ internal object ReverseView {
 
     private val _radarLook = MutableStateFlow(ReverseRadarLook.GROUND)
     val radarLook: StateFlow<ReverseRadarLook> = _radarLook.asStateFlow()
+
+    private val _radarOverPicture = MutableStateFlow(false)
+    /** The "Camera" layout with the radar see-through over the picture, while a sensor sees something (#125). */
+    val radarOverPicture: StateFlow<Boolean> = _radarOverPicture.asStateFlow()
+
+    private val _radarSpot = MutableStateFlow(RadarSpot.BOTTOM)
+    val radarSpot: StateFlow<RadarSpot> = _radarSpot.asStateFlow()
 
     private val _tailgate = MutableStateFlow(DEFAULT_TAILGATE_M)
     /** Room the tailgate needs behind the bumper to open, in metres; 0 hides its line. */
@@ -283,10 +308,13 @@ internal object ReverseView {
         _on.value = p.getBoolean("on", false)
         _layout.value = runCatching { ReverseLayout.valueOf(p.getString("layout", null) ?: "") }.getOrDefault(ReverseLayout.BOTH)
         _hideStock.value = p.getBoolean("hide_stock", false)
+        _voiceQuiet.value = p.getBoolean("voice_quiet", true)
         // The own picture takes the camera from the car app as root: never in the Play edition.
         _ownCamera.value = Edition.full && p.getBoolean("own_camera", false)
         _tailgate.value = p.getFloat("tailgate", DEFAULT_TAILGATE_M)
         _radarLook.value = ReverseRadarLook.entries.firstOrNull { it.name == p.getString("radar_look", null) } ?: ReverseRadarLook.GROUND
+        _radarOverPicture.value = p.getBoolean("radar_over_picture", false)
+        _radarSpot.value = RadarSpot.entries.firstOrNull { it.name == p.getString("radar_spot", null) } ?: RadarSpot.BOTTOM
         _secondScreen.value = when (val saved = p.getString("second_screen", null)) {
             null -> ReverseLayout.BOTH
             SECOND_SCREEN_OFF -> null
@@ -317,6 +345,23 @@ internal object ReverseView {
         prefs(context).edit().putFloat("tailgate", metres).apply()
     }
 
+    fun setVoiceQuiet(context: Context, quiet: Boolean) {
+        _voiceQuiet.value = quiet
+        prefs(context).edit().putBoolean("voice_quiet", quiet).apply()
+    }
+
+    /**
+     * Back to the car as it was before Dashwheel: its own camera picture, its
+     * own lines, and no reverse view over them. False when the car app's lines
+     * stayed hidden (no root to bring them back); the rest is done either way.
+     */
+    suspend fun backToCar(context: Context): Boolean {
+        setOwnCamera(context, false)
+        val lines = !_hideStock.value || setHideStock(context, false)
+        setOn(context, false)
+        return lines
+    }
+
     fun setOwnCamera(context: Context, own: Boolean) {
         if (Edition.play) return
         _ownCamera.value = own
@@ -326,6 +371,16 @@ internal object ReverseView {
     fun setSecondScreen(context: Context, shown: ReverseLayout?) {
         _secondScreen.value = shown
         prefs(context).edit().putString("second_screen", shown?.name ?: SECOND_SCREEN_OFF).apply()
+    }
+
+    fun setRadarSpot(context: Context, spot: RadarSpot) {
+        _radarSpot.value = spot
+        prefs(context).edit().putString("radar_spot", spot.name).apply()
+    }
+
+    fun setRadarOverPicture(context: Context, over: Boolean) {
+        _radarOverPicture.value = over
+        prefs(context).edit().putBoolean("radar_over_picture", over).apply()
     }
 
     fun setRadarLook(context: Context, look: ReverseRadarLook) {
@@ -646,7 +701,7 @@ private fun DrawScope.fromAbove(radar: Radar?, steeringDeg: Float?, look: CarVie
     /** A point of the car (metres right, metres ahead of the rear axle) on screen. */
     fun onScreen(c: Offset) = Offset(cx + c.x * m, axleY - c.y * m)
 
-    above.pose?.let { pose -> if (above.ground) fadedGround(pose, cx, axleY, tailY, noseY, m) }
+    if (above.ground) fadedGround(above.pose, cx, tailY, noseY, axleY, m)
     distanceRings(cx, tailY, m)
     sensorGlows(radar?.rear.orEmpty(), rear = true, ::onScreen, m)
     sensorGlows(radar?.front.orEmpty(), rear = false, ::onScreen, m)
@@ -708,22 +763,47 @@ private fun DrawScope.fromAbove(radar: Radar?, steeringDeg: Float?, look: CarVie
 }
 
 /**
- * The ground map, masked: whole in the half circle behind the bumper, fading
- * out at its edge, and dimmer beside the car (filmed earlier), fading out
- * towards the nose.
+ * The ground: behind the bumper, the half circle the camera sees right now
+ * ([GroundMemory.live]), whole, fading out at its edge; beside the car, dimmer,
+ * the ground it filmed earlier ([groundMap]), fading out towards the nose and
+ * gone behind the bumper, so a picture laid a little off by the car's
+ * measured movement never shows under the live one.
  */
-private fun DrawScope.fadedGround(pose: Pose, cx: Float, axleY: Float, tailY: Float, noseY: Float, m: Float) {
+private fun DrawScope.fadedGround(pose: Pose?, cx: Float, tailY: Float, noseY: Float, axleY: Float, m: Float) {
     val bounds = Rect(Offset.Zero, size)
+    if (pose != null) {
+        drawIntoCanvas { it.saveLayer(bounds, Paint()) }
+        groundMap(pose, cx, axleY, m)
+        // Beside the car: the remembered ground, dimmer, gone by the nose and just behind the bumper.
+        val fade = 0.4f * m
+        drawRect(
+            Brush.verticalGradient(
+                0f to Color.Transparent,
+                0.55f * (tailY - noseY) / (tailY + fade - noseY) to Color.Black.copy(alpha = 0.45f),
+                (tailY - noseY) / (tailY + fade - noseY) to Color.Black,
+                1f to Color.Transparent,
+                startY = noseY, endY = tailY + fade
+            ),
+            blendMode = BlendMode.DstIn
+        )
+        // No wider than the half circle.
+        drawRect(
+            Brush.radialGradient(0f to Color.Black, 0.78f to Color.Black, 1f to Color.Transparent, center = Offset(cx, tailY), radius = FAN_M * m),
+            blendMode = BlendMode.DstIn
+        )
+        drawIntoCanvas { it.restore() }
+    }
     drawIntoCanvas { it.saveLayer(bounds, Paint()) }
-    groundMap(pose, cx, axleY, m)
+    val r = GroundMemory.LIVE_M * m
+    withTransform({
+        translate(cx - r, tailY)
+        scale(m * GroundMemory.RES, m * GroundMemory.RES, Offset.Zero)
+    }) {
+        drawImage(GroundMemory.live, alpha = 0.95f)
+    }
     // The half circle's edge.
     drawRect(
         Brush.radialGradient(0f to Color.Black, 0.78f to Color.Black, 1f to Color.Transparent, center = Offset(cx, tailY), radius = FAN_M * m),
-        blendMode = BlendMode.DstIn
-    )
-    // Beside the car: the remembered ground, dimmer, gone by the nose.
-    drawRect(
-        Brush.verticalGradient(0f to Color.Transparent, 0.55f to Color.Black.copy(alpha = 0.45f), 1f to Color.Black, startY = noseY, endY = tailY),
         blendMode = BlendMode.DstIn
     )
     drawIntoCanvas { it.restore() }
@@ -1013,6 +1093,19 @@ private fun FullScreen(
                         radar, steering, top, lookStyle, above
                     )
                 }
+            }
+            val radarOver by ReverseView.radarOverPicture.collectAsState()
+            if (layout == ReverseLayout.CAMERA && radarOver && pictureUp && !adjusting && radar?.closest != null) {
+                // The parking radar's arcs over the picture, only while a sensor sees something (#125), where the driver put them.
+                // Boxed on the right with a dark backing; see-through alone at 0.6 they were lost on a bright picture.
+                val spot by ReverseView.radarSpot.collectAsState()
+                val box = when (spot) {
+                    RadarSpot.BOTTOM -> Modifier.align(Alignment.BottomCenter).fillMaxWidth().fillMaxHeight(1f / 3)
+                    RadarSpot.RIGHT -> Modifier.align(Alignment.CenterEnd).padding(16.dp).fillMaxWidth(0.26f).fillMaxHeight(0.62f)
+                    RadarSpot.BOTTOM_RIGHT -> Modifier.align(Alignment.BottomEnd).padding(16.dp).fillMaxWidth(0.26f).fillMaxHeight(0.45f)
+                }
+                val backed = if (spot == RadarSpot.BOTTOM) box else box.clip(DashShape.Large).background(Color.Black.copy(alpha = 0.45f)).padding(8.dp)
+                RadarFromAbove(radar, backed.alpha(0.9f))
             }
         }
         // Everything along the top, over the far end of the picture: the bottom, right behind the bumper, stays clear.

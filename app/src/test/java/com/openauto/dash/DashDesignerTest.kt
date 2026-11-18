@@ -11,8 +11,8 @@ class DashDesignerTest {
 
     private val kinds = setOf("SPEED_LIMIT", "MEDIA", "FUEL_TO_DEST", "NAVMAP", "CLOCK")
 
-    private fun fit(vararg t: ProposedTile, cols: Int = GRID_COLS, rows: Int = GRID_ROWS, installed: Set<String> = emptySet()) =
-        DesignFit.items(t.toList(), cols, rows, kinds, installed)
+    private fun fit(vararg t: ProposedTile, cols: Int = 12, rows: Int = 7, installed: Set<String> = emptySet(), scale: Int = 1) =
+        DesignFit.items(t.toList(), cols, rows, kinds, installed, scale)
 
     private fun overlapFree(items: List<DashboardItem>): Boolean = items.indices.all { i ->
         (i + 1 until items.size).none { j ->
@@ -78,28 +78,38 @@ class DashDesignerTest {
             ProposedTile("MEDIA", null, -3, 0, 20, 2)
         )
         val map = items.first { (it as DashboardItem.BuiltinWidget).kind == BuiltinKind.NAVMAP }
-        val (minW, minH) = BuiltinKind.NAVMAP.minSize()
+        val (minW, minH) = BuiltinKind.NAVMAP.coarseMinSize()
         assertTrue(map.w >= minW && map.h >= minH)
-        assertTrue(map.x + map.w <= GRID_COLS && map.y + map.h <= GRID_ROWS)
-        items.forEach { assertTrue(it.x >= 0 && it.x + it.w <= GRID_COLS) }
+        assertTrue(map.x + map.w <= 12 && map.y + map.h <= 7)
+        items.forEach { assertTrue(it.x >= 0 && it.x + it.w <= 12) }
         assertTrue(overlapFree(items))
+    }
+
+    @Test
+    fun theDashboardsTilesAreScaledFromTheCoarseGrid() {
+        // The AI lays out on 12 x 7; the dashboard's cells are GRID_SCALE to a coarse one.
+        val items = fit(ProposedTile("NAVMAP", null, 1, 0, 7, 7), ProposedTile("CLOCK", null, 8, 0, 3, 2), scale = GRID_SCALE)
+        val map = items[0]
+        assertEquals(listOf(3, 0, 21, 21), listOf(map.x, map.y, map.w, map.h))
+        assertEquals(listOf(24, 0, 9, 6), listOf(items[1].x, items[1].y, items[1].w, items[1].h))
+        assertTrue(items.all { it.x + it.w <= GRID_COLS && it.y + it.h <= GRID_ROWS })
     }
 
     @Test
     fun aTileWithNoRoomLeftShrinksOrIsLeftOut() {
         val items = fit(
-            ProposedTile("NAVMAP", null, 0, 0, GRID_COLS, GRID_ROWS),
+            ProposedTile("NAVMAP", null, 0, 0, 12, 7),
             ProposedTile("CLOCK", null, 0, 0, 3, 2)
         )
         assertEquals(1, items.size)
         val upright = fit(
             ProposedTile("NAVMAP", null, 0, 0, 7, 10),
             ProposedTile("MEDIA", null, 0, 0, 7, 4),
-            cols = 14, rows = 24
+            cols = 7, rows = 12
         )
         assertEquals(2, upright.size)
         assertTrue(overlapFree(upright))
-        assertFalse(upright.any { it.y + it.h > 24 })
+        assertFalse(upright.any { it.y + it.h > 12 })
     }
 
     @Test
@@ -118,15 +128,14 @@ class DashDesignerTest {
     @Test
     fun thePromptGivesTheGridAndTheTiles() {
         val p = DesignPrompt.build(
-            "speed limit and music", listOf(CatalogEntry("MEDIA", "Media", "What plays.", 4, 4)),
-            listOf("com.waze" to "Waze"), GRID_COLS, GRID_ROWS, AiLanguage.FRENCH, "Citroën C4 Picasso"
+            "speed limit and music", listOf(CatalogEntry("MEDIA", "Media", "What plays.", 2, 2)),
+            listOf("com.waze" to "Waze"), 12, 7, AiLanguage.FRENCH, "Citroën C4 Picasso"
         )
-        assertTrue(p.contains("$GRID_COLS columns"))
-        assertTrue(p.contains("$GRID_ROWS rows"))
-        assertTrue(p.contains("APP_WINDOW: an installed app running inside the tile (a navigation or music app); set app to its package. (min 6x4)"))
-        assertTrue(p.contains("MEDIA: Media. What plays. (min 4x4)"))
+        assertTrue(p.contains("12 columns"))
+        assertTrue(p.contains("7 rows"))
+        assertTrue(p.contains("MEDIA: Media. What plays. (min 2x2)"))
         assertTrue(p.contains("com.waze = Waze"))
         assertTrue(p.contains("French"))
-        assertTrue(DesignPrompt.build(null, emptyList(), emptyList(), 14, 24, AiLanguage.ENGLISH, "car").contains("recording"))
+        assertTrue(DesignPrompt.build(null, emptyList(), emptyList(), 7, 12, AiLanguage.ENGLISH, "car").contains("recording"))
     }
 }

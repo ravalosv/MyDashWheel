@@ -76,7 +76,7 @@ private fun FaceLook.overImage() = copy(
 // --- Orb ----------------------------------------------------------------------------------
 
 @Composable
-internal fun OrbLayout(f: WidgetFace, look: FaceLook, m: FaceMetrics) {
+internal fun OrbLayout(f: WidgetFace, look: FaceLook, m: FaceMetrics, discClick: (() -> Unit)? = null) {
     val side = m.w / m.h >= 1.8f && (f.stats.isNotEmpty() || f.rows.isNotEmpty())
     Row(
         modifier = Modifier.fillMaxSize().padding(m.pad.dp),
@@ -84,7 +84,7 @@ internal fun OrbLayout(f: WidgetFace, look: FaceLook, m: FaceMetrics) {
         horizontalArrangement = if (side) Arrangement.spacedBy(m.dp(6f)) else Arrangement.Center
     ) {
         val d = min(m.h - m.pad * 2f, if (side) m.w * 0.5f else m.w - m.pad * 2f).coerceAtLeast(24f)
-        Orb(f, look, d)
+        Orb(f, look, d, discClick)
         if (side) {
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(m.dp(2.6f), Alignment.CenterVertically)) {
                 FaceHeader(f, look, m)
@@ -95,9 +95,12 @@ internal fun OrbLayout(f: WidgetFace, look: FaceLook, m: FaceMetrics) {
     }
 }
 
-/** The whole reading inside a disc of diameter [d] dp: the cover (or a colour) behind, the progress round the rim. */
+/**
+ * The whole reading inside a disc of diameter [d] dp: the cover (or a colour) behind, the progress round the rim.
+ * [onClick], when given, is taken by the disc alone: the clip keeps the corners of its square from answering.
+ */
 @Composable
-private fun Orb(f: WidgetFace, look: FaceLook, d: Float) {
+private fun Orb(f: WidgetFace, look: FaceLook, d: Float, onClick: (() -> Unit)? = null) {
     val spin by rememberSpin(7000, f.active)
     val over = look.overImage()
     val inner = d * 0.88f
@@ -106,14 +109,17 @@ private fun Orb(f: WidgetFace, look: FaceLook, d: Float) {
     }
     val fillBrush = remember(look) { Brush.sweepGradient(listOf(look.accent, look.accent2, look.accent)) }
     val shade = remember { Brush.radialGradient(listOf(Color.Black.copy(alpha = 0.30f), Color.Black.copy(alpha = 0.72f))) }
-    Box(modifier = Modifier.size(d.dp), contentAlignment = Alignment.Center) {
+    Box(
+        modifier = Modifier.size(d.dp).then(onClick?.let { Modifier.clip(CircleShape).clickable(onClick = it) } ?: Modifier),
+        contentAlignment = Alignment.Center
+    ) {
         // Its own layer: the glint's steps redraw the ring, not the words inside.
         Canvas(modifier = Modifier.fillMaxSize().graphicsLayer()) {
             val stroke = size.minDimension * 0.03f
             val tl = Offset(stroke / 2f, stroke / 2f)
             val sz = Size(size.width - stroke, size.height - stroke)
             drawArc(look.track, 0f, 360f, false, tl, sz, style = Stroke(stroke))
-            val fr = (f.fraction ?: 0f).coerceIn(0f, 1f)
+            val fr = fraction01(f.fraction)
             if (fr > 0f) drawArc(ringBrush, -90f, 360f * fr, false, tl, sz, style = Stroke(stroke, cap = StrokeCap.Round))
             // A glint that runs round the rim while something plays.
             if (f.active) drawArc(Color.White.copy(alpha = 0.55f), spin - 90f, 24f, false, tl, sz, style = Stroke(stroke * 0.55f, cap = StrokeCap.Round))
@@ -331,7 +337,7 @@ internal fun DotsLayout(f: WidgetFace, look: FaceLook, m: FaceMetrics) {
             Canvas(modifier = Modifier.fillMaxWidth().height(m.dp(2.6f).coerceAtLeast(6.dp))) {
                 val step = size.height * 1.6f
                 val n = max(1, (size.width / step).toInt())
-                val on = (fraction.coerceIn(0f, 1f) * n).toInt()
+                val on = (fraction01(fraction) * n).toInt()
                 for (i in 0 until n) {
                     val c = Offset(i * step + size.height / 2f, size.height / 2f)
                     when {
@@ -556,7 +562,8 @@ internal fun IslandLayout(f: WidgetFace, look: FaceLook, m: FaceMetrics) {
                     modifier = Modifier.fillMaxWidth(0.84f).height(3.dp).clip(CircleShape).background(look.track)
                 ) {
                     Box(
-                        Modifier.fillMaxHeight().fillMaxWidth(fraction.coerceIn(0f, 1f)).clip(CircleShape)
+                        // fraction01: coerceIn lets NaN through, and fillMaxWidth(NaN) throws on the dashboard.
+                        Modifier.fillMaxHeight().fillMaxWidth(fraction01(fraction)).clip(CircleShape)
                             .background(if (f.alert) Brush.horizontalGradient(listOf(look.warn, look.warn)) else Brush.horizontalGradient(listOf(look.accent, look.accent2)))
                     )
                 }

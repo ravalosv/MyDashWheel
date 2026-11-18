@@ -201,4 +201,27 @@ class SecureChannelTest {
         assertEquals(0, out.size())
         assertTrue(sender.sendBinary(ByteArray(LinkSession.MAX_MESSAGE - 1)))
     }
+
+    @Test
+    fun messageJsonCannotHoldIsNotSentAndTheNextOneStillGoes() {
+        val out = java.io.ByteArrayOutputStream()
+        val sender = LinkSession(ByteArray(0).inputStream(), out, ByteArray(32) { 1 }, ByteArray(32) { 2 }, "id", onClose = {})
+        // A NaN thrown out of send() ended the head unit's only writer: every later message, the call included, was lost (#118).
+        assertEquals(false, sender.sendOrClose(CarLocation(Double.NaN, 2.0, 0)))
+        assertEquals(0, out.size())
+        assertTrue(sender.sendOrClose(Ping))
+        assertEquals(Ping, wire(out.toByteArray()).receive())
+    }
+
+    @Test
+    fun piecesKeepEveryByteInOrder() {
+        val writes = mutableListOf<Int>()
+        val sink = object : java.io.ByteArrayOutputStream() {
+            override fun write(b: ByteArray, off: Int, len: Int) { writes += len; super.write(b, off, len) }
+        }
+        val bytes = ByteArray(1_300) { it.toByte() }
+        inPieces(sink, 512).write(bytes, 0, bytes.size)
+        assertEquals(listOf(512, 512, 276), writes)
+        assertTrue(bytes.contentEquals(sink.toByteArray()))
+    }
 }

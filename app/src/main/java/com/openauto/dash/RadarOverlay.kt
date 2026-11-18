@@ -59,7 +59,7 @@ import kotlin.math.min
  * design the driver chose ([AlertStyle]; never full screen, it would hide the
  * reversing camera): the car from above with an arc per sensor, closer to the
  * car and redder as something gets near. Up while reversing, or while any
- * sensor sees something; gone a second after. Out of reverse it also goes
+ * sensor sees something on a car with front or side sensors; gone a second after. Out of reverse it also goes
  * once nothing has come closer for a while (the car stopped by a wall with its
  * radar on), or at a tap on it or beside it, and comes back when something
  * gets closer than it was, or in reverse. Drawn through the accessibility
@@ -71,6 +71,8 @@ object RadarOverlay {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var started = false
     private var window: AlertWindow? = null
+    /** Where [window] was built to sit: a new one when the driver moves the radar (#124). */
+    private var windowAt: CardAt? = null
     private var hiding: Job? = null
 
     /** A second without anything near before the radar goes, so it doesn't flicker. */
@@ -82,9 +84,12 @@ object RadarOverlay {
     /** The car's radar as it would show, before the driver sends it away. */
     private val carRadar: StateFlow<Radar?> =
         combine(RomPopups.replaced, Vehicle.bus.value(K.RADAR), reversingFlow(), ReverseView.covering) { replaced, radar, reversing, reverseView ->
-            // The reverse view has its own radar.
+            // The reverse view has its own radar. Out of reverse, only for a car with
+            // front or side sensors: rear ones alone have nothing ahead to show (#157).
+            // The car app's own reverse picture (QF) draws its radar in it: a second one beside it is one too many (#125).
+            val romPicture = reversing && UnitPlatform.adapter.camera != null
             radar.takeIf {
-                !reverseView && RomPopups.Kind.RADAR in replaced && it != null && it.present && (reversing || it.active)
+                !reverseView && !romPicture && RomPopups.Kind.RADAR in replaced && it != null && it.present && (reversing || (it.active && it.seesAhead))
             }
         }.stateIn(scope, SharingStarted.Eagerly, null)
 
@@ -147,11 +152,17 @@ object RadarOverlay {
             }
         }
         scope.launch {
-            style.collect { style ->
+            combine(style, AlertStyleStore.radarAt) { s, at -> s to at }.collect { (style, chosen) ->
                 if (style != null) {
                     hiding?.cancel()
+                    val at = placementOf(AlertKind.RADAR, chosen, app)
+                    if (at != windowAt) {
+                        window?.removeNow()
+                        window = null
+                        windowAt = at
+                    }
                     val w = window ?: AlertWindow(
-                        app, "radar", AlertKind.RADAR.cardAt.gravity, aboveCamera = { true }, rank = AlertKind.RADAR.rank,
+                        app, "radar", at.gravity, aboveCamera = { true }, rank = AlertKind.RADAR.rank,
                         onOutsideTap = ::dismiss
                     ).also { window = it }
                     if (w.canShow()) w.show(style) { RadarAlertContent(style) }
@@ -314,5 +325,5 @@ internal fun RadarHost() {
     val r = radar ?: return
     val s = style ?: return
     if (SplitAccessibilityService.isConnected || android.provider.Settings.canDrawOverlays(androidx.compose.ui.platform.LocalContext.current)) return
-    AlertPopup(s, AlertKind.RADAR.cardAt.alignment) { RadarAlert(r, s) }
+    AlertPopup(s, placementOf(AlertKind.RADAR).alignment) { RadarAlert(r, s) }
 }

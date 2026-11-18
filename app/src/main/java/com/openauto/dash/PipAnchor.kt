@@ -2,6 +2,7 @@ package com.openauto.dash
 
 import android.app.ActivityManager
 import android.content.Context
+import android.os.SystemClock
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -12,6 +13,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -87,7 +90,7 @@ object PipAnchor {
         val gaveUp: Boolean = false,
         /** The window's size (w, h px) when the system made it clearly larger than the tile (its minimum size). */
         val oversizePx: Pair<Int, Int>? = null,
-        /** When a poll last looked (ms): a status not refreshed for a while is stale, e.g. while parked aside. */
+        /** When a poll last looked ([SystemClock.elapsedRealtime] ms): a status not refreshed for a while is stale, e.g. while parked aside. */
         val checkedAt: Long = 0L,
         /** The listing's visibility flag, and whether it puts the dashboard in front of the window. */
         val visible: Boolean? = null,
@@ -104,6 +107,13 @@ object PipAnchor {
 
     /** Packages currently docked as freeform windows (drives the status-bar inset). */
     val dockedPackages = MutableStateFlow<Set<String>>(emptySet())
+
+    /** Screen areas of the windows docked on their tiles right now, for what the dashboard draws that they would cover. */
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val dockedAreas: kotlinx.coroutines.flow.Flow<List<ScreenRect>> = dockedPackages.flatMapLatest { pkgs ->
+        if (pkgs.isEmpty()) flowOf(emptyList())
+        else combine(pkgs.map { statusFlow(it) }) { all -> all.mapNotNull { s -> s.windowBounds?.takeIf { s.docked } } }
+    }
 
     private val freeformNow = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
@@ -241,7 +251,11 @@ object PipAnchor {
     /** How long the tiles leave a pair's apps alone after a split launch: the launch itself takes about three seconds. */
     private const val SPLIT_LEND_MS = 8_000L
 
-    /** Package -> when its loan to a split ends (ms). */
+    /**
+     * Package -> when its loan to a split ends ([SystemClock.elapsedRealtime]
+     * ms, as every cooldown here: the unit's clock is set by GPS or NTP
+     * mid-drive, and a step would end a loan at once or freeze it).
+     */
     private val lentUntil = java.util.concurrent.ConcurrentHashMap<String, Long>()
 
     /**
@@ -254,7 +268,7 @@ object PipAnchor {
         if (EmbeddedApp.holds(packageName)) return true
         if (packageName in SecondScreenController.heldPackages.value) return true
         val until = lentUntil[packageName] ?: return false
-        if (System.currentTimeMillis() < until) return true
+        if (SystemClock.elapsedRealtime() < until) return true
         lentUntil.remove(packageName, until)
         return false
     }
@@ -269,7 +283,7 @@ object PipAnchor {
      * with, so the caller can launch straight after.
      */
     suspend fun lendToSplit(context: Context, packages: Collection<String>) {
-        val now = System.currentTimeMillis()
+        val now = SystemClock.elapsedRealtime()
         for (pkg in packages) {
             lentUntil[pkg] = now + SPLIT_LEND_MS
             lastReopenAt[pkg] = now
@@ -501,7 +515,7 @@ object PipAnchor {
                 // being gone afterwards is not taken for the user closing it.
                 mem = DockPolicy.Memory()
                 openAttemptsSoFar.remove(packageName)
-                status.value = status.value.copy(docked = false, checkedAt = System.currentTimeMillis())
+                status.value = status.value.copy(docked = false, checkedAt = SystemClock.elapsedRealtime())
                 delay(POLL_MS)
                 continue
             }
@@ -511,7 +525,7 @@ object PipAnchor {
             lastListing?.let { runGuarded { handleStrays(context, it) } }
             val listing = lookup.getOrNull()?.first
             val win = lookup.getOrNull()?.second
-            val now = System.currentTimeMillis()
+            val now = SystemClock.elapsedRealtime()
             val sameListing = listing != null && listing == prevListing
             prevListing = listing
             var quiet = false
@@ -870,7 +884,11 @@ object PipAnchor {
         }
     }
 
-    /** When the tile last opened, raised or stopped each app itself (ms). */
+    /**
+     * When the tile last opened, raised or stopped each app itself (ms). On the
+     * wall clock with [lastTouchAt], which UnitPhoneScreen compares with
+     * System.currentTimeMillis(): the three are only ever compared together.
+     */
     private val ownLaunchAt = java.util.concurrent.ConcurrentHashMap<String, Long>()
 
     /** Times each app was sent back from fullscreen since it last docked. */

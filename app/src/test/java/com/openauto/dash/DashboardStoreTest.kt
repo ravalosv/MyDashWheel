@@ -2,6 +2,7 @@ package com.openauto.dash
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Speed
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -37,32 +38,6 @@ class DashboardStoreTest {
         assertEquals(3 to 0, DashboardStore.firstFreeCell(page, 3, 2))
         // Nothing fits a full-width span next to it: goes to the next row.
         assertEquals(0 to 2, DashboardStore.firstFreeCell(page, GRID_COLS, 2))
-    }
-
-    @Test
-    fun gridHasTwiceTheCellsInBothOrientations() {
-        ScreenShape.vertical = false
-        assertEquals(24, GRID_COLS)
-        assertEquals(14, GRID_ROWS)
-        ScreenShape.vertical = true
-        try {
-            assertEquals(14, GRID_COLS)
-            assertEquals(24, GRID_ROWS)
-        } finally {
-            ScreenShape.vertical = false
-        }
-    }
-
-    @Test
-    fun existingLayoutCoordinatesLoadWithoutScalingOrMigration() {
-        ScreenShape.vertical = false
-        val legacy = """[[{"t":"builtin","k":"CLOCK","gx":2,"gy":1,"gw":4,"gh":3}]]"""
-        val clock = DashboardStore.parsePages(legacy)!!.first().single()
-
-        assertEquals(widget(BuiltinKind.CLOCK, 2, 1, 4, 3), clock)
-        assertTrue(clock.x + clock.w <= GRID_COLS)
-        assertTrue(clock.y + clock.h <= GRID_ROWS)
-        assertEquals(listOf(listOf(clock)), DashboardStore.parsePages(DashboardStore.serializePages(listOf(listOf(clock)))))
     }
 
     @Test
@@ -159,7 +134,8 @@ class DashboardStoreTest {
         val legacy = """[[{"t":"builtin","k":"CLOCK","gx":1,"gy":2,"gw":3,"gh":2}],[],[]]"""
         val pages = DashboardStore.parsePages(legacy)!!
         assertEquals(3, pages.size)
-        assertEquals(listOf(widget(BuiltinKind.CLOCK, 1, 2, 3, 2)), pages[0])
+        // Its cells were the coarse grid's: three of today's each way.
+        assertEquals(listOf(widget(BuiltinKind.CLOCK, 1 * GRID_SCALE, 2 * GRID_SCALE, 3 * GRID_SCALE, 2 * GRID_SCALE)), pages[0])
     }
 
     @Test
@@ -173,7 +149,7 @@ class DashboardStoreTest {
 
     @Test
     fun unknownTilesAreCarriedThroughToTheNextSave() {
-        val fromNewerBuild = """{"v":9,"pages":[[
+        val fromNewerBuild = """{"schema":9,"pages":[[
             {"t":"hologram","gx":0,"gy":0,"gw":3,"gh":2},
             {"t":"builtin","k":"WARP_DRIVE","gx":3,"gy":0,"gw":3,"gh":2},
             {"t":"app","pkg":"com.example.a","gx":6,"gy":0,"gw":2,"gh":2}
@@ -191,7 +167,7 @@ class DashboardStoreTest {
     fun droppedKindsLeaveTheLayoutInsteadOfBeingRetained() {
         // The 3D car widget was removed; a layout saved with one loses that tile
         // for good, while tiles from a newer build are still carried through.
-        val saved = """{"v":1,"pages":[[
+        val saved = """{"schema":1,"pages":[[
             {"t":"builtin","k":"CAR3D","gx":0,"gy":0,"gw":4,"gh":3},
             {"t":"builtin","k":"WARP_DRIVE","gx":4,"gy":0,"gw":3,"gh":2},
             {"t":"builtin","k":"CLOCK","gx":7,"gy":0,"gw":3,"gh":2}
@@ -206,8 +182,8 @@ class DashboardStoreTest {
 
     @Test
     fun unknownTilesStayWithTheirOwnLayout() {
-        val full = """{"v":9,"pages":[[{"t":"hologram","gx":0,"gy":0,"gw":3,"gh":2}]]}"""
-        val half = """{"v":9,"pages":[[{"t":"jetpack","gx":0,"gy":0,"gw":3,"gh":2}]]}"""
+        val full = """{"schema":9,"pages":[[{"t":"hologram","gx":0,"gy":0,"gw":3,"gh":2}]]}"""
+        val half = """{"schema":9,"pages":[[{"t":"jetpack","gx":0,"gy":0,"gw":3,"gh":2}]]}"""
         val fullPages = DashboardStore.parsePages(full, "")!!
         // Reading the other arrangement (as a page swipe does) must not swap its unknown tiles in.
         DashboardStore.parsePages(half, "_half")
@@ -243,7 +219,7 @@ class DashboardStoreTest {
     @Test
     fun unknownOrMissingDesignFallsBackToStandard() {
         val pages = DashboardStore.parsePages(
-            """{"v":1,"pages":[[{"t":"builtin","k":"CLOCK","d":"HOLOGRAM","gx":0,"gy":0,"gw":3,"gh":2},
+            """{"schema":1,"pages":[[{"t":"builtin","k":"CLOCK","d":"HOLOGRAM","gx":0,"gy":0,"gw":3,"gh":2},
                {"t":"builtin","k":"WEATHER","gx":3,"gy":0,"gw":4,"gh":2}]]}"""
         )!!
         assertEquals(WidgetDesign.STANDARD, (pages[0][0] as DashboardItem.BuiltinWidget).design)
@@ -258,7 +234,7 @@ class DashboardStoreTest {
         assertEquals(WidgetDesign.NEON, WidgetDesign.fromName("GAUGE"))
         assertEquals(WidgetDesign.CHRONO, WidgetDesign.fromName("BLUEPRINT"))
         val pages = DashboardStore.parsePages(
-            """{"v":1,"pages":[[{"t":"builtin","k":"MEDIA","d":"RING","gx":0,"gy":0,"gw":4,"gh":2}]]}"""
+            """{"schema":1,"pages":[[{"t":"builtin","k":"MEDIA","d":"RING","gx":0,"gy":0,"gw":4,"gh":2}]]}"""
         )!!
         assertEquals(WidgetDesign.GLASS, (pages[0][0] as DashboardItem.BuiltinWidget).design)
     }
@@ -386,7 +362,7 @@ class DashboardStoreTest {
 
     @Test
     fun widgetSpecificDesignsOnlyReachTheirWidgets() {
-        val framed = setOf(BuiltinKind.NAVMAP, BuiltinKind.PIP_ANCHOR, BuiltinKind.MAPS_INSIDE, BuiltinKind.MY_CAR)
+        val framed = setOf(BuiltinKind.NAVMAP, BuiltinKind.PIP_ANCHOR, BuiltinKind.MAPS_INSIDE, BuiltinKind.MY_CAR, BuiltinKind.CAR_3D)
         // Every redrawn widget gets at least two designs made for it; live views get none,
         // and the dashboard bar, all buttons, has no designs at all.
         // The speed keeps one: the road sign went, a number in a red ring reads as the limit.
@@ -411,6 +387,173 @@ class DashboardStoreTest {
         assertEquals(pages, DashboardStore.parsePages(DashboardStore.serializePages(pages)))
     }
 
+    // --- tiles over the others (TileFrame) -----------------------------------
+
+    private fun over(kind: BuiltinKind, x: Int, y: Int, w: Int, h: Int) =
+        widget(kind, x, y, w, h).withFrame(TileFrame(overlap = true))
+
+    @Test
+    fun aTileOverTheOthersGoesAnywhereAndMovesNothing() {
+        val map = widget(BuiltinKind.NAVMAP, 0, 0, 6, 4)
+        val speed = over(BuiltinKind.SPEED_HUD, 8, 0, 2, 2)
+        val page = listOf(map, speed)
+        // Onto the map: allowed, and the map stays.
+        assertTrue(DashboardStore.canPlace(page, 1, 1, 1, 2, 2))
+        val moved = DashboardStore.moveResolving(page, 1, 1, 1)!!
+        assertEquals(map, moved[0])
+        assertEquals(speed.withCell(1, 1, 2, 2), moved[1])
+        // Never out of the grid, though.
+        assertFalse(DashboardStore.canPlace(page, 1, GRID_COLS - 1, 0, 2, 2))
+        assertNull(DashboardStore.moveResolving(page, 1, GRID_COLS - 1, 0))
+        // Resized over the map too.
+        assertTrue(DashboardStore.canPlace(page, 1, 8, 0, 4, 4))
+    }
+
+    @Test
+    fun tilesOverTheOthersAreNeverInTheGridsWay() {
+        val speed = over(BuiltinKind.SPEED_HUD, 3, 0, 2, 2)
+        val clock = widget(BuiltinKind.CLOCK, 0, 0, 3, 2)
+        val page = listOf(speed, clock)
+        // The clock moves under the speed without a swap or a nudge.
+        assertTrue(DashboardStore.canPlace(page, 1, 3, 0, 3, 2))
+        val moved = DashboardStore.moveResolving(page, 1, 3, 0)!!
+        assertEquals(speed, moved[0])
+        assertEquals(clock.withCell(3, 0, 3, 2), moved[1])
+        // Its cells are free for a new tile, and the page has room there.
+        assertEquals(0 to 0, DashboardStore.firstFreeCell(listOf(speed), 2, 2))
+        assertEquals(3 to 0, DashboardStore.firstFreeCell(listOf(speed, clock), 3, 2))
+        // A nudge of a grid tile never lands on cells only a tile over the others holds... it may: they are free.
+        val audio = widget(BuiltinKind.AUDIO, 6, 0, 3, 2)
+        val weather = widget(BuiltinKind.WEATHER, 9, 0, 3, 2)
+        val nudged = DashboardStore.moveResolving(listOf(speed, clock, audio, weather), 1, 7, 0)!!
+        noOverlaps(nudged.filter { it.inGrid() })
+        assertEquals(speed, nudged[0])
+    }
+
+    @Test
+    fun loadingKeepsTilesOverTheOthersWhereTheyAre() {
+        val map = widget(BuiltinKind.NAVMAP, 0, 0, 6, 4)
+        val speed = over(BuiltinKind.SPEED_HUD, 1, 1, 2, 2)
+        val clock = over(BuiltinKind.CLOCK, 1, 1, 3, 2)
+        // Meant to overlap: not moved apart, not dropped, in their order.
+        assertEquals(listOf(map, speed, clock), DashboardStore.repairOverlaps(listOf(map, speed, clock)))
+        // A grid tile on the same cells is still repaired, around the grid's tiles only.
+        val audio = widget(BuiltinKind.AUDIO, 1, 1, 3, 2)
+        val repaired = DashboardStore.repairOverlaps(listOf(map, speed, audio))
+        assertEquals(speed, repaired[1])
+        assertFalse(repaired[2].overlaps(map))
+        // One off the grid's edge is pulled in, not thrown out.
+        val far = over(BuiltinKind.GEAR, GRID_COLS - 1, GRID_ROWS - 1, 3, 3)
+        val pulled = DashboardStore.repairOverlaps(listOf(far)).single()
+        assertTrue(pulled.x + pulled.w <= GRID_COLS && pulled.y + pulled.h <= GRID_ROWS)
+        assertFalse(pulled.inGrid())
+    }
+
+    @Test
+    fun theFrameRoundTripsThroughTheLayoutJson() {
+        val plain = widget(BuiltinKind.CLOCK, 0, 0, 3, 2)
+        val framed = widget(BuiltinKind.SPEED_HUD, 1, 1, 2, 2)
+            .withFrame(TileFrame(overlap = true, opacity = 0.6f, border = 3, borderColor = TileBorderColor.RED))
+        val bordered = DashboardItem.AppShortcut("a.b", 5, 5, 2, 2).withFrame(TileFrame(border = 2))
+        val pages = listOf(listOf(plain, framed, bordered), emptyList(), emptyList())
+        val saved = DashboardStore.serializePages(pages)
+        assertEquals(pages, DashboardStore.parsePages(saved))
+        // Read back as JSON: org.json keeps no key order on the JVM, so the text itself is not searched.
+        val tiles = JSONObject(saved).getJSONArray("pages").getJSONArray(0)
+        // A plain tile writes none of it, so an older build reads its layout as before.
+        val clockJson = tiles.getJSONObject(0)
+        assertFalse(clockJson.has("ov") || clockJson.has("op") || clockJson.has("bw") || clockJson.has("bc"))
+        // The accent is the default colour and is left out; a colour is kept only with a border.
+        val shortcutJson = tiles.getJSONObject(2)
+        assertEquals(2, shortcutJson.getInt("bw"))
+        assertFalse(shortcutJson.has("bc"))
+        val framedJson = tiles.getJSONObject(1)
+        assertTrue(framedJson.getBoolean("ov"))
+        assertEquals("RED", framedJson.getString("bc"))
+        assertEquals(3, framedJson.getInt("bw"))
+        // Out-of-range values read back in range; an unknown colour is the accent.
+        val odd = """{"schema":2,"pages":[[{"t":"builtin","k":"CLOCK","gx":0,"gy":0,"gw":3,"gh":2,"op":0.01,"bw":99,"bc":"PINK"}]]}"""
+        val read = DashboardStore.parsePages(odd)!![0].single()
+        assertEquals(TileFrame(opacity = OPACITY_MIN, border = BORDER_MAX, borderColor = TileBorderColor.ACCENT), read.frame)
+        // The frame survives being resized or zoomed.
+        assertEquals(framed.frame, framed.withCell(0, 0, 2, 2).withZoom(1.5f).frame)
+    }
+
+    @Test
+    fun aTileWithoutItsBackgroundRoundTrips() {
+        val bare = widget(BuiltinKind.CLOCK, 0, 0, 3, 2).withFrame(TileFrame(bare = true))
+        val plain = widget(BuiltinKind.SPEED_HUD, 3, 0, 2, 2)
+        val pages = listOf(listOf(bare, plain), emptyList(), emptyList())
+        val saved = DashboardStore.serializePages(pages)
+        assertEquals(pages, DashboardStore.parsePages(saved))
+        val tiles = JSONObject(saved).getJSONArray("pages").getJSONArray(0)
+        assertTrue(tiles.getJSONObject(0).getBoolean("nb"))
+        // With its background, the default, it writes nothing.
+        assertFalse(tiles.getJSONObject(1).has("nb"))
+    }
+
+    @Test
+    fun opacityStepsOnTenthsAndStopsAtTheEnds() {
+        assertEquals(0.9f, opacityStep(1f, -1), 0.0001f)
+        assertEquals(0.5f, opacityStep(0.6f, -1), 0.0001f)
+        assertEquals(1f, opacityStep(1f, 1), 0.0001f)
+        assertEquals(OPACITY_MIN, opacityStep(OPACITY_MIN, -1), 0.0001f)
+        assertEquals(OPACITY_MIN, opacityStep(0.25f, -1), 0.0001f)
+    }
+
+    @Test
+    fun reorderingPutsATileOverTheOthersOnTopOrUnderThem() {
+        val map = widget(BuiltinKind.NAVMAP, 0, 0, 6, 4)
+        val speed = over(BuiltinKind.SPEED_HUD, 1, 1, 2, 2)
+        val clock = over(BuiltinKind.CLOCK, 1, 1, 3, 2)
+        val page = listOf(map, speed, clock)
+        val (front, atFront) = DashboardStore.reorder(page, 1, toFront = true)
+        assertEquals(listOf(map, clock, speed), front)
+        assertEquals(2, atFront)
+        val (back, atBack) = DashboardStore.reorder(page, 2, toFront = false)
+        assertEquals(listOf(clock, map, speed), back)
+        assertEquals(0, atBack)
+        // A grid tile has no layer to change.
+        assertEquals(page to 0, DashboardStore.reorder(page, 0, toFront = true))
+    }
+
+    @Test
+    fun backIntoTheGridWhereItIsOrAtTheNearestFreeCells() {
+        val map = widget(BuiltinKind.NAVMAP, 0, 0, 6, 4)
+        val speed = over(BuiltinKind.SPEED_HUD, 8, 0, 2, 2)
+        // Its cells are free: it lands where it is.
+        val landed = DashboardStore.intoGrid(listOf(map, speed), 1)!!
+        assertEquals(widget(BuiltinKind.SPEED_HUD, 8, 0, 2, 2), landed[1])
+        // Over the map: the nearest free cells beside it.
+        val onMap = DashboardStore.intoGrid(listOf(map, speed.withCell(1, 1, 2, 2)), 1)!!
+        assertTrue(onMap[1].inGrid())
+        noOverlaps(onMap)
+        // Under the map's bottom edge, three cells away, rather than beside it, five away.
+        assertEquals(1 to 4, onMap[1].x to onMap[1].y)
+        // A full page: nowhere to land, so it stays over the others.
+        val full = listOf(widget(BuiltinKind.NAVMAP, 0, 0, GRID_COLS, GRID_ROWS), speed)
+        assertNull(DashboardStore.intoGrid(full, 1))
+        // Another tile over the others does not take the cells.
+        val twoOver = listOf(map, over(BuiltinKind.CLOCK, 8, 0, 3, 2), speed)
+        assertEquals(widget(BuiltinKind.SPEED_HUD, 8, 0, 2, 2), DashboardStore.intoGrid(twoOver, 2)!![2])
+    }
+
+    @Test
+    fun turningTheScreenKeepsTilesOverTheOthers() {
+        val wide = List(DashboardStore.PAGE_COUNT) { if (it == DashboardStore.CENTER) listOf(widget(BuiltinKind.NAVMAP, 0, 0, 12, 7), over(BuiltinKind.SPEED_HUD, 9, 0, 3, 2)) else emptyList() }
+        ScreenShape.vertical = true
+        try {
+            val upright = DashboardStore.reflow(wide)
+            val home = upright[DashboardStore.CENTER]
+            assertEquals(2, home.size)
+            val speed = home.single { it is DashboardItem.BuiltinWidget && it.kind == BuiltinKind.SPEED_HUD }
+            assertFalse(speed.inGrid())
+            assertTrue(speed.x + speed.w <= GRID_COLS && speed.y + speed.h <= GRID_ROWS)
+        } finally {
+            ScreenShape.vertical = false
+        }
+    }
+
     // --- minimum sizes -------------------------------------------------------
 
     @Test
@@ -421,20 +564,12 @@ class DashboardStoreTest {
             assertTrue("$kind minimum wider than the grid", w <= GRID_COLS && h <= GRID_ROWS)
         }
         // The kinds read at speed never shrink to one cell; a list keeps three columns.
-        assertEquals(4 to 4, BuiltinKind.SPEED_HUD.minSize())
-        assertEquals(6 to 4, BuiltinKind.QUICK_DIAL.minSize())
-        assertEquals(6 to 6, BuiltinKind.NAVMAP.minSize())
-        assertEquals(10, BuiltinKind.NAVMAP.defaultW)
-        assertEquals(6, BuiltinKind.NAVMAP.defaultH)
-    }
-
-    @Test
-    fun nonBuiltinDefaultsKeepTheirPreviousPhysicalSize() {
-        assertEquals(4 to 4, DashboardItem.AppShortcut("com.example.app").let { it.w to it.h })
-        assertEquals(4 to 4, DashboardItem.SplitPair("a", "b").let { it.w to it.h })
-        assertEquals(16 to 2, DashboardItem.LaunchBar().let { it.w to it.h })
-        assertEquals(10 to 6, DashboardItem.SystemWidget(1).let { it.w to it.h })
-        assertEquals(10 to 6, DashboardItem.AppWindow("com.example.app").let { it.w to it.h })
+        assertEquals(2 to 2, BuiltinKind.SPEED_HUD.coarseMinSize())
+        assertEquals(3 to 2, BuiltinKind.QUICK_DIAL.coarseMinSize())
+        assertEquals(3 to 3, BuiltinKind.NAVMAP.coarseMinSize())
+        // In the grid's own cells, three to a coarse one.
+        assertEquals(2 * GRID_SCALE to 2 * GRID_SCALE, BuiltinKind.SPEED_HUD.minSize())
+        assertEquals(5 * GRID_SCALE to 3 * GRID_SCALE, BuiltinKind.NAVMAP.defaultW to BuiltinKind.NAVMAP.defaultH)
     }
 
     @Test
@@ -450,9 +585,34 @@ class DashboardStoreTest {
         assertEquals(1, small.minW())
         assertEquals(1, small.minH())
         // In the open its minimum is its kind's.
-        assertEquals(4, widget(BuiltinKind.SPEED_HUD, 0, 0, 1, 1).minW())
+        assertEquals(2 * GRID_SCALE, widget(BuiltinKind.SPEED_HUD, 0, 0, 1, 1).minW())
+        // A tile that is not a widget stops at one coarse cell.
+        assertEquals(GRID_SCALE, DashboardItem.AppShortcut("a.b", 0, 0, 1, 1).minW())
         // withCell keeps a saved span; the placer passes the minimum itself.
         assertEquals(1, widget(BuiltinKind.SPEED_HUD, 0, 0, 1, 1).withCell(0, 0, 1, 1).w)
+    }
+
+    @Test
+    fun aLayoutFromTheCoarseGridIsScaledUpOnLoad() {
+        assertEquals(COARSE_COLS * GRID_SCALE, GRID_COLS)
+        assertEquals(COARSE_ROWS * GRID_SCALE, GRID_ROWS)
+        // v1 and v2 placed tiles on the 12 x 7 grid: their cells are multiplied on load.
+        val v1 = """{"schema":1,"pages":[[{"t":"builtin","k":"CLOCK","gx":1,"gy":2,"gw":3,"gh":2}]]}"""
+        assertEquals(listOf(widget(BuiltinKind.CLOCK, 3, 6, 9, 6)), DashboardStore.parsePages(v1)!![0])
+        val v2 = """{"schema":2,"pages":[[{"t":"app","pkg":"a.b","gx":2,"gy":0,"gw":2,"gh":2,"ov":true}]]}"""
+        assertEquals(listOf(DashboardItem.AppShortcut("a.b", 6, 0, 6, 6).withFrame(TileFrame(overlap = true))), DashboardStore.parsePages(v2)!![0])
+        // The bare array from before v1 too.
+        val bare = """[[{"t":"app","pkg":"a.b","gx":2,"gy":0,"gw":2,"gh":2}]]"""
+        assertEquals(listOf(DashboardItem.AppShortcut("a.b", 6, 0, 6, 6)), DashboardStore.parsePages(bare)!![0])
+        // A tile saved without cells gets its kind's default span, not three times it, and is placed on load.
+        val unplaced = DashboardStore.parsePages("""{"schema":1,"pages":[[{"t":"builtin","k":"CLOCK"}]]}""")!![0].single()
+        assertEquals(-1, unplaced.x)
+        assertEquals(BuiltinKind.CLOCK.defaultW to BuiltinKind.CLOCK.defaultH, unplaced.w to unplaced.h)
+        // What this build saves says v3 and reads back as it is.
+        val page = listOf(widget(BuiltinKind.CLOCK, 3, 6, 9, 6), DashboardItem.AppShortcut("a.b", 12, 0, 6, 6))
+        val saved = DashboardStore.serializePages(listOf(page))
+        assertEquals(3, JSONObject(saved).getInt("schema"))
+        assertEquals(page, DashboardStore.parsePages(saved)!![0])
     }
 
     @Test
@@ -510,13 +670,13 @@ class DashboardStoreTest {
         val before = wide.sumOf { it.size }
         ScreenShape.vertical = true
         try {
-            // Upright the grid is 14 x 24: every tile finds a place, in bounds, apart from the others.
+            // Upright the grid is 7 x 12: every tile finds a place, in bounds, apart from the others.
             val upright = DashboardStore.reflow(wide)
             assertEquals(DashboardStore.PAGE_COUNT, upright.size)
             assertEquals(before, upright.sumOf { it.size })
             upright.forEach { page ->
                 page.forEach { t ->
-                    assertTrue("$t out of the 14x24 grid", t.x >= 0 && t.y >= 0 && t.x + t.w <= GRID_COLS && t.y + t.h <= GRID_ROWS)
+                    assertTrue("$t out of the 7x12 grid", t.x >= 0 && t.y >= 0 && t.x + t.w <= GRID_COLS && t.y + t.h <= GRID_ROWS)
                     assertTrue("$t under its minimum", t.w >= t.minW() && t.h >= t.minH())
                 }
                 noOverlaps(page)
@@ -533,14 +693,16 @@ class DashboardStoreTest {
 
     @Test
     fun reflowSendsATileWithNoRoomLeftToTheNearestPage() {
-        // A page of full-width strips can need more rows when reflowed to the other orientation.
+        // A page packed with 1x1 tiles beyond what the grid holds the other way up cannot happen,
+        // but a page of wide tiles can: twelve 12x1 strips on a wide screen are too many for 7 rows... as 7x1 strips they need 12 rows.
+        // Here: eight full-width strips of a kind whose minimum is 2x1 become 7-wide strips; 12 rows hold them all on their page.
         val strips = List(8) { i -> DashboardItem.BuiltinWidget(BuiltinKind.AUDIO, 0, i.coerceAtMost(GRID_ROWS - 1), GRID_COLS, 1) }
         val pages = List(DashboardStore.PAGE_COUNT) { if (it == 0) strips else emptyList() }
         ScreenShape.vertical = true
         try {
             val out = DashboardStore.reflow(pages)
             assertEquals(8, out.sumOf { it.size })
-            // Fourteen tall columns on the wide grid: upright only seven fit at full height, and the
+            // Fourteen tall 1x7 columns on the wide grid: upright (7 across) only seven fit at full height, and the
             // placer shrinks the rest to what fits rather than losing one; none ends up dropped.
             val columns = List(14) { i -> DashboardItem.BuiltinWidget(BuiltinKind.AUDIO, i.coerceAtMost(GRID_COLS - 1), 0, 1, 7) }
             val tall = DashboardStore.reflow(List(DashboardStore.PAGE_COUNT) { if (it == 2) columns else emptyList() })
@@ -553,10 +715,10 @@ class DashboardStoreTest {
 
     @Test
     fun parsingOneVariantDoesNotLeakUnknownTilesIntoAnother() {
-        val withStranger = """{"v":1,"pages":[[{"t":"hologram","gx":0,"gy":0,"gw":3,"gh":2}],[],[]]}"""
+        val withStranger = """{"schema":1,"pages":[[{"t":"hologram","gx":0,"gy":0,"gw":3,"gh":2}],[],[]]}"""
         DashboardStore.parsePages(withStranger)
         // The next layout parsed (another variant) starts clean.
-        DashboardStore.parsePages("""{"v":1,"pages":[[],[],[]]}""")
+        DashboardStore.parsePages("""{"schema":1,"pages":[[],[],[]]}""")
         val saved = DashboardStore.serializePages(List(DashboardStore.PAGE_COUNT) { emptyList() })
         assertFalse(saved.contains("hologram"))
     }
@@ -564,9 +726,9 @@ class DashboardStoreTest {
     @Test
     fun peekingAtALayoutChangesNothing() {
         // The tiles kept for this layout's next save stay as they were...
-        DashboardStore.parsePages("""{"v":1,"pages":[[{"t":"hologram","gx":0,"gy":0,"gw":3,"gh":2}],[],[]]}""")
+        DashboardStore.parsePages("""{"schema":1,"pages":[[{"t":"hologram","gx":0,"gy":0,"gw":3,"gh":2}],[],[]]}""")
         val before = DashboardStore.placedKinds.value
-        val peeked = DashboardStore.peekItems("""{"v":1,"pages":[[{"t":"builtin","k":"CLOCK","gx":0,"gy":0,"gw":3,"gh":2},{"t":"stranger"}],[],[]]}""")
+        val peeked = DashboardStore.peekItems("""{"schema":1,"pages":[[{"t":"builtin","k":"CLOCK","gx":0,"gy":0,"gw":3,"gh":2},{"t":"stranger"}],[],[]]}""")
         assertEquals(listOf(BuiltinKind.CLOCK), peeked?.filterIsInstance<DashboardItem.BuiltinWidget>()?.map { it.kind })
         // ...and so do the kinds the add sheet marks as placed.
         assertEquals(before, DashboardStore.placedKinds.value)

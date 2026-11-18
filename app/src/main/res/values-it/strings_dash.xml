@@ -7,6 +7,7 @@
     <string name="dash_add">Aggiungi</string>
     <string name="dash_selected">Selezionato</string>
     <string name="dash_dismiss">Ignora</string>
+    <string name="dash_safe_mode">Modalità provvisoria. Mappe, auto 3D e widget Android disattivati dopo due avvii falliti.</string>
     <string name="dash_got_it">Ho capito</string>
 
     <!-- Top bar -->
@@ -56,6 +57,7 @@
     <string name="dash_notice_no_space">Questo cruscotto non ha spazio per quel riquadro. Rimuovi o ridimensiona dei riquadri, oppure usa un altro cruscotto.</string>
     <string name="dash_notice_no_room_to_move">Non c\'è spazio per spostare gli altri riquadri. Libera prima un po\' di spazio.</string>
     <string name="dash_notice_resize_overlap">Questa dimensione si sovrappone a un altro riquadro. Fai spazio prima di ridimensionare.</string>
+    <string name="dash_notice_no_grid_spot">Nessun posto libero nella griglia per questo riquadro. Fai spazio, o lascialo sopra gli altri.</string>
     <string name="dash_full_title">Questo cruscotto è pieno</string>
     <string name="dash_full_body">Rimuovi un riquadro o riducine uno per aggiungerne un altro.</string>
 
@@ -122,6 +124,10 @@
     <string name="dash_theme_sporty_desc">Cockpit sportivo rosso</string>
     <string name="dash_theme_floating">Fluttuante</string>
     <string name="dash_theme_floating_desc">Senza sfondo dei riquadri: widget e icone poggiano sullo sfondo</string>
+    <string name="dash_theme_open">Aperto</string>
+    <string name="dash_theme_open_desc">Ogni widget ridisegnato senza sfondo né bordo, direttamente sullo sfondo</string>
+    <string name="dash_theme_heads_up">Head-up</string>
+    <string name="dash_theme_heads_up_desc">La mappa riempie lo schermo e ogni widget ci sta sopra senza pannello, come un display nel parabrezza. La musica diventa un disco.</string>
     <string name="dash_theme_orbit">Orbita</string>
     <string name="dash_theme_orbit_desc">Tutto rotondo: un disco che gira, indicatori ad anello, bolle</string>
     <string name="dash_theme_cockpit">Cockpit</string>
@@ -164,9 +170,13 @@
     <string name="dash_effects_none_hint">Schede opache, cifre essenziali, niente bagliore: si legge in pieno sole</string>
     <string name="dash_effects_reduced_hint">Aloni attenuati, vetro mantenuto</string>
     <string name="dash_effects_full_hint">Ogni tema con tutti i suoi aloni e il vetro</string>
+    <string name="dash_motion_driving">Animazioni durante la guida</string>
+    <string name="dash_motion_driving_detail">Le animazioni del tema continuano mentre l\'auto si muove; altrimenti si fermano</string>
     <string name="dash_bar_title">Barra inferiore</string>
     <string name="dash_bar_auto_hide">Nascondi la barra automaticamente</string>
     <string name="dash_bar_auto_hide_detail">Si ritira quando non serve, per lasciare più spazio ai cruscotti</string>
+    <string name="dash_bar_nav_keys">Indietro e App recenti</string>
+    <string name="dash_bar_nav_keys_detail">Due tasti in più ai lati della barra, per uno schermo senza questi tasti</string>
     <string name="dash_bar_hide_after">Nascondi dopo %1$d s</string>
     <string name="dash_bar_hide_now">Nascondi subito</string>
     <string name="dash_bar_swipe_up_detail">Quando è nascosta, scorri verso l\'alto dal bordo inferiore per farla ricomparire</string>
@@ -204,7 +214,6 @@
     <string name="dash_dashboard_options">Opzioni del cruscotto</string>
     <string name="dash_remove_dashboard_title">Rimuovere %1$s?</string>
     <string name="dash_remove_dashboard_body">Svuotalo, o toglilo dagli scorrimenti con i suoi riquadri. Annulla li riporta.</string>
-    <string name="dash_tile_move">Sposta in un altro cruscotto</string>
     <string name="dash_tile_remove">Rimuovi</string>
     <string name="dash_tile_restart_app">Riavvia l\'app</string>
     <string name="dash_apps">App</string>
@@ -224,11 +233,6 @@
     <string name="dash_dashboard_removed">%1$s rimosso</string>
     <string name="dash_remove_empty">Svuotalo</string>
     <string name="dash_remove_take_out">Toglilo dagli scorrimenti</string>
-    <string name="dash_bring_back_title">Ripristinare %1$s?</string>
-    <string name="dash_bring_back_body">Il riquadro va lì e il pannello torna negli scorrimenti.</string>
-    <string name="dash_bring_back">Ripristina</string>
-    <string name="dash_moved_to">Spostato in %1$s</string>
-    <string name="dash_page_removed">%1$s, fuori dagli scorrimenti</string>
     <string name="dash_way_home_up">Scorri in alto per la Home</string>
     <string name="dash_way_home_down">Scorri in basso per la Home</string>
     <string name="dash_add_tile">Aggiungi un riquadro</string>

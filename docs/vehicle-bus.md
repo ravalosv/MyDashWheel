@@ -64,10 +64,11 @@ A key names one element of car data: its value type, unit, kind, domain and crit
 | `demo` | DEMO | every key the demo shows: speed, gauges, doors, lights, handbrake, belt, fuel, range, consumption, mileage, trip, tyres, outside and forecast temperature | up while the demo runs; `clear()` + `up(false)` when it ends |
 | `learned` | LEARNED | DOORS (taught doors merged over the car's own), REVERSE, HEADLIGHTS, DRIVER_BELT | down while no signal is taught |
 | `learned.can` | LEARNED | FUEL_LEVEL, RANGE (the driver's fuel byte and range word, held 6 h) | none (the hold) |
+| `mine` | LEARNED | whatever the driver's My readings are set to show as (`ReadingFeed`): speed (corrected), revs, throttle, load, coolant, intake, fuel level, range, volts, outside temperature, consumption, HANDBRAKE, REVERSE, HEADLIGHTS, INDICATORS, DRIVER_BELT, DOORS. A CAN reading (`UsbCan`, a CANable on slcan, listen-only) puts at once on its frame; every second the whole set is put again | a reading with no value is withdrawn: a CAN frame after 5 s, an OBD answer after 15 s |
 | `qf.car_app` | VEHICLE_APP | VEHICLE_SPEED, RPM (6 s), FUEL_LEVEL, RANGE (6 h), ODOMETER, FUEL_CONSUMPTION, TRIP_DISTANCE, HEADLIGHTS, LIGHTS, INDICATORS, DRIVER_BELT, HANDBRAKE (on a change), CLIMATE, RADAR, DOORS, REVERSE, STEERING_ANGLE (1 h) | not taken down as a whole; a body silent for 30 s withdraws the states the body puts (lights, belt, handbrake) |
 | `qf.mcu` | MCU | DOORS, HEADLIGHTS, HANDBRAKE, BATTERY_VOLTS (10 min) | 10 min, at once when the MCU service dies |
 | `qf.broadcast` | VEHICLE_APP | OUTSIDE_TEMP (2 h, a restored one with its real age), HEADLIGHTS, BATTERY_VOLTS (the firmware's property) | none (speaks on a change; lives with the app) |
-| `unit.bus` | CANBOX | VEHICLE_SPEED, RPM, DOORS, REVERSE, HEADLIGHTS, BATTERY_VOLTS, OUTSIDE_TEMP, STEERING_ANGLE, as the family's adapter decodes them | per family: FYT 30 s, MTC 15 s; at once when the family's `listening` goes false |
+| `unit.bus` | CANBOX | VEHICLE_SPEED, RPM, DOORS, REVERSE, HEADLIGHTS, BATTERY_VOLTS, OUTSIDE_TEMP, STEERING_ANGLE, HANDBRAKE and ODOMETER (FYT on a VW, `FytVw`), as the family's adapter decodes them | per family: FYT 30 s, MTC 15 s; at once when the family's `listening` goes false |
 | `tpms` | VEHICLE_APP | TYRES | 60 s (`TYRE_STALE_MS`) |
 | `tpms.usb` | LEARNED | TYRES | 60 s (beats `tpms`: a receiver the driver chose; its sensors report no battery, so the battery mark is shown only for `tpms`) |
 | `power` | VEHICLE_APP | IGNITION | none |

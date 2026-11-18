@@ -4,6 +4,8 @@
 
     <!-- Bluetooth Permissions for OBD-II Adapter -->
     <uses-permission android:name="android.permission.BLUETOOTH" />
+    <!-- The Topway car info service's AIDL (a normal permission): TopwayBus. -->
+    <uses-permission android:name="com.tw.carinfoservice.permission.USE_AIDL" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 
@@ -122,6 +124,10 @@
         <package android:name="com.tw.carapps" />
         <package android:name="com.tw.ac2" />
         <package android:name="com.tv.carinfoservice" />
+        <package android:name="com.tw.carinfoservice" />
+        <!-- Its command service steers the Bluetooth app's music (TopwayMedia). -->
+        <package android:name="com.tw.service.xt" />
+        <package android:name="com.tw.bt" />
         <package android:name="com.reglink.services" />
         <package android:name="com.reglink.launcher4" />
         <package android:name="com.baony.avm360" />
@@ -225,6 +231,24 @@
             <meta-data
                 android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
                 android:resource="@xml/tpms_receiver" />
+        </activity>
+
+        <!-- A USB CAN adapter of the driver's own (UsbCan.kt): as for the tyre
+             receiver, enabled only once one is chosen in Settings. -->
+        <activity
+            android:name=".UsbCanAttachActivity"
+            android:enabled="false"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.OpenAutoDash.Transparent">
+            <intent-filter>
+                <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
+                android:resource="@xml/can_adapter" />
         </activity>
 
         <!-- The Play edition's disclosure dialog before the accessibility or

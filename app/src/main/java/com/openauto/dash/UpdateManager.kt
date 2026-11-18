@@ -35,7 +35,9 @@ data class UpdateInfo(
     val versionName: String,
     val buildNumber: Long,
     val apkUrl: String,
-    val notes: String
+    val notes: String,
+    /** Release day, "2026-10-29"; empty when GitHub gave none. */
+    val date: String = ""
 )
 
 /** Update lifecycle observed by the UI. */
@@ -162,7 +164,67 @@ class UpdateManager(private val context: Context) {
         val tag = json.optString("tag_name")
         val buildNumber = parseBuildNumber(tag) ?: return null
         val apkUrl = firstApkAssetUrl(json) ?: return null
-        return UpdateInfo(versionName = tag, buildNumber = buildNumber, apkUrl = apkUrl, notes = json.optString("body"))
+        return UpdateInfo(
+            versionName = tag, buildNumber = buildNumber, apkUrl = apkUrl, notes = json.optString("body"),
+            date = json.optString("published_at").take(10)
+        )
+    }
+
+    /**
+     * The way back after a bad build: the channel's newest builds older than
+     * this one, newest first (stable leaves the pre-releases out). Empty when
+     * GitHub did not answer or nothing older is published.
+     */
+    suspend fun previousReleases(): List<UpdateInfo> = withContext(Dispatchers.IO) {
+        if (Edition.play) return@withContext emptyList()
+        val base = "https://api.github.com/repos/${BuildConfig.GITHUB_OWNER}/${BuildConfig.GITHUB_REPO}/releases"
+        val list = fetchJson("$base?per_page=30")?.let { runCatching { org.json.JSONArray(it) }.getOrNull() } ?: return@withContext emptyList()
+        val beta = beta(context)
+        (0 until list.length())
+            .mapNotNull { list.optJSONObject(it) }
+            .filter { !it.optBoolean("draft") && (beta || !it.optBoolean("prerelease")) && isMainTag(it.optString("tag_name")) }
+            .mapNotNull { releaseInfo(it) }
+            .filter { it.buildNumber < currentVersionCode }
+            .sortedByDescending { it.buildNumber }
+            .take(PREVIOUS_COUNT)
+    }
+
+    /**
+     * Goes back to [info], an older build ([previousReleases]). Android refuses
+     * an older APK over a newer one, so the file lands in the shared
+     * Download/Dashwheel folder (where a shell user can read it too) and a
+     * shell installs it with `pm install -d`, which keeps the settings and ends
+     * this process. Without a shell [status] stays [UpdateStatus.Ready] on
+     * that file: the driver uninstalls Dashwheel, then opens it by hand.
+     */
+    suspend fun installPrevious(info: UpdateInfo) {
+        if (Edition.play) return
+        if (!download(info, shared = true)) return
+        val file = (_status.value as? UpdateStatus.Ready)?.file ?: return
+        // Checked on a copy of our own, and that copy's hash kept: the shared folder is any app's to write.
+        val hash = withContext(Dispatchers.IO) {
+            val own = ownCopy(file)
+            runCatching { own?.takeIf { isOurUpdate(it, older = true) }?.let(::sha256) }.getOrNull().also { own?.delete() }
+        }
+        if (hash == null) {
+            Log.w(TAG, "the downloaded file is not this app: dropped")
+            withContext(Dispatchers.IO) { runCatching { file.delete() } }
+            _status.value = UpdateStatus.Error(R.string.sys_update_download_failed)
+            return
+        }
+        if (!PrivilegedShell.access.value.shell) return
+        _status.value = UpdateStatus.Installing
+        // A shell can't read our own folder: it copies the shared file to its own, where apps can't write, and
+        // installs that copy only if it is the file that was checked.
+        val out = runCatching {
+            val copied = DockShell.shell(context, "cp '${file.path}' $SHELL_APK && sha256sum $SHELL_APK")
+            if (sameHash(copied, hash)) DockShell.shell(context, "pm install -r -d $SHELL_APK; rm -f $SHELL_APK")
+            else "not the file checked: $copied".also { DockShell.shell(context, "rm -f $SHELL_APK") }
+        }.getOrElse { it.message.orEmpty() }
+        // A success replaces the app and ends this process; still here, it was refused.
+        if (out.contains("Success")) return
+        Log.w(TAG, "going back to ${info.versionName} refused: $out")
+        _status.value = UpdateStatus.Error(R.string.update_previous_failed)
     }
 
     private fun fetchJson(url: String): String? {
@@ -212,12 +274,15 @@ class UpdateManager(private val context: Context) {
     /** Sends the user to enable "install unknown apps" for this app. */
     fun openInstallPermissionSettings() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            context.startActivity(
+            // A ROM stripped of that settings screen must not take the launcher down with the Update tap.
+            val shown = context.launchSafely(
                 Intent(
                     Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                     Uri.parse("package:${context.packageName}")
                 ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             )
+            // The same words as the toast: what to allow, and that Update is to be tapped again.
+            if (!shown) _status.value = UpdateStatus.Error(R.string.dash_update_allow_installs)
         }
     }
 
@@ -238,14 +303,17 @@ class UpdateManager(private val context: Context) {
         }
         _status.value = UpdateStatus.Installing
         scope.launch {
-            if (!withContext(Dispatchers.IO) { isOurUpdate(file) }) {
+            // Checked and installed from a copy of our own: the download waits in a folder other apps
+            // can write to, and the file could be swapped between the check and the install.
+            val own = withContext(Dispatchers.IO) { ownCopy(file)?.takeIf { isOurUpdate(it) } }
+            if (own == null) {
                 Log.w(TAG, "the downloaded file is not this app's update: dropped")
                 withContext(Dispatchers.IO) { runCatching { file.delete() } }
                 prefs.edit().remove(KEY_DOWNLOADED).apply()
                 _status.value = UpdateStatus.Error(R.string.sys_update_download_failed)
                 return@launch
             }
-            if (!launchInstaller(file)) return@launch offerAgain()
+            if (!launchInstaller(own)) return@launch offerAgain()
             // An install that goes through replaces the app and ends this process.
             // Still here a while later: Android's own confirmation was cancelled, or
             // the install refused. "Installing" used to stay for good then (the unit
@@ -258,22 +326,42 @@ class UpdateManager(private val context: Context) {
     /**
      * Whether [apk] is this app, in a newer build, signed as this one is. The
      * system's installer checks the signature too, but not on a unit where
-     * PMPatch switched that check off, and the download waits in a folder
-     * other apps can write to. A debug build, signed with another key than
-     * the releases, is let through to update to one as before.
+     * PMPatch switched that check off. A debug build, signed with another key
+     * than the releases, is let through to update to one as before.
      */
-    @Suppress("DEPRECATION") // GET_SIGNATURES: the one flag Android 10 reads an APK file's signers with.
-    private fun isOurUpdate(apk: File): Boolean = runCatching {
+    private fun isOurUpdate(apk: File, older: Boolean = false): Boolean = runCatching {
         val pm = context.packageManager
-        val info = pm.getPackageArchiveInfo(apk.path, PackageManager.GET_SIGNATURES) ?: return false
+        val info = pm.getPackageArchiveInfo(apk.path, SIGNER_FLAGS) ?: return false
         if (info.packageName != context.packageName) return false
-        if (PackageInfoCompat.getLongVersionCode(info) <= currentVersionCode) return false
-        val theirs = info.signatures?.map { it.toCharsString() }?.toSet().orEmpty()
-        // Not read (a system that doesn't tell): left to the installer's own check.
-        if (BuildConfig.DEBUG || theirs.isEmpty()) return true
-        val ours = pm.getPackageInfo(context.packageName, PackageManager.GET_SIGNATURES).signatures?.map { it.toCharsString() }?.toSet().orEmpty()
-        theirs == ours
+        if (!older && PackageInfoCompat.getLongVersionCode(info) <= currentVersionCode) return false
+        signedAsWeAre(signers(info), signers(pm.getPackageInfo(context.packageName, SIGNER_FLAGS)), BuildConfig.DEBUG)
     }.getOrDefault(false)
+
+    /** The certificates [info] is signed with, by whichever of the two ways this Android reads them. */
+    @Suppress("DEPRECATION") // signatures: the one Android 10 fills for an APK file.
+    private fun signers(info: android.content.pm.PackageInfo): Set<String> =
+        info.signatures?.map { it.toCharsString() }?.toSet().orEmpty().ifEmpty {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) emptySet()
+            else info.signingInfo?.apkContentsSigners?.map { it.toCharsString() }?.toSet().orEmpty()
+        }
+
+    /** [apk] copied into the app's own cache, where no other app can write; null when it could not be. */
+    private fun ownCopy(apk: File): File? = runCatching {
+        File(context.cacheDir, OWN_DIR).apply { mkdirs() }.resolve(APK_NAME).also { apk.copyTo(it, overwrite = true) }
+    }.getOrNull()
+
+    private fun sha256(file: File): String {
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { input ->
+            val buffer = ByteArray(1 shl 16)
+            while (true) {
+                val n = input.read(buffer)
+                if (n < 0) break
+                digest.update(buffer, 0, n)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
+    }
 
     /**
      * Downloads [info]'s APK into the app's own downloads folder; [status]
@@ -285,19 +373,26 @@ class UpdateManager(private val context: Context) {
      * remove it from the system's downloader and leave "Downloading 0 %" for
      * good. A caller that goes away now only stops waiting. A second call for
      * the same build joins the download under way.
+     *
+     * [shared]: into the shared Download/Dashwheel folder instead, named
+     * after the build, to outlive the app ([installPrevious]).
      */
-    suspend fun download(info: UpdateInfo): Boolean {
+    suspend fun download(info: UpdateInfo, shared: Boolean = false): Boolean {
         if (Edition.play) return false
         val running = downloadJob?.takeIf { it.isActive && downloadBuild == info.buildNumber }
-        val job = running ?: scope.async { runDownload(info) }.also {
+        val job = running ?: scope.async { runDownload(info, shared) }.also {
             downloadJob = it
             downloadBuild = info.buildNumber
         }
         return job.await()
     }
 
-    private suspend fun runDownload(info: UpdateInfo): Boolean {
-        val apkFile = File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), APK_NAME)
+    @Suppress("DEPRECATION") // getExternalStoragePublicDirectory: the path the system's downloader writes the shared folder at.
+    private suspend fun runDownload(info: UpdateInfo, shared: Boolean): Boolean {
+        val publicName = "Dashwheel/Dashwheel-${info.versionName}.apk"
+        val apkFile = if (shared) File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), publicName)
+        else File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), APK_NAME)
+        // shortcut: a leftover in the shared folder another app wrote cannot be deleted on Android 10+, and the downloader then refuses; a new name per attempt if that ever shows.
         withContext(Dispatchers.IO) { if (apkFile.exists()) apkFile.delete() }
         prefs.edit().remove(KEY_DOWNLOADED).apply()
 
@@ -315,8 +410,10 @@ class UpdateManager(private val context: Context) {
                 .setMimeType("application/vnd.android.package-archive")
                 // The progress only: the dashboard itself says when it is ready.
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
-                .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, APK_NAME)
+            if (shared) request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, publicName)
+            else request.setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, APK_NAME)
             downloadId = downloadManager.enqueue(request)
+            activeDownloads += downloadId
         } catch (e: RuntimeException) {
             Log.w(TAG, "the download could not start", e)
             _status.value = UpdateStatus.Error(R.string.sys_update_download_failed)
@@ -330,6 +427,7 @@ class UpdateManager(private val context: Context) {
                 withTimeoutOrNull(DOWNLOAD_TIMEOUT_MS) { awaitDownload(downloadManager, info, downloadId) } ?: false
             }
         } finally {
+            activeDownloads -= downloadId
             if (!success) {
                 // Failed, stuck or abandoned: nothing left queued in the system's
                 // downloader, and never a percentage left standing still.
@@ -356,10 +454,12 @@ class UpdateManager(private val context: Context) {
         runCatching {
             val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
             // A query without a filter lists this app's own downloads only.
+            // Not one another instance is downloading now: the "previous version" row and the
+            // dashboard's updater each have their own, and one took the other's download away.
             val ids = downloadManager.query(DownloadManager.Query())?.use { cursor ->
                 val column = cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_ID)
                 buildList { while (cursor.moveToNext()) add(cursor.getLong(column)) }
-            }.orEmpty()
+            }.orEmpty().filter { it !in activeDownloads }
             if (ids.isNotEmpty()) downloadManager.remove(*ids.toLongArray())
         }
     }
@@ -454,6 +554,8 @@ class UpdateManager(private val context: Context) {
 
     companion object {
         private const val TAG = "UpdateManager"
+        /** Downloads under way in this process, by any instance: [forgetDownloads] leaves them alone. */
+        private val activeDownloads = java.util.concurrent.CopyOnWriteArraySet<Long>()
         private const val PREFS = "updates"
         /** Android's confirmation and the install itself, before an update still not installed is offered again. */
         private const val INSTALL_WAIT_MS = 45_000L
@@ -461,6 +563,8 @@ class UpdateManager(private val context: Context) {
         private const val KEY_DISMISSED_TAG = "dismissed_tag"
         private const val KEY_DOWNLOADED = "downloaded_build"
         private const val KEY_BETA = "beta"
+        /** How many earlier builds "Previous version" lists. */
+        private const val PREVIOUS_COUNT = 5
 
         /** The driver takes beta builds: every build of main that passed its tests, before it is promoted. */
         fun beta(context: Context): Boolean =
@@ -507,6 +611,25 @@ class UpdateManager(private val context: Context) {
                 !name.contains("-play", ignoreCase = true)
 
         private const val APK_NAME = "openauto-dash-update.apk"
+        /** Under the cache folder: the copy that is checked and installed (file_paths.xml shares it with the installer). */
+        private const val OWN_DIR = "update"
+        /** The shell's own copy of an older build ([installPrevious]). */
+        private const val SHELL_APK = "/data/local/tmp/$APK_NAME"
+        @Suppress("DEPRECATION") // GET_SIGNATURES: the one flag Android 10 reads an APK file's signers with.
+        private val SIGNER_FLAGS = PackageManager.GET_SIGNATURES or
+            (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) PackageManager.GET_SIGNING_CERTIFICATES else 0)
+
+        /**
+         * Whether an APK signed by [theirs] may replace this app, signed by [ours]. Signers that
+         * could not be read are a refusal: left to the installer, they passed where PMPatch
+         * switched its check off. A debug build takes any, to update to a release.
+         */
+        internal fun signedAsWeAre(theirs: Set<String>, ours: Set<String>, debug: Boolean): Boolean =
+            debug || (theirs.isNotEmpty() && theirs == ours)
+
+        /** Whether `sha256sum`'s [output] ("hash  file") is [hash]. */
+        internal fun sameHash(output: String, hash: String): Boolean =
+            hash.isNotEmpty() && output.trim().substringBefore(' ').equals(hash, ignoreCase = true)
         /** The whole download, however slowly it still moves. */
         private const val DOWNLOAD_TIMEOUT_MS = 30 * 60_000L
         /**

@@ -64,6 +64,11 @@
     <string name="alert_enlarge">Show</string>
     <string name="alert_speak">Speak it</string>
     <string name="alert_also_spoken">Also spoken</string>
+    <string name="alert_at">Where it sits</string>
+    <string name="alert_at_top">Top</string>
+    <string name="alert_at_start">Left</string>
+    <string name="alert_at_end">Right</string>
+    <string name="alert_at_bottom">Bottom</string>
     <string name="alert_show">Show this alert</string>
     <string name="alert_speak_call_detail">Says who is calling as the phone rings</string>
     <string name="alert_speak_doors_detail">Says which door is open if one opens while driving or you set off with one open</string>
@@ -171,6 +176,8 @@
     <string name="bar_items_left">Earlier in the bar</string>
     <string name="bar_items_right">Later in the bar</string>
     <string name="bar_items_reset">Reset to the starting set</string>
+    <string name="bar_items_no_room">Some readouts don\'t fit on the bar, even without captions: move them up, or take another out.</string>
+    <string name="bar_items_left_out">Doesn\'t fit: not on the bar</string>
     <string name="bar_item_fuel">Fuel</string>
     <string name="bar_item_speed">Speed</string>
     <string name="bar_item_revs">Revs</string>
@@ -214,6 +221,8 @@
     <string name="about_tip_thanks">Thank you, it really helps.</string>
     <string name="about_project">Project page</string>
     <string name="about_project_detail">Source code, releases and bug reports</string>
+    <string name="about_telegram">Telegram group</string>
+    <string name="about_telegram_detail">Questions, news and other drivers: t.me/Dashwheel</string>
     <string name="help_title">Help</string>
     <string name="help_row_detail">Every feature explained, on the wiki</string>
     <string name="help_detail">Every feature explained on the wiki. Scan it with your phone or open it here.</string>
@@ -337,6 +346,7 @@
     <string name="report_crash_intro">Send the error so it can be fixed. The report holds the error and the unit\'s model and firmware, nothing personal.</string>
     <string name="report_scan">Scan with your phone to send it</string>
     <string name="report_open">Open here</string>
+    <string name="report_send_phone">Send to phone</string>
     <string name="report_delete">Delete</string>
     <string name="report_later">Not now</string>
     <string name="report_works">Works</string>
@@ -377,11 +387,11 @@
     <string name="settings_section_region">Language and units</string>
     <string name="settings_sum_sound">Volume, taps and music</string>
     <string name="settings_sum_dashboard">Bar, side rail and tabs</string>
-    <string name="settings_sum_expert">Lab, API keys, servers</string>
     <string name="alerts_say">Say</string>
     <string name="alerts_show">Show</string>
     <string name="alerts_intro">Say speaks it, Show puts Dashwheel\'s pop-up on the screen. Tap a pop-up for its design.</string>
     <string name="alerts_group_car">From the car</string>
     <string name="alerts_group_road">On the road</string>
     <string name="alerts_group_start">Start of a drive</string>
+    <string name="settings_system_app_on">Installed. Android widgets can be added without being asked.</string>
 </resources>

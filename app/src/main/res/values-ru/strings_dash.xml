@@ -7,6 +7,7 @@
     <string name="dash_add">Добавить</string>
     <string name="dash_selected">Выбрано</string>
     <string name="dash_dismiss">Скрыть</string>
+    <string name="dash_safe_mode">Безопасный режим. Карты, 3D-автомобиль и виджеты Android отключены после двух неудачных запусков.</string>
     <string name="dash_got_it">Понятно</string>
 
     <!-- Top bar -->
@@ -56,6 +57,7 @@
     <string name="dash_notice_no_space">На этой панели нет места для этой плитки. Удалите или уменьшите плитки, либо выберите другую панель.</string>
     <string name="dash_notice_no_room_to_move">Нет места, чтобы сдвинуть другие плитки. Сначала освободите место.</string>
     <string name="dash_notice_resize_overlap">Этот размер перекрывает другую плитку. Освободите место перед изменением размера.</string>
+    <string name="dash_notice_no_grid_spot">В сетке нет свободного места для этой плитки. Освободите место или оставьте её поверх других.</string>
     <string name="dash_full_title">Панель заполнена</string>
     <string name="dash_full_body">Удалите или уменьшите плитку, чтобы добавить новую.</string>
 
@@ -113,9 +115,13 @@
     <string name="dash_effects_none_hint">Непрозрачные карточки, простые цифры, без свечения: читается на ярком солнце</string>
     <string name="dash_effects_reduced_hint">Мягкое свечение, стекло сохранено</string>
     <string name="dash_effects_full_hint">Все темы со всем свечением и стеклом</string>
+    <string name="dash_motion_driving">Анимация в движении</string>
+    <string name="dash_motion_driving_detail">Анимации оформления продолжаются во время движения; иначе они замирают</string>
     <string name="dash_bar_title">Нижняя панель</string>
     <string name="dash_bar_auto_hide">Автоскрытие панели</string>
     <string name="dash_bar_auto_hide_detail">Уезжает, когда не используется, освобождая место для панелей</string>
+    <string name="dash_bar_nav_keys">Назад и Недавние приложения</string>
+    <string name="dash_bar_nav_keys_detail">Ещё две кнопки по краям панели, если на экране нет таких клавиш</string>
     <string name="dash_bar_hide_after">Скрывать через %1$d с</string>
     <string name="dash_bar_hide_now">Скрывать сразу</string>
     <string name="dash_bar_swipe_up_detail">Когда она скрыта, проведите вверх от нижнего края, чтобы вернуть её</string>
@@ -144,6 +150,10 @@
     <string name="dash_theme_sporty_desc">Красный спортивный кокпит</string>
     <string name="dash_theme_floating">Парящая</string>
     <string name="dash_theme_floating_desc">Плитки без фона: виджеты и значки прямо на фоне</string>
+    <string name="dash_theme_open">Открытая</string>
+    <string name="dash_theme_open_desc">Каждый виджет без фона и рамки, прямо на фоне</string>
+    <string name="dash_theme_heads_up">Проекция</string>
+    <string name="dash_theme_heads_up_desc">Карта на весь экран, виджеты лежат на ней без подложки, как проекция на лобовом стекле. Музыка становится диском.</string>
     <string name="dash_theme_orbit">Орбита</string>
     <string name="dash_theme_orbit_desc">Всё круглое: вращающаяся пластинка, кольцевые шкалы, пузыри</string>
     <string name="dash_theme_cockpit">Кокпит</string>
@@ -204,7 +214,6 @@
     <string name="dash_dashboard_options">Настройки панели</string>
     <string name="dash_remove_dashboard_title">Удалить «%1$s»?</string>
     <string name="dash_remove_dashboard_body">Очистите её или уберите из пролистывания вместе с плитками. «Отменить» вернёт их.</string>
-    <string name="dash_tile_move">На другую панель</string>
     <string name="dash_tile_remove">Удалить</string>
     <string name="dash_tile_restart_app">Перезапустить приложение</string>
     <!-- The bar's Apps button, labelled -->
@@ -227,11 +236,6 @@
     <string name="dash_dashboard_removed">«%1$s» удалена</string>
     <string name="dash_remove_empty">Очистить</string>
     <string name="dash_remove_take_out">Убрать из пролистывания</string>
-    <string name="dash_bring_back_title">Вернуть «%1$s»?</string>
-    <string name="dash_bring_back_body">Плитка попадёт туда, а панель снова появится в пролистывании.</string>
-    <string name="dash_bring_back">Вернуть</string>
-    <string name="dash_moved_to">Перемещено: %1$s</string>
-    <string name="dash_page_removed">%1$s, вне пролистывания</string>
     <string name="dash_way_home_up">Проведите вверх к Главной</string>
     <string name="dash_way_home_down">Проведите вниз к Главной</string>
     <string name="dash_add_tile">Добавить плитку</string>

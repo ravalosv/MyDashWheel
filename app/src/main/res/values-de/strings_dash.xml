@@ -7,6 +7,7 @@
     <string name="dash_add">Hinzufügen</string>
     <string name="dash_selected">Ausgewählt</string>
     <string name="dash_dismiss">Ausblenden</string>
+    <string name="dash_safe_mode">Sicherer Modus. Karten, 3D-Auto und Android-Widgets sind nach zwei fehlgeschlagenen Starts aus.</string>
     <string name="dash_got_it">Verstanden</string>
 
     <!-- Top bar -->
@@ -56,6 +57,7 @@
     <string name="dash_notice_no_space">Auf diesem Dashboard ist kein Platz für diese Kachel. Kacheln entfernen, verkleinern oder ein anderes Dashboard nutzen.</string>
     <string name="dash_notice_no_room_to_move">Kein Platz, um die anderen Kacheln beiseitezuschieben. Zuerst etwas Platz schaffen.</string>
     <string name="dash_notice_resize_overlap">Diese Größe überdeckt eine andere Kachel. Vor dem Ändern der Größe Platz schaffen.</string>
+    <string name="dash_notice_no_grid_spot">Kein freier Platz im Raster für diese Kachel. Machen Sie Platz, oder lassen Sie sie über den anderen.</string>
     <string name="dash_full_title">Dieses Dashboard ist voll</string>
     <string name="dash_full_body">Eine Kachel entfernen oder verkleinern, um eine weitere hinzuzufügen.</string>
 
@@ -122,6 +124,10 @@
     <string name="dash_theme_sporty_desc">Rotes Performance-Cockpit</string>
     <string name="dash_theme_floating">Schwebend</string>
     <string name="dash_theme_floating_desc">Ohne Kachelhintergrund: Widgets und Symbole direkt auf dem Hintergrund</string>
+    <string name="dash_theme_open">Offen</string>
+    <string name="dash_theme_open_desc">Jedes Widget neu gezeichnet, ohne Hintergrund und ohne Rahmen, direkt auf dem Hintergrund</string>
+    <string name="dash_theme_heads_up">Head-up</string>
+    <string name="dash_theme_heads_up_desc">Die Karte füllt den Bildschirm, jedes Widget liegt ohne Fläche darauf, wie eine Anzeige in der Frontscheibe. Musik wird zur Scheibe.</string>
     <string name="dash_theme_orbit">Orbit</string>
     <string name="dash_theme_orbit_desc">Alles rund: drehende Schallplatte, Ringanzeigen, Blasen</string>
     <string name="dash_theme_cockpit">Cockpit</string>
@@ -163,9 +169,13 @@
     <string name="dash_effects_none_hint">Deckende Karten, schlichte Ziffern, kein Leuchten: lesbar in voller Sonne</string>
     <string name="dash_effects_reduced_hint">Sanfteres Leuchten, Glas bleibt</string>
     <string name="dash_effects_full_hint">Jedes Design mit seinem vollen Leuchten und Glas</string>
+    <string name="dash_motion_driving">Animationen während der Fahrt</string>
+    <string name="dash_motion_driving_detail">Die Animationen des Designs laufen auch während der Fahrt weiter, sonst stehen sie still</string>
     <string name="dash_bar_title">Untere Leiste</string>
     <string name="dash_bar_auto_hide">Leiste automatisch ausblenden</string>
     <string name="dash_bar_auto_hide_detail">Verschwindet, wenn sie nicht gebraucht wird, für mehr Platz auf den Dashboards</string>
+    <string name="dash_bar_nav_keys">Zurück und Letzte Apps</string>
+    <string name="dash_bar_nav_keys_detail">Zwei Tasten mehr an den Enden der Leiste, für Geräte ohne solche Tasten</string>
     <string name="dash_bar_hide_after">Nach %1$d s ausblenden</string>
     <string name="dash_bar_hide_now">Sofort ausblenden</string>
     <string name="dash_bar_swipe_up_detail">Ausgeblendet: vom unteren Rand nach oben wischen, um sie zurückzuholen</string>
@@ -200,7 +210,6 @@
     <string name="dash_dashboard_options">Dashboard-Optionen</string>
     <string name="dash_remove_dashboard_title">%1$s entfernen?</string>
     <string name="dash_remove_dashboard_body">Leeren, oder mit seinen Kacheln aus dem Wischen nehmen. Rückgängig holt sie zurück.</string>
-    <string name="dash_tile_move">Auf ein anderes Dashboard</string>
     <string name="dash_tile_remove">Entfernen</string>
     <string name="dash_tile_restart_app">App neu starten</string>
     <string name="dash_apps">Apps</string>
@@ -219,11 +228,6 @@
     <string name="dash_dashboard_removed">%1$s entfernt</string>
     <string name="dash_remove_empty">Leeren</string>
     <string name="dash_remove_take_out">Aus dem Wischen nehmen</string>
-    <string name="dash_bring_back_title">%1$s zurückholen?</string>
-    <string name="dash_bring_back_body">Die Kachel kommt dorthin und das Dashboard ist wieder im Wischen.</string>
-    <string name="dash_bring_back">Zurückholen</string>
-    <string name="dash_moved_to">Verschoben nach %1$s</string>
-    <string name="dash_page_removed">%1$s, nicht im Wischen</string>
     <string name="dash_way_home_up">Nach oben wischen für Start</string>
     <string name="dash_way_home_down">Nach unten wischen für Start</string>
     <string name="dash_add_tile">Kachel hinzufügen</string>

@@ -65,7 +65,10 @@ internal fun HomeWorkCard(modifier: Modifier = Modifier) {
     // The id and the spot: a place moved in Settings is timed again, not after the next refresh.
     val shownSpots = shown.map { Triple(it.id, it.lat, it.lng) }
     var minutes by remember { mutableStateOf<Map<String, Int?>>(emptyMap()) }
-    LaunchedEffect(shownSpots, hasFix) {
+    // Not on a page off screen: two router requests every five minutes per composed copy otherwise.
+    val active = LocalPageActive.current
+    LaunchedEffect(shownSpots, hasFix, active) {
+        if (!active) return@LaunchedEffect
         while (true) {
             val loc = LocationFeed.location.value
             if (loc != null) {

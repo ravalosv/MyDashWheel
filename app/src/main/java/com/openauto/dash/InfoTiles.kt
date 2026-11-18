@@ -103,10 +103,19 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.openauto.dash.link.RecentCall
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.text.Collator
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -238,8 +247,9 @@ private fun ClockReadout(numSize: Int) {
     val now = rememberNow(1_000L)
     val locale = Locale.getDefault()
     val u = LocalUnits.current
-    val timeFmt = remember(locale, u.clock24) { SimpleDateFormat(u.digitsPattern(), locale) }
-    val dateFmt = remember(locale) { SimpleDateFormat(android.text.format.DateFormat.getBestDateTimePattern(locale, "EEEEdMMMM"), locale) }
+    val zone = rememberZone()
+    val timeFmt = remember(locale, u.clock24, zone) { SimpleDateFormat(u.digitsPattern(), locale).inZone(zone) }
+    val dateFmt = remember(locale, zone) { SimpleDateFormat(android.text.format.DateFormat.getBestDateTimePattern(locale, "EEEEdMMMM"), locale).inZone(zone) }
     val time = timeFmt.format(now)
     val date = dateFmt.format(now)
     // Hours and minutes only: seconds ticking beside them pulled the eye for nothing. A 12-hour clock's AM / PM stays small.
@@ -288,7 +298,7 @@ internal fun WeatherCard(modifier: Modifier = Modifier) {
     UseLocationFeed()
     // The fetch is keyed on the position to 1/20 degree: the tile doesn't follow each fix.
     val location by rememberLocationCell(20)
-    val weather by WeatherRepo.weather.collectAsState()
+    val weather = withCarTemp(WeatherRepo.weather.collectAsState().value)
     val error by WeatherRepo.error.collectAsState()
     val now = rememberNow(60_000L)
     LaunchedEffect(location?.latitude?.let { (it * 20).roundToInt() }, location?.longitude?.let { (it * 20).roundToInt() }) {
@@ -530,7 +540,7 @@ internal fun CalendarCard(modifier: Modifier = Modifier) {
 @Composable
 private fun AgendaRow(e: AgendaEvent, onGuide: () -> Unit) {
     val timeFmt = rememberTimeFormat()
-    val dayFmt = remember { SimpleDateFormat("EEE", Locale.getDefault()) }
+    val dayFmt = remember(timeFmt) { SimpleDateFormat("EEE", Locale.getDefault()).inZone(timeFmt.timeZone) }
     val today = remember(e.begin) {
         val a = java.util.Calendar.getInstance(); val b = java.util.Calendar.getInstance().apply { timeInMillis = e.begin }
         a.get(java.util.Calendar.DAY_OF_YEAR) == b.get(java.util.Calendar.DAY_OF_YEAR) && a.get(java.util.Calendar.YEAR) == b.get(java.util.Calendar.YEAR)
@@ -603,6 +613,116 @@ internal fun loadFavourites(context: Context, limit: Int = 8): List<Favourite> {
     return out
 }
 
+/** One of this unit's contacts, for the Phone screen's list (PhoneScreen.kt): its default number, else its first. */
+internal data class UnitContact(val name: String, val number: String, val starred: Boolean)
+
+/** A number as the unit's phonebook lists it, with its contact's name and star. */
+internal data class ContactRow(val contactId: Long, val name: String, val number: String, val primary: Boolean, val starred: Boolean)
+
+/**
+ * Every contact with a number, one number each (its default one, else the
+ * first listed), by name as the unit's language sorts names. A contact with
+ * no name shows as its number.
+ */
+internal fun pickContacts(rows: List<ContactRow>): List<UnitContact> =
+    rows.filter { it.number.isNotBlank() }
+        .groupBy { it.contactId }.values
+        .map { numbers ->
+            val r = numbers.firstOrNull { it.primary } ?: numbers.first()
+            UnitContact(r.name.trim().ifBlank { r.number }, r.number, numbers.any { it.starred })
+        }
+        .sortedWith(compareBy(Collator.getInstance(), UnitContact::name))
+
+/** This unit's whole phonebook (the one its Bluetooth synced from the phone, mostly), one query. */
+internal fun loadContacts(context: Context): List<UnitContact> {
+    val rows = mutableListOf<ContactRow>()
+    runCatching {
+        context.contentResolver.query(
+            ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+            arrayOf(
+                ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
+                ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                ContactsContract.CommonDataKinds.Phone.NUMBER,
+                ContactsContract.CommonDataKinds.Phone.IS_SUPER_PRIMARY,
+                ContactsContract.CommonDataKinds.Phone.STARRED
+            ),
+            null, null, null
+        )?.use { c ->
+            while (c.moveToNext()) {
+                rows += ContactRow(c.getLong(0), c.getString(1).orEmpty(), c.getString(2).orEmpty(), c.getInt(3) != 0, c.getInt(4) != 0)
+            }
+        }
+    }
+    return pickContacts(rows)
+}
+
+/**
+ * The unit's contacts, kept for the whole app and read again when they
+ * change: the starred ones for the Quick dial, and the whole phonebook
+ * while the Phone screen is open ([wantAll]). A head unit's Bluetooth sync
+ * wipes its phonebook and writes it back now and then: read in between, the
+ * tile went empty for half a minute (issue #118). So a list that comes back
+ * empty is believed only after [WIPE_HOLD_MS]; a list with contacts at once.
+ */
+internal object UnitContacts {
+    /** Longer than a phonebook re-sync takes; a phone really unpaired empties the tile after this. */
+    private const val WIPE_HOLD_MS = 90_000L
+    /** A sync writes its contacts one by one: read once they settle, not on each. */
+    private const val SETTLE_MS = 2_000L
+
+    private val _favourites = MutableStateFlow<List<Favourite>>(emptyList())
+    val favourites: StateFlow<List<Favourite>> = _favourites.asStateFlow()
+    /** Every contact with a number; null until a Phone screen first asked for them. */
+    private val _contacts = MutableStateFlow<List<UnitContact>?>(null)
+    val contacts: StateFlow<List<UnitContact>?> = _contacts.asStateFlow()
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val changed = MutableStateFlow(0)
+    /** Phone screens open: the whole phonebook is read only for them. */
+    private val wanted = MutableStateFlow(0)
+    private var started = false
+
+    /** Reads the contacts from now on (READ_CONTACTS granted); again when they change. */
+    @Synchronized
+    fun start(context: Context) {
+        if (started) return
+        started = true
+        val app = context.applicationContext
+        runCatching {
+            app.contentResolver.registerContentObserver(ContactsContract.Contacts.CONTENT_URI, true, object : android.database.ContentObserver(null) {
+                override fun onChange(selfChange: Boolean) = changed.update { it + 1 }
+            })
+        }
+        scope.launch {
+            var settled = 0
+            combine(changed, wanted) { n, w -> n to (w > 0) }.collectLatest { (n, all) ->
+                if (n != settled) {
+                    delay(SETTLE_MS)
+                    settled = n
+                }
+                read(app, all)
+            }
+        }
+    }
+
+    /** A Phone screen opened ([on]) or closed: the whole phonebook is read, and followed, only while one is open. */
+    fun wantAll(on: Boolean) = wanted.update { if (on) it + 1 else (it - 1).coerceAtLeast(0) }
+
+    private suspend fun read(app: Context, all: Boolean) {
+        var favourites = loadFavourites(app)
+        var contacts = if (all) loadContacts(app) else null
+        val wiped = (favourites.isEmpty() && _favourites.value.isNotEmpty()) ||
+            (contacts != null && contacts.isEmpty() && !_contacts.value.isNullOrEmpty())
+        if (wiped) {
+            // Being re-synced, most likely: the old lists stand meanwhile. Any change reads again (and cancels this).
+            delay(WIPE_HOLD_MS)
+            favourites = loadFavourites(app)
+            if (all) contacts = loadContacts(app)
+        }
+        _favourites.value = favourites
+        if (contacts != null) _contacts.value = contacts
+    }
+}
+
 /** A missed call worth calling back: the phone's latest call, missed within the last [withinMs]. */
 internal fun callBack(calls: List<RecentCall>?, now: Long, withinMs: Long = CALL_BACK_MS): RecentCall? =
     calls?.maxByOrNull { it.at }?.takeIf { it.type == RecentCall.Type.MISSED && now - it.at in 0..withinMs }
@@ -626,10 +746,10 @@ internal class QuickDialSource(
 internal fun rememberQuickDialSource(): QuickDialSource {
     val context = LocalContext.current
     val perm = rememberPermission(Manifest.permission.READ_CONTACTS)
-    var own by remember { mutableStateOf<List<Favourite>>(emptyList()) }
     LaunchedEffect(perm.granted) {
-        if (perm.granted) own = withContext(Dispatchers.IO) { loadFavourites(context) }
+        if (perm.granted) UnitContacts.start(context)
     }
+    val own by UnitContacts.favourites.collectAsState()
     val lists by PhoneLink.lists.collectAsState()
     val favourites = phoneOrUnit(lists.favourites, if (perm.granted) own else emptyList())
     return QuickDialSource(favourites, callBack(lists.calls, System.currentTimeMillis()), lists.favourites != null, perm)
@@ -645,14 +765,32 @@ internal fun quickDialColumns(widthDp: Float, favourites: Int): Int =
 
 /**
  * Calls [number]: through the linked phone, which places the call itself (its
- * sound on the car's Bluetooth as any call), else this unit's dialer with the
- * number in, as without a phone. Never through the phone during the demo:
- * its contacts are made up.
+ * sound on the car's Bluetooth as any call), else the unit's own Bluetooth
+ * when its firmware dials, else this unit's dialer with the number in, as
+ * without a phone. Never a real call during the demo: its contacts are made up.
  */
 internal fun dialNumber(context: Context, number: String) {
-    if (!DemoMode.isOn && PhoneLink.dial(number)) return
-    context.launchSafely(Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", number, null)))
+    val way = when {
+        !DemoMode.isOn && PhoneLink.dial(number, onUnheard = {
+            // Asked, and no word back: the link is up but the phone isn't hearing the car. The unit's own ways, then.
+            DebugLog.note(context, "Call: the linked phone did not answer, through ${dialWithoutPhone(context, number)}")
+        }) -> "the linked phone"
+        else -> dialWithoutPhone(context, number)
+    }
+    // Which way a call went is what a tester's log needs when nothing rings (issue #118).
+    DebugLog.note(context, "Call: through $way")
 }
+
+/** [dialNumber] without the linked phone; says which way it went. */
+private fun dialWithoutPhone(context: Context, number: String): String =
+    when {
+        // The unit's own Bluetooth, where its firmware takes a number to call (FYT).
+        !DemoMode.isOn && UnitPhone.dial(number) -> "the unit's Bluetooth"
+        context.launchSafely(Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", number, null))) -> "the unit's dialer"
+        // A unit with no dialer (its phone is a car app of its own) at least opens that app.
+        UnitPhoneApp.open(context) -> "the unit's phone app, no number"
+        else -> "nothing: no phone link, no dialer, no phone app"
+    }
 
 /**
  * Starred contacts as big tap-to-call targets, from the driver's phone when
@@ -665,7 +803,8 @@ internal fun QuickDialCard(modifier: Modifier = Modifier) {
     val source = rememberQuickDialSource()
     val perm = source.access
     val favourites = source.favourites
-    val timeFmt = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
+    // The driver's clock (12 or 24 hours), as every other tile shows a time.
+    val timeFmt = rememberTimeFormat()
     val pending = rememberPendingAction()
     fun call(name: String, number: String) = pending.arm(context.getString(R.string.phone_calling, name)) { dialNumber(context, number) }
 
@@ -674,7 +813,7 @@ internal fun QuickDialCard(modifier: Modifier = Modifier) {
             Column(modifier = Modifier.fillMaxSize().padding(DashSpace.Lg)) {
                 TileHeader(stringResource(R.string.info_quickdial_title)) {
                     TextButton(
-                        onClick = { context.launchSafely(Intent(Intent.ACTION_DIAL)) },
+                        onClick = { PhoneScreen.open(context) },
                         modifier = Modifier.height(DashSize.Touch), contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
                     ) { Text(stringResource(R.string.info_quickdial_dialer), color = DashColors.AccentInk, style = MaterialTheme.typography.labelMedium) }
                 }
@@ -773,6 +912,7 @@ internal fun NotificationsCard(hasAccess: Boolean, modifier: Modifier = Modifier
     val context = LocalContext.current
     val items by NotificationFeed.items.collectAsState()
     val phoneConnected = PhoneLink.state.collectAsState().value is PhoneLinkState.Connected
+    val phoneNotifications by PhoneLink.notificationsOn.collectAsState()
     val timeFmt = rememberTimeFormat()
     var opened by remember { mutableStateOf<NotifItem?>(null) }
 
@@ -785,8 +925,15 @@ internal fun NotificationsCard(hasAccess: Boolean, modifier: Modifier = Modifier
                     }
                 }
             }
+            // Linked, but the phone keeps its notifications to itself (an older companion says nothing: its notifications tell).
+            if (phoneConnected && !phoneNotifications && items.none { it.fromPhone }) {
+                Text(stringResource(R.string.info_notif_phone_access), color = DashColors.Muted, style = MaterialTheme.typography.labelSmall,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(bottom = 6.dp))
+            }
             when {
-                !hasAccess && !phoneConnected && items.none { it.fromPhone } -> NeedsAccess(
+                // The unit's own access is asked for only while its notifications are wanted: with
+                // them switched off, the phone's are the only ones, and a dropped link asked for it (#123).
+                !hasAccess && NotificationFeed.showsUnit(context) && !phoneConnected && items.none { it.fromPhone } -> NeedsAccess(
                     Icons.Filled.Notifications, stringResource(R.string.info_notif_needs_access),
                     stringResource(R.string.info_grant_access)
                 ) {

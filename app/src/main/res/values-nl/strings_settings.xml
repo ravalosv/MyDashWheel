@@ -63,6 +63,11 @@
     <string name="alert_enlarge">Tonen</string>
     <string name="alert_speak">Uitspreken</string>
     <string name="alert_also_spoken">Ook uitgesproken</string>
+    <string name="alert_at">Waar het staat</string>
+    <string name="alert_at_top">Boven</string>
+    <string name="alert_at_start">Links</string>
+    <string name="alert_at_end">Rechts</string>
+    <string name="alert_at_bottom">Onder</string>
     <string name="alert_show">Deze melding tonen</string>
     <string name="alert_speak_call_detail">Zegt wie er belt terwijl het belt</string>
     <string name="alert_speak_doors_detail">Zegt welke deur open is als er een opengaat tijdens het rijden of je vertrekt met een open deur</string>
@@ -169,6 +174,8 @@
     <string name="bar_items_left">Eerder in de balk</string>
     <string name="bar_items_right">Later in de balk</string>
     <string name="bar_items_reset">Terug naar de beginkeuze</string>
+    <string name="bar_items_no_room">Sommige waarden passen niet in de balk, zelfs zonder bijschrift: zet ze hoger of haal er een andere uit.</string>
+    <string name="bar_items_left_out">Past niet: staat niet in de balk</string>
     <string name="bar_item_fuel">Brandstof</string>
     <string name="bar_item_speed">Snelheid</string>
     <string name="bar_item_revs">Toerental</string>
@@ -211,6 +218,8 @@
     <string name="about_tip_thanks">Bedankt, dat helpt echt.</string>
     <string name="about_project">Projectpagina</string>
     <string name="about_project_detail">Broncode, versies en foutmeldingen</string>
+    <string name="about_telegram">Telegram-groep</string>
+    <string name="about_telegram_detail">Vragen, nieuws en andere bestuurders: t.me/Dashwheel</string>
     <string name="help_title">Help</string>
     <string name="help_row_detail">Elke functie uitgelegd, op de wiki</string>
     <string name="help_detail">Elke functie uitgelegd op de wiki. Scan hem met uw telefoon of open hem hier.</string>
@@ -333,6 +342,7 @@
     <string name="report_crash_intro">Stuur de fout op zodat die opgelost kan worden. Het rapport bevat de fout, het model en de firmware, niets persoonlijks.</string>
     <string name="report_scan">Scan met je telefoon om te versturen</string>
     <string name="report_open">Hier openen</string>
+    <string name="report_send_phone">Naar telefoon sturen</string>
     <string name="report_delete">Verwijderen</string>
     <string name="report_later">Niet nu</string>
     <string name="report_works">Werkt</string>
@@ -373,11 +383,11 @@
     <string name="settings_section_region">Taal en eenheden</string>
     <string name="settings_sum_sound">Volume, tikken en muziek</string>
     <string name="settings_sum_dashboard">Balk, zijbalk en tabbladen</string>
-    <string name="settings_sum_expert">Lab, API-sleutels, servers</string>
     <string name="alerts_say">Zeggen</string>
     <string name="alerts_show">Tonen</string>
     <string name="alerts_intro">Zeggen spreekt het uit, Tonen zet het venster van Dashwheel op het scherm. Tik op een venster voor de stijl.</string>
     <string name="alerts_group_car">Van de auto</string>
     <string name="alerts_group_road">Onderweg</string>
     <string name="alerts_group_start">Bij vertrek</string>
+    <string name="settings_system_app_on">Geïnstalleerd. Android-widgets worden toegevoegd zonder te vragen.</string>
 </resources>

@@ -16,6 +16,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Swipe
 import androidx.compose.material.icons.filled.TouchApp
@@ -75,6 +76,7 @@ import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Handyman
 import androidx.compose.material.icons.filled.Image
@@ -115,12 +117,14 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.UnfoldLess
 import androidx.compose.material.icons.filled.UnfoldMore
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -168,7 +172,7 @@ import kotlinx.coroutines.launch
  * pane, with a back arrow (SettingsSheet.kt). One subject, one place, named
  * the way a driver thinks of it, in three runs: every day (alerts, sound,
  * look, dashboard), the car (the car, reading it, driving it) and set once
- * (phone and screens, the head unit, general, expert). Groups are small
+ * (phone and screens, the head unit, general with its expert rows). Groups are small
  * enough to list everything. What this unit cannot have is not listed: one
  * card per group says how many more root would bring ([RootLockCard]).
  */
@@ -187,8 +191,7 @@ internal enum class SettingsTab(@StringRes val titleRes: Int, val icon: ImageVec
     // Set once: what talks to the unit, the unit itself, the app, and the tools for the few.
     DEVICES(R.string.settings_section_devices, Icons.Filled.Devices),
     HEAD_UNIT(R.string.unit_card_title, Icons.Filled.DeveloperBoard),
-    GENERAL(R.string.settings_section_general, Icons.Filled.Tune),
-    EXPERT(R.string.settings_section_expert, Icons.Filled.Science);
+    GENERAL(R.string.settings_section_general, Icons.Filled.Tune);
 
     companion object {
         /** The groups, without the overview that leads to them. */
@@ -199,7 +202,7 @@ internal enum class SettingsTab(@StringRes val titleRes: Int, val icon: ImageVec
 /** The settings that open further into the pane; Lab's open over Lab. */
 internal enum class Deep {
     CAR, CAR_LOOK, REVERSE, SIGNALS, AI, UPKEEP, EXPLORER, WHEEL, PLACES, LANGUAGE, SECOND_SCREEN, LPG, MY_READINGS,
-    OBD, UNITS, ACCESS, ABOUT, LAB, UNIT_TOOLS, MAP_SERVERS, API_KEYS, HEAD_UNIT, TPMS, SENSOR_WATCH,
+    OBD, UNITS, ACCESS, ABOUT, LAB, UNIT_TOOLS, MAP_SERVERS, API_KEYS, HEAD_UNIT, TPMS, CAN, SENSOR_WATCH, KEPT_CAMERAS, KEPT_LIMITS,
     MAP // MINE: #16
 }
 
@@ -214,6 +217,9 @@ internal data class ThemeState(
     val onMode: (DashThemeMode) -> Unit,
     val onAppearance: (DashAppearance) -> Unit,
     val onEffects: (DashEffects) -> Unit,
+    /** The looks' background motion keeps going while driving instead of holding still. */
+    val motionWhileDriving: Boolean = false,
+    val onMotionWhileDriving: (Boolean) -> Unit = {},
     /** The bottom bar hides itself when unused, after [barHideSeconds] (BarAutoHide.kt). */
     val barAutoHide: Boolean,
     val barHideSeconds: Int,
@@ -294,7 +300,10 @@ internal fun SettingsScreen(
                         Deep.API_KEYS -> ApiKeysSheet(onDismiss = back)
                         Deep.HEAD_UNIT -> HeadUnitSheet(onDismiss = back)
                         Deep.TPMS -> UsbTpmsSheet(onDismiss = back)
+                        Deep.CAN -> UsbCanSheet(onDismiss = back)
                         Deep.SENSOR_WATCH -> SensorWatchSheet(onDismiss = back)
+                        Deep.KEPT_CAMERAS -> KeptCamerasSheet(onDismiss = back)
+                        Deep.KEPT_LIMITS -> KeptLimitsSheet(onDismiss = back)
                         Deep.MAP -> com.openauto.dash.mine.MapSettingsSheet(onDismiss = back) // MINE: #16
                     }
                 }
@@ -320,7 +329,6 @@ internal fun SettingsScreen(
                         SettingsTab.DEVICES -> DevicesPane(open)
                         SettingsTab.HEAD_UNIT -> HeadUnitPane(open)
                         SettingsTab.GENERAL -> GeneralPane(m, open)
-                        SettingsTab.EXPERT -> ExpertPane(open)
                     }
                 }
                 MoreBelow(scroll, Modifier.align(Alignment.BottomCenter))
@@ -514,6 +522,7 @@ private fun CarPane(open: (Deep) -> Unit) {
     // Settings is parked-only; the Telemetry tile's tuning button opens the same row on the move.
     SpeedCorrectionRow(detail = stringResource(R.string.settings_speed_fix_detail))
     UsbTpmsRow { open(Deep.TPMS) }
+    UsbCanRow { open(Deep.CAN) }
     Spacer(Modifier.height(20.dp))
     SettingsSection(stringResource(R.string.settings_section_upkeep))
     SettingsRow(Icons.Filled.Handyman, stringResource(R.string.upkeep_dialog_title), stringResource(R.string.upkeep_settings_detail)) { open(Deep.UPKEEP) }
@@ -848,6 +857,7 @@ private fun DashboardPane(m: TopBarModel, theme: ThemeState) {
     // One "Bottom bar": its auto-hide, its size, then its readouts under the same heading.
     BarAutoHideSetting(theme)
     BarSizeSetting()
+    BarNavKeysSetting()
     BarItemsSetting()
     Spacer(Modifier.height(20.dp))
     NavigationSetting(theme)
@@ -902,6 +912,7 @@ internal fun BarSettingsSheet(theme: ThemeState, onDismiss: () -> Unit) {
         Column {
             BarAutoHideSetting(theme)
             BarSizeSetting()
+            BarNavKeysSetting()
             BarItemsSetting()
             Spacer(Modifier.height(20.dp))
             NavigationSetting(theme)
@@ -1083,6 +1094,8 @@ private fun DrivingPane(m: TopBarModel, open: (Deep) -> Unit) {
     )
     SettingsRow(Icons.Filled.Videocam, stringResource(R.string.reverse_title), stringResource(R.string.reverse_settings_detail)) { open(Deep.REVERSE) }
     PlacesRow { open(Deep.PLACES) }
+    KeptCamerasRow { open(Deep.KEPT_CAMERAS) }
+    KeptLimitsRow { open(Deep.KEPT_LIMITS) }
     WazeWakeSetting()
     // Every physical button together: what the wheel's do, then what the unit's own keys open.
     val keys = remember { Edition.full && KeyTargets.available() }
@@ -1311,11 +1324,13 @@ private fun GeneralPane(m: TopBarModel, open: (Deep) -> Unit) {
     SettingsSection(stringResource(R.string.settings_section_about))
     // Updates are in About only, beside the version (the overview's card shows one waiting).
     SettingsRow(Icons.Filled.Info, stringResource(R.string.settings_section_about), stringResource(R.string.settings_about_detail)) { open(Deep.ABOUT) }
+    Spacer(Modifier.height(20.dp))
+    ExpertRows(open)
 }
 
-/** For those who dig: Lab, the driver's own API keys, the map and route servers. */
+/** For those who dig, at the end of General: Lab, the driver's own API keys, the map and route servers. */
 @Composable
-private fun ExpertPane(open: (Deep) -> Unit) {
+private fun ExpertRows(open: (Deep) -> Unit) {
     val context = LocalContext.current
     SettingsSection(stringResource(R.string.settings_section_expert))
     SettingsRow(Icons.Filled.Science, stringResource(R.string.settings_lab), stringResource(R.string.settings_lab_detail)) { open(Deep.LAB) }
@@ -1357,7 +1372,8 @@ private fun UnitToolsSheet(m: TopBarModel, onBootLogo: () -> Unit, onDismiss: ()
             // need Dashwheel installed as a system app.
             SettingsSection(stringResource(R.string.settings_section_apps_in_tiles))
             SystemPermissionsRow(remember { EmbeddedApp.allowed(context) })
-            if (shell) SettingsRow(Icons.Filled.Build, stringResource(R.string.dash_system_app_title), stringResource(R.string.settings_system_detail), m.onSystem)
+            if (remember { SystemInstaller.isSystemApp(context) }) GatedRow(Icons.Filled.Build, stringResource(R.string.dash_system_app_title), stringResource(R.string.settings_system_app_on))
+            else if (shell) SettingsRow(Icons.Filled.Build, stringResource(R.string.dash_system_app_title), stringResource(R.string.settings_system_detail), m.onSystem)
             else GatedRow(Icons.Filled.Build, stringResource(R.string.dash_system_app_title), needsRoot)
         }
     }
@@ -1468,6 +1484,7 @@ private fun MoreWithGithubRow() {
 
 internal const val KOFI_URL = "https://ko-fi.com/deviloufr"
 private const val PROJECT_URL = "https://github.com/deviloufr-ai/Dashwheel"
+private const val TELEGRAM_URL = "https://t.me/Dashwheel"
 /** A Google Play listing, the package name appended (the Play edition's own, and the companion's). */
 internal const val PLAY_LISTING = "https://play.google.com/store/apps/details?id="
 
@@ -1551,6 +1568,9 @@ private fun AboutBody(m: TopBarModel) {
     SettingsRow(Icons.Filled.Favorite, stringResource(R.string.about_project), stringResource(R.string.about_project_detail)) {
         context.launchSafely(Intent(Intent.ACTION_VIEW, Uri.parse(PROJECT_URL)))
     }
+    SettingsRow(Icons.AutoMirrored.Filled.Send, stringResource(R.string.about_telegram), stringResource(R.string.about_telegram_detail)) {
+        context.launchSafely(Intent(Intent.ACTION_VIEW, Uri.parse(TELEGRAM_URL)))
+    }
 }
 
 /**
@@ -1575,6 +1595,89 @@ private fun UpdateRow(m: TopBarModel) {
         beta = it
         UpdateManager.setBeta(context, it)
         m.onCheckUpdates()
+    }
+    PreviousVersionRow()
+}
+
+/**
+ * The way back after a bad build: the channel's last five builds older than
+ * this one ([UpdateManager.previousReleases]). A shell installs the pick over
+ * this version; without one the APK is saved in Download/Dashwheel and the
+ * driver uninstalls first, settings and pairings with it (issue #76).
+ */
+@Composable
+private fun PreviousVersionRow() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    // Its own updater: a build going back must never show as the update on offer in ⋮.
+    val manager = remember { UpdateManager(context) }
+    val status by manager.status.collectAsState()
+    val shell = shellAccess().shell
+    // Android 9 writes Download itself, which needs the storage permission (see SaveLogRow).
+    val storage = rememberPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+    var releases by remember { mutableStateOf<List<UpdateInfo>?>(null) }
+    var picked by remember { mutableStateOf<UpdateInfo?>(null) }
+    var uninstall by remember { mutableStateOf<UpdateStatus.Ready?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    var none by remember { mutableStateOf(false) }
+    val detail = when (val s = status) {
+        is UpdateStatus.Downloading -> stringResource(R.string.dash_update_downloading, s.percent)
+        is UpdateStatus.Installing -> stringResource(R.string.dash_update_installing)
+        is UpdateStatus.Ready -> stringResource(R.string.update_previous_saved, s.file.name)
+        is UpdateStatus.Error -> stringResource(s.messageRes)
+        else -> stringResource(if (busy) R.string.dash_update_checking else if (none) R.string.update_previous_none else R.string.update_previous_detail)
+    }
+    SettingsRow(Icons.Filled.History, stringResource(R.string.update_previous), detail) {
+        if (busy || status is UpdateStatus.Downloading || status is UpdateStatus.Installing) return@SettingsRow
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q && !storage.granted) { storage.request(); return@SettingsRow }
+        busy = true
+        scope.launch {
+            val list = manager.previousReleases()
+            busy = false
+            none = list.isEmpty()
+            if (list.isNotEmpty()) releases = list
+        }
+    }
+    releases?.let { list ->
+        AlertDialog(
+            modifier = Modifier.keepClearOfWindows(),
+            onDismissRequest = { releases = null },
+            containerColor = DashColors.Card,
+            title = { Text(stringResource(R.string.update_previous), color = DashColors.TextPrimary) },
+            text = {
+                Column {
+                    list.forEach { info ->
+                        SettingsRow(Icons.Filled.History, info.versionName, info.date) {
+                            releases = null
+                            if (shell) picked = info else scope.launch { manager.installPrevious(info) }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { releases = null }) { Text(stringResource(R.string.dash_close), color = DashColors.Muted) }
+            }
+        )
+    }
+    picked?.let { info ->
+        ConfirmDialog(
+            stringResource(R.string.update_previous_title, info.versionName),
+            stringResource(R.string.update_previous_shell_body, info.versionName),
+            stringResource(R.string.update_previous_go),
+            onConfirm = { picked = null; scope.launch { manager.installPrevious(info) } },
+            onDismiss = { picked = null }
+        )
+    }
+    // No shell: the file is saved, and Android takes it only once this version is gone.
+    LaunchedEffect(status) { if (!shell) uninstall = status as? UpdateStatus.Ready }
+    uninstall?.let { ready ->
+        ConfirmDialog(
+            stringResource(R.string.update_previous_title, ready.info.versionName),
+            stringResource(R.string.update_previous_manual_body, ready.file.name),
+            stringResource(R.string.update_previous_uninstall),
+            onConfirm = { uninstall = null; context.launchSafely(Intent(Intent.ACTION_DELETE, Uri.parse("package:${context.packageName}"))) },
+            onDismiss = { uninstall = null }
+        )
     }
 }
 

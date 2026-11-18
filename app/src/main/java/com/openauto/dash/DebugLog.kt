@@ -37,8 +37,9 @@ object DebugLog {
     /** The newest part of the event log that goes in a report, leaving room in it for the summary. */
     private const val REPORT_EVENTS_CHARS = 40_000
     // ActivityTaskManager: which app started which screen, to see who puts a launcher in front at boot.
+    // PhoneLink: each try to reach the phone, and why a link ended (issue #118).
     // chatty: where Android dropped lines of the app writing the most (a Hizpo's report lacked some of ours, issue #60).
-    private const val LOGCAT = "logcat -d -v threadtime -t 3000 CarPower:I EmbeddedApp:I MediaResume:I DebugLog:I UnitLauncher:I NavDirections:I WazeScreen:I MapsScreen:I TileText:I SystemDisplays:I SystemDisplayHelper:I ShadowRoute:I WazeDestination:I SecondScreen:I DisplayLink:I ActivityTaskManager:I chatty:I *:W"
+    private const val LOGCAT = "logcat -d -v threadtime -t 3000 CarPower:I EmbeddedApp:I MediaResume:I DebugLog:I UnitLauncher:I NavDirections:I WazeScreen:I MapsScreen:I TileText:I SystemDisplays:I SystemDisplayHelper:I ShadowRoute:I WazeDestination:I SecondScreen:I DisplayLink:I ActivityTaskManager:I chatty:I PhoneLink:I *:W"
 
     /**
      * Every screen opened or brought to the front, from the events log: it is
@@ -49,6 +50,14 @@ object DebugLog {
 
     /** Every setting and property naming a launcher or a home screen: where a unit keeps its own choice. */
     private const val LAUNCHER_SETTINGS = "getprop | grep -i -E 'launcher|home|freeform|persist.sys.maps'; for t in global system secure; do settings list \$t | grep -i -E 'launcher|home' | sed \"s/^/\$t: /\"; done"
+
+    /**
+     * The car's temperature as CAN apps leave it (NWD's car_config_out_temp, issue #122): every setting
+     * table and system property naming a temperature or holding one ("16℃"). An NWD unit's status bar
+     * showed 16℃ offline with no such system setting, so it keeps it elsewhere, or is the weather kept.
+     */
+    private const val TEMP_SETTINGS = "for t in system global secure; do settings list \$t | grep -i -E 'temp|℃|℉|°' | sed \"s/^/\$t: /\"; done | head -n 40; " +
+        "getprop | grep -i -E 'temp|℃|℉|°' | grep -v -i -E 'thermal|battery|cpu|gpu|skin|tsens' | head -n 20"
 
     /**
      * The screens Android holds on each display, and which one it counts as
@@ -74,12 +83,23 @@ object DebugLog {
     fun note(context: Context, message: String) {
         val line = "${stamp()} $message\n"
         val file = File(context.applicationContext.filesDir, EVENTS)
-        writer.launch {
-            synchronized(lock) {
-                runCatching {
-                    if (file.length() > KEEP_BYTES) file.writeText(file.readText().takeLast(KEEP_BYTES / 2))
-                    file.appendText(line)
-                }
+        writer.launch { append(file, line) }
+    }
+
+    /**
+     * [note], written before this returns: for the crash handler, on a thread
+     * about to die with the process; a line handed to the log's own thread
+     * would die with it, and the restart that follows would be unexplained.
+     */
+    fun noteNow(context: Context, message: String) {
+        append(File(context.applicationContext.filesDir, EVENTS), "${stamp()} $message\n")
+    }
+
+    private fun append(file: File, line: String) {
+        synchronized(lock) {
+            runCatching {
+                if (file.length() > KEEP_BYTES) file.writeText(file.readText().takeLast(KEEP_BYTES / 2))
+                file.appendText(line)
             }
         }
     }
@@ -90,6 +110,8 @@ object DebugLog {
         // The system log comes through the shell: the Play edition keeps its event log only.
         if (Edition.play) return
         scope.launch {
+            // Nobody asked for this one: no shell that would raise the unit's ADB prompt at every start.
+            if (!DockShell.unattended(app)) return@launch
             runCatching {
                 val log = DockShell.shell(app, LOGCAT)
                 if (log.isBlank()) return@runCatching
@@ -145,10 +167,16 @@ object DebugLog {
             appendLine("Encryption: ${sh(ENCRYPTION).ifBlank { "-" }}")
             appendLine("Launcher settings:")
             appendLine(sh(LAUNCHER_SETTINGS).ifBlank { "-" })
+            appendLine("Temperature settings:")
+            appendLine(sh(TEMP_SETTINGS).ifBlank { "-" })
             appendLine("Resources now: ${ResourceWatch.lineNow(context)}")
             appendLine()
             appendLine("Lost deep sleeps:")
             appendLine(CarPower.sleepLost(context).joinToString("\n").ifBlank { "none" })
+            appendLine()
+            // The crashes the unit still holds ([CrashReports]): a restart every few seconds in the event log has its cause here.
+            appendLine("Crashes kept:")
+            appendLine(CrashReports.kept(context).joinToString("\n").ifBlank { "none" })
         }
         val events = synchronized(lock) { runCatching { File(context.filesDir, EVENTS).readText() }.getOrDefault("") }
         val snapshots = synchronized(lock) {

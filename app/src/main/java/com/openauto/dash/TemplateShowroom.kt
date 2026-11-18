@@ -178,7 +178,8 @@ internal fun TemplateShowroom(
                 val centrePage = onlyPage ?: DashboardStore.CENTER
                 val sides = onlyPage == null && reach != TemplateReach.HOME
                 Crossfade(targetState = chosen, label = "template") { shown ->
-                    val pages = if (shown == chosen) built else TemplatePlacer.pages(shown, screen)
+                    // Remembered: the outgoing template was placed again on every frame of the fade.
+                    val pages = if (shown == chosen) built else remember(shown, screen) { TemplatePlacer.pages(shown, screen) }
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         if (sides) {
                             SidePage(pages[0], pageName(0), pageSize, sideW, Modifier.align(Alignment.CenterStart).padding(start = 40.dp), tile, turn = 30f)
@@ -427,7 +428,7 @@ private val MAP_KINDS = setOf(BuiltinKind.NAVMAP, BuiltinKind.MAPS_INSIDE, Built
 /** A tile a preview shows by its stand-in: it would open an app, host a widget or start a 3D view. */
 internal fun DashboardItem.standsIn(): Boolean = when (this) {
     is DashboardItem.AppWindow, is DashboardItem.SystemWidget -> true
-    is DashboardItem.BuiltinWidget -> kind == BuiltinKind.MY_CAR || kind in MAP_KINDS
+    is DashboardItem.BuiltinWidget -> kind == BuiltinKind.MY_CAR || kind == BuiltinKind.CAR_3D || kind in MAP_KINDS
     else -> false
 }
 

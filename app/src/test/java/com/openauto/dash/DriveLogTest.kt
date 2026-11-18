@@ -20,15 +20,24 @@ class DriveLogRulesTest {
     fun aTripIsOverAfterTenMinutesStandingStill() {
         assertFalse(DriveLogRules.isOver(trip, trip.updatedAt + DriveLogRules.STOP_MS - 1))
         assertTrue(DriveLogRules.isOver(trip, trip.updatedAt + DriveLogRules.STOP_MS))
+        // A clock behind the trip's last move (2025 on a cold boot): not set yet, the trip is not carried on.
+        assertTrue(DriveLogRules.isOver(trip, trip.updatedAt - 1))
+        // The clock set mid-drive jumps months ahead: the car stood a minute, by the time since start.
+        assertFalse(DriveLogRules.isOver(trip, trip.updatedAt + 300 * 86_400_000L, stoppedMs = 60_000L))
+        assertFalse(DriveLogRules.startsAfresh(trip, trip.updatedAt + 300 * 86_400_000L, stoppedMs = 60_000L))
+        assertTrue(DriveLogRules.startsAfresh(trip, trip.updatedAt - 1))
+        // An empty trip stamped before the jump begins at the real time.
+        assertTrue(DriveLogRules.startsAfresh(TripState(startedAt = t0, updatedAt = t0), t0 + 300 * 86_400_000L, stoppedMs = 60_000L))
     }
 
     @Test
-    fun aTripThatWentNowhereStartsAfreshOnlyWhenTheCarMovesAgain() {
+    fun aTripStartsAfreshWhenTheCarMovesAgainAfterStandingStill() {
         val parked = TripState(startedAt = t0, updatedAt = t0)
         assertFalse(DriveLogRules.startsAfresh(parked, t0 + DriveLogRules.STOP_MS - 1))
         assertTrue(DriveLogRules.startsAfresh(parked, t0 + DriveLogRules.STOP_MS))
-        // A real drive is closed and logged by the drive log, never wiped here.
-        assertFalse(DriveLogRules.startsAfresh(trip, trip.updatedAt + 60 * 60_000L))
+        // A real drive too, when the unit slept through the tick that closes it: the drive log logs it on the new start.
+        assertFalse(DriveLogRules.startsAfresh(trip, trip.updatedAt + 60_000L))
+        assertTrue(DriveLogRules.startsAfresh(trip, trip.updatedAt + 12 * 60 * 60_000L))
     }
 
     @Test

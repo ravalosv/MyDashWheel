@@ -18,7 +18,6 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.math.abs
-import com.openauto.dash.mine.DashboardGridScale // MINE: #31
 
 /*
  * A dashboard from the driver's words: "a motorway dashboard with the speed
@@ -82,7 +81,7 @@ internal object DesignPrompt {
         appendLine("Tiles to choose from (kind: what it shows, minimum w x h):")
         catalog.forEach { appendLine("- ${it.kind}: ${it.label}. ${it.blurb} (min ${it.minW}x${it.minH})") }
         if (apps.isNotEmpty()) {
-            appendLine("- $APP_WINDOW: an installed app running inside the tile (a navigation or music app); set app to its package. (min ${DashboardGridScale.span(3)}x${DashboardGridScale.span(2)})") // MINE: #31
+            appendLine("- $APP_WINDOW: an installed app running inside the tile (a navigation or music app); set app to its package. (min 3x2)")
             appendLine("- $APP_ICON: an installed app's icon that opens it; set app to its package. (min 1x1)")
             appendLine("Installed apps (package = name): " + apps.joinToString("; ") { (pkg, name) -> "$pkg = $name" })
             appendLine("Use an app only when the driver asks for it by name or kind; prefer the built-in tiles otherwise.")
@@ -117,15 +116,17 @@ internal object DesignPrompt {
 internal data class CatalogEntry(val kind: String, val label: String, val blurb: String, val minW: Int, val minH: Int)
 
 /**
- * Makes proposed tiles a dashboard that fits a [cols] x [rows] grid: kinds
- * and apps that don't exist dropped, each kind once, every tile in the grid
- * and at least its smallest size, the later of two overlapping ones moved to
- * the nearest free place or shrunk, or left out when there's no room at all.
- * Pure, so it's unit-tested.
+ * Makes proposed tiles a dashboard that fits a [cols] x [rows] grid of coarse
+ * cells (the 12 x 7 the AI is told of): kinds and apps that don't exist
+ * dropped, each kind once, every tile in the grid and at least its smallest
+ * size, the later of two overlapping ones moved to the nearest free place or
+ * shrunk, or left out when there's no room at all. The tiles come out in the
+ * dashboard grid's cells, [scale] to a coarse one (GRID_SCALE). Pure, so it's
+ * unit-tested.
  */
 internal object DesignFit {
 
-    fun items(tiles: List<ProposedTile>, cols: Int, rows: Int, kinds: Set<String>, installed: Set<String>): List<DashboardItem> {
+    fun items(tiles: List<ProposedTile>, cols: Int, rows: Int, kinds: Set<String>, installed: Set<String>, scale: Int = 1): List<DashboardItem> {
         val seen = HashSet<String>()
         val wanted = tiles.mapNotNull { t ->
             val item = itemFor(t, kinds, installed) ?: return@mapNotNull null
@@ -150,7 +151,7 @@ internal object DesignFit {
                 ?: nearest(occupied, minOf(minW, cols), minOf(minH, rows), r.x, r.y, cols, rows)
                 ?: continue
             mark(occupied, spot)
-            placed += place(item, spot)
+            placed += place(item, Rect(spot.x * scale, spot.y * scale, spot.w * scale, spot.h * scale))
         }
         return placed
     }
@@ -164,9 +165,10 @@ internal object DesignFit {
         else -> null
     }
 
+    /** The tile's smallest span in coarse cells. */
     private fun minSize(item: DashboardItem): Pair<Int, Int> = when (item) {
-        is DashboardItem.BuiltinWidget -> item.kind.minSize()
-        is DashboardItem.AppWindow -> DashboardGridScale.size(3, 2) // MINE: #31
+        is DashboardItem.BuiltinWidget -> item.kind.coarseMinSize()
+        is DashboardItem.AppWindow -> 3 to 2
         else -> 1 to 1
     }
 
@@ -324,11 +326,12 @@ internal object DashDesigner {
         val config = AiSettings.load(app)
         if (config.apiKey.isBlank()) return Result.failure(IllegalStateException(app.getString(R.string.ai_note_no_key)))
         val upright = ScreenShape.vertical
-        val cols = GRID_COLS
-        val rows = GRID_ROWS
+        // The AI lays out on the coarse grid; the tiles are scaled to the dashboard's.
+        val cols = GRID_COLS / GRID_SCALE
+        val rows = GRID_ROWS / GRID_SCALE
         val english = AiLanguage.ENGLISH.resources(app)
         val catalog = BuiltinKind.entries.filter { it.offered && it !in NOT_DESIGNED }.map {
-            val (w, h) = it.minSize()
+            val (w, h) = it.coarseMinSize()
             CatalogEntry(it.name, english.getString(it.labelRes), english.getString(it.blurbRes), w, h)
         }
         val apps = withContext(Dispatchers.IO) {
@@ -341,7 +344,7 @@ internal object DashDesigner {
             audio = audio, audioMime = "audio/aac"
         ).mapCatching { reply ->
             val (name, tiles) = DesignPrompt.parse(reply.text) ?: throw UnreadableAnswerException()
-            val items = DesignFit.items(tiles, cols, rows, kinds.toSet(), apps.map { it.first }.toSet())
+            val items = DesignFit.items(tiles, cols, rows, kinds.toSet(), apps.map { it.first }.toSet(), scale = GRID_SCALE)
             if (items.isEmpty()) throw NoTilesException()
             DashShare.encode(SharedDashboard(name, upright, items))
         }

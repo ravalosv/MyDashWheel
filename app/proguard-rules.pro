@@ -32,3 +32,12 @@
 
 # Run by name through the privileged shell (app_process) when the home window was left floating (StuckSplit).
 -keep class com.openauto.dash.LaunchParamsReset { public static void main(java.lang.String[]); }
+
+# Run by name through the privileged shell (app_process) to allow a USB device without the dialog (UsbTpms, UsbObd).
+-keep class com.openauto.dash.UsbGrant { public static void main(java.lang.String[]); }
+
+# LocationListener: onStatusChanged / onProviderEnabled / onProviderDisabled are
+# default methods only from Android 11. R8 drops the empty overrides as
+# redundant, and an Android 10 unit then calls the missing method and crashes
+# with AbstractMethodError (issue #156). Keep every override.
+-keepclassmembers class * implements android.location.LocationListener { public <methods>; }

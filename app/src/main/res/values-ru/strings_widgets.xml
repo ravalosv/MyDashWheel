@@ -31,6 +31,7 @@
     <string name="widgets_light_manual">%1$d %%</string>
     <string name="widgets_cam_none">Впереди нет</string>
     <string name="widgets_osm_down">Сервер картографических данных не отвечает</string>
+    <string name="widgets_cam_none_kept">Впереди нет, по камерам на магнитоле</string>
     <string name="widgets_cam_speak">Голосовые оповещения</string>
     <string name="widgets_cam_speaking">Голосовые оповещения вкл.</string>
     <string name="widgets_cam_silent">Запрещено в некоторых странах, например во Франции</string>
@@ -176,4 +177,6 @@
     <string name="widgets_switch_bluetooth_detail">Включает или выключает Bluetooth</string>
     <string name="widgets_switch_mobile_data_detail">Включает или выключает передачу данных SIM</string>
     <string name="widgets_switch_screen_off_detail">Гасит экран, как кнопка магнитолы</string>
+    <string name="widgets_consumption">Расход</string>
+    <string name="widgets_consumption_blurb">Сколько машина расходует сейчас, с последней заправки и в среднем</string>
 </resources>

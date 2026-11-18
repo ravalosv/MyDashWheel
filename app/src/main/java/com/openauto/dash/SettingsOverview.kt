@@ -387,7 +387,6 @@ private fun groupSummary(group: SettingsTab, m: TopBarModel, theme: ThemeState):
             val units = Units.current.collectAsState().value
             "${languageName(AppLanguage.current(context))}, ${unitsSummary(units)}"
         }
-        SettingsTab.EXPERT -> stringResource(R.string.settings_sum_expert)
     }
 }
 
@@ -437,6 +436,7 @@ private val SETTINGS_INDEX: List<SettingsEntry> by lazy {
         SettingsEntry(R.string.look_arrange_home, SettingsTab.LOOK, detail = R.string.look_arrange_home_detail),
         SettingsEntry(R.string.settings_appearance_title, SettingsTab.LOOK, detail = R.string.settings_appearance_detail),
         SettingsEntry(R.string.dash_effects_title, SettingsTab.LOOK),
+        SettingsEntry(R.string.dash_motion_driving, SettingsTab.LOOK, detail = R.string.dash_motion_driving_detail),
         SettingsEntry(R.string.start_anim_title, SettingsTab.LOOK, detail = R.string.start_anim_detail),
 
         SettingsEntry(R.string.dash_bar_auto_hide, SettingsTab.DASHBOARD, detail = R.string.dash_bar_auto_hide_detail),
@@ -450,6 +450,7 @@ private val SETTINGS_INDEX: List<SettingsEntry> by lazy {
         SettingsEntry(R.string.mycar_title, SettingsTab.CAR, listOf(Deep.CAR_LOOK), detail = R.string.mycar_settings_detail),
         SettingsEntry(R.string.vehicle_speed_fix, SettingsTab.CAR, detail = R.string.settings_speed_fix_detail),
         SettingsEntry(R.string.tpms_usb_title, SettingsTab.CAR, listOf(Deep.TPMS), detail = R.string.tpms_usb_detail),
+        SettingsEntry(R.string.can_usb_title, SettingsTab.CAR, listOf(Deep.CAN), detail = R.string.can_usb_detail),
         SettingsEntry(R.string.upkeep_dialog_title, SettingsTab.CAR, listOf(Deep.UPKEEP), detail = R.string.upkeep_settings_detail),
         SettingsEntry(R.string.lpg_title, SettingsTab.CAR, listOf(Deep.LPG)),
 
@@ -462,6 +463,8 @@ private val SETTINGS_INDEX: List<SettingsEntry> by lazy {
         SettingsEntry(R.string.settings_drive_lock, SettingsTab.DRIVING, detail = R.string.settings_drive_lock_detail),
         SettingsEntry(R.string.reverse_title, SettingsTab.DRIVING, listOf(Deep.REVERSE), detail = R.string.reverse_settings_detail),
         SettingsEntry(R.string.places_title, SettingsTab.DRIVING, listOf(Deep.PLACES)),
+        SettingsEntry(R.string.cams_kept_title, SettingsTab.DRIVING, listOf(Deep.KEPT_CAMERAS), detail = R.string.cams_kept_row_detail),
+        SettingsEntry(R.string.limits_kept_title, SettingsTab.DRIVING, listOf(Deep.KEPT_LIMITS), detail = R.string.limits_kept_row_detail),
         SettingsEntry(R.string.settings_waze_wake, SettingsTab.DRIVING, detail = R.string.settings_waze_wake_detail, offered = { Edition.full && WazeWake.present }),
         SettingsEntry(R.string.wheel_title, SettingsTab.DRIVING, listOf(Deep.WHEEL), offered = { SteeringWheelStore.AVAILABLE }),
         SettingsEntry(R.string.keys_section, SettingsTab.DRIVING, offered = { Edition.full && KeyTargets.available() }),
@@ -494,14 +497,26 @@ private val SETTINGS_INDEX: List<SettingsEntry> by lazy {
         SettingsEntry(R.string.help_title, SettingsTab.GENERAL, listOf(Deep.ABOUT)),
         SettingsEntry(R.string.tour_settings_row, SettingsTab.GENERAL, listOf(Deep.ABOUT)),
 
-        SettingsEntry(R.string.settings_lab, SettingsTab.EXPERT, listOf(Deep.LAB)),
-        SettingsEntry(R.string.api_keys_title, SettingsTab.EXPERT, listOf(Deep.API_KEYS), detail = R.string.api_keys_search_detail),
-        SettingsEntry(R.string.map_servers_title, SettingsTab.EXPERT, listOf(Deep.MAP_SERVERS)),
+        SettingsEntry(R.string.settings_lab, SettingsTab.GENERAL, listOf(Deep.LAB)),
+        SettingsEntry(R.string.api_keys_title, SettingsTab.GENERAL, listOf(Deep.API_KEYS), detail = R.string.api_keys_search_detail),
+        SettingsEntry(R.string.map_servers_title, SettingsTab.GENERAL, listOf(Deep.MAP_SERVERS)),
         SettingsEntry(R.string.mine_map_title, SettingsTab.LOOK, listOf(Deep.MAP)), // MINE: #16
-        SettingsEntry(R.string.explore_title, SettingsTab.EXPERT, listOf(Deep.LAB, Deep.EXPLORER), detail = R.string.explore_settings_detail),
-        SettingsEntry(R.string.dead_strip_title, SettingsTab.EXPERT, listOf(Deep.LAB), detail = R.string.dead_strip_detail),
-        SettingsEntry(R.string.settings_sleep_title, SettingsTab.EXPERT, listOf(Deep.LAB), offered = { CarPower.available }),
-        SettingsEntry(R.string.settings_log_title, SettingsTab.EXPERT, listOf(Deep.LAB))
+        SettingsEntry(R.string.explore_title, SettingsTab.GENERAL, listOf(Deep.LAB, Deep.EXPLORER), detail = R.string.explore_settings_detail),
+        SettingsEntry(R.string.dead_strip_title, SettingsTab.GENERAL, listOf(Deep.LAB), detail = R.string.dead_strip_detail),
+        SettingsEntry(R.string.settings_sleep_title, SettingsTab.GENERAL, listOf(Deep.LAB), offered = { CarPower.available }),
+        SettingsEntry(R.string.settings_log_title, SettingsTab.GENERAL, listOf(Deep.LAB)),
+
+        // Rows the search missed (usability reviews 10-29 and 11-09): the OBD sheet's switches, the About sheet's rows.
+        SettingsEntry(R.string.settings_obd_auto, SettingsTab.DIAGNOSTICS, listOf(Deep.OBD), detail = R.string.settings_obd_auto_off),
+        // The source switch shows with Deep OBD installed or chosen; without a context here, chosen is what can be told.
+        SettingsEntry(R.string.settings_obd_source_label, SettingsTab.DIAGNOSTICS, listOf(Deep.OBD), offered = { DeepObdSource.source.value == ObdSource.DEEPOBD }),
+        SettingsEntry(R.string.alert_kind_gemini_title, SettingsTab.ALERTS),
+        SettingsEntry(R.string.report_title, SettingsTab.GENERAL, listOf(Deep.ABOUT), detail = R.string.report_row_detail),
+        SettingsEntry(R.string.settings_beta_updates, SettingsTab.GENERAL, listOf(Deep.ABOUT), detail = R.string.settings_beta_updates_detail, offered = full),
+        SettingsEntry(R.string.update_previous, SettingsTab.GENERAL, listOf(Deep.ABOUT), detail = R.string.update_previous_detail, offered = full),
+        SettingsEntry(R.string.about_project, SettingsTab.GENERAL, listOf(Deep.ABOUT), detail = R.string.about_project_detail),
+        SettingsEntry(R.string.about_telegram, SettingsTab.GENERAL, listOf(Deep.ABOUT), detail = R.string.about_telegram_detail),
+        SettingsEntry(R.string.about_kofi, SettingsTab.GENERAL, listOf(Deep.ABOUT))
     )
 }
 
@@ -531,13 +546,19 @@ private fun Deep.titleRes(): Int = when (this) {
     Deep.API_KEYS -> R.string.api_keys_title
     Deep.HEAD_UNIT -> R.string.unit_card_title
     Deep.TPMS -> R.string.tpms_usb_title
+    Deep.CAN -> R.string.can_usb_title
     Deep.SENSOR_WATCH -> R.string.watch_title
     Deep.MAP -> R.string.mine_map_title // MINE: #16
+    Deep.KEPT_CAMERAS -> R.string.cams_kept_title
+    Deep.KEPT_LIMITS -> R.string.limits_kept_title
 }
 
 /** Lower case without accents, so "eco" finds "Éco" and "volumen" finds "Volumen". */
 private fun fold(text: String): String =
-    Normalizer.normalize(text, Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "").lowercase()
+    Normalizer.normalize(text, Normalizer.Form.NFD).replace(MARKS, "").lowercase()
+
+// Compiled once: fold() runs for every entry's title, pages and detail at each typed character.
+private val MARKS = Regex("\\p{Mn}+")
 
 private class Found(val entry: SettingsEntry, val title: String, val path: String, val rank: Int)
 

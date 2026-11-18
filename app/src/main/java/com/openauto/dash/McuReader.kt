@@ -123,7 +123,17 @@ object McuReader {
             appContext = context.applicationContext
             loadFuelMapping()
             loadRangeMapping()
+            UnitPlatform.adapter.bus?.watch(busKeys())
         }
+    }
+
+    /** The keys of the learned range and fuel words, for a bus that only sends what it is asked for ([UnitBus]). */
+    internal fun busKeys(): Set<String> = setOfNotNull(rangeMapping?.key, fuelMapping?.key)
+
+    /** A value of another family's bus ([UnitBus]), as a frame: the learned range and fuel words are read from it too. */
+    internal fun busEntry(e: Entry) {
+        if (e.bytes.isEmpty()) return
+        applyMappings(e.key, e.bytes)
     }
 
     private fun loadRangeMapping() {
@@ -137,7 +147,8 @@ object McuReader {
     /** Persist the learned range word; decodes from the frame already seen, else the next one. */
     internal fun saveRangeMapping(m: RangeMapping) {
         rangeMapping = m
-        setLearnedRange(_entries.value.firstOrNull { it.key == m.key }?.let { m.decode(it.bytes) })
+        UnitPlatform.adapter.bus?.watch(setOf(m.key))
+        setLearnedRange((_entries.value + UnitBus.rawEntries.value).firstOrNull { it.key == m.key }?.let { m.decode(it.bytes) })
         appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)?.edit()
             ?.putString("range_key", m.key)
             ?.putInt("range_byte", m.index)
@@ -166,6 +177,7 @@ object McuReader {
     fun saveFuelMapping(key: String, byteIndex: Int, fullRaw: Int) {
         val fm = FuelMapping(key, byteIndex, fullRaw.coerceAtLeast(1))
         fuelMapping = fm
+        UnitPlatform.adapter.bus?.watch(setOf(key))
         appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)?.edit()
             ?.putString("fuel_key", fm.key)
             ?.putInt("fuel_byte", fm.byteIndex)
@@ -315,16 +327,35 @@ object McuReader {
             else R.string.vehicle_waiting_mcu
         }
 
+    @Synchronized
+    private fun applyMappings(key: String, bytes: List<Int>) {
+        // Fuel: the learned CANbox byte → percent, calibrated against a full tank.
+        fuelMapping?.let { fm ->
+            if (key == fm.key && bytes.size > fm.byteIndex && fm.fullRaw > 0) {
+                setLearnedFuel((bytes[fm.byteIndex] * 100 / fm.fullRaw).coerceIn(0, 100))
+            }
+        }
+
+        // Range: the learned 16-bit word → km, straight from the car's trip computer.
+        rangeMapping?.let { rm ->
+            if (key == rm.key) rm.decode(bytes)?.let { setLearnedRange(it) }
+        }
+    }
+
+    /** Whether learning from the car box takes root here: not where another family's bus hands it over. */
+    val learningNeedsRoot: Boolean get() = !otherBus()
+
     /** Another family's bus feeds the car box data: its MCU log (QF's) is not there to tail. */
     private fun otherBus(): Boolean = UnitPlatform.adapter.bus.let { it != null && it !== QfBus }
 
     @Synchronized
     fun start() {
-        // Without the MCU service, the stream is read through root: the Play edition has none.
-        if (Edition.play && !McuFeed.listening.value) return
+        // Counted whatever follows: every stop() takes one off, and an uncounted start would end the reader under another user.
         refCount++
         shutdown?.cancel()
         shutdown = null
+        // Without the MCU service, the stream is read through root: the Play edition has none.
+        if (Edition.play && !McuFeed.listening.value) return
         if (job?.isActive == true) return
         job = scope.launch { tail() }
     }
@@ -445,8 +476,7 @@ object McuReader {
     @Synchronized
     private fun ingest(cmdId: Int, bytes: List<Int>, live: Boolean) {
 
-        val sub = if (bytes.size >= 3 && bytes[1] == 0xfd) bytes[2] else -1
-        val key = if (sub >= 0) cmdId.toString() + "." + hex2(sub) else cmdId.toString()
+        val key = keyOf(cmdId, bytes)
         // Runs for every line the CANbox logs (dozens a second): no String.format per byte.
         val hex = buildString(bytes.size * 3) {
             bytes.forEachIndexed { i, b ->
@@ -465,17 +495,7 @@ object McuReader {
             if (live) _changes.tryEmit(Change(entry, prev?.hex))
         }
 
-        // Fuel: the learned CANbox byte → percent, calibrated against a full tank.
-        fuelMapping?.let { fm ->
-            if (key == fm.key && bytes.size > fm.byteIndex && fm.fullRaw > 0) {
-                setLearnedFuel((bytes[fm.byteIndex] * 100 / fm.fullRaw).coerceIn(0, 100))
-            }
-        }
-
-        // Range: the learned 16-bit word → km, straight from the car's trip computer.
-        rangeMapping?.let { rm ->
-            if (key == rm.key) rm.decode(bytes)?.let { setLearnedRange(it) }
-        }
+        applyMappings(key, bytes)
 
         // Door bitfield: cmdId 65, [.. 0C 38 <bits> ..] → byte index 4. Only on a new
         // frame: the box repeats it several times a second, and each put woke the bus.
@@ -483,6 +503,21 @@ object McuReader {
             val b = bytes[4]
             busPublisher.put(K.DOORS, doorsOf(b))
         }
+    }
+
+    /**
+     * The key one message is kept under: the MCU's command, and for the CAN box's channel the frame's own type,
+     * so frames of different types don't overwrite each other. An RZC box sends `41 FD <type> …`; a Hiworld box
+     * `41 5A A5 <len> <type> …` (the Hiworld Peugeot 508 of issue #122), its frames otherwise all one key the
+     * radar frame took over several times a second, and the raw view could show none of them changing.
+     */
+    internal fun keyOf(cmdId: Int, bytes: List<Int>): String {
+        val type = when {
+            bytes.size >= 3 && bytes[1] == 0xfd -> bytes[2]
+            bytes.size >= 5 && bytes[1] == 0x5a && bytes[2] == 0xa5 -> bytes[4]
+            else -> return cmdId.toString()
+        }
+        return cmdId.toString() + "." + hex2(type)
     }
 
     internal fun doorsOf(b: Int) = DoorState(

@@ -200,11 +200,13 @@ object UpkeepRules {
     /**
      * The kilometres the GPS trip moved from [before] to [after], or 0 while the
      * OBD drive is counting them ([obdLastAt] fresh) or the step is no real driving.
+     * Another trip ([TripState.startedAt] changed) is no step: a short trip restored
+     * at start-up was counted a second time, and a fresh one begins with a few metres.
      */
     fun gpsStepKm(before: TripState?, after: TripState, obdLastAt: Long?, now: Long): Double {
         if (before == null || (obdLastAt != null && now - obdLastAt < OBD_FRESH_MS)) return 0.0
-        val m = if (after.startedAt == before.startedAt) after.distanceM - before.distanceM else after.distanceM
-        return (m / 1000).takeIf { it > 0 && it <= MAX_GPS_STEP_KM } ?: 0.0
+        if (after.startedAt != before.startedAt) return 0.0
+        return ((after.distanceM - before.distanceM) / 1000).takeIf { it > 0 && it <= MAX_GPS_STEP_KM } ?: 0.0
     }
 
     /** A rough "how soon" for sorting: days, with 50 km counting as a day. */
@@ -430,8 +432,20 @@ object Maintenance {
         if (DemoMode.isOn || km !in 1..MAX_ODOMETER_KM) return
         val known = _state.value.odometer?.nowKm
         if (known != null && kotlin.math.abs(known - km) < 1) return
+        // A misread frame under the ceiling (1 234 567 on a 150 000 km car) must not become the
+        // saved mileage, with every km item overdue: a leap from what is known is taken only
+        // when the car repeats it. The bus then takes nothing lower until the process restarts.
+        if (known != null && kotlin.math.abs(known - km) > ODOMETER_LEAP_KM && kotlin.math.abs(pendingKm - km) > 1) {
+            pendingKm = km
+            return
+        }
+        pendingKm = 0
         setOdometer(km)
     }
+
+    /** An odometer reading far from the known one, waiting to be seen again. */
+    private var pendingKm = 0
+    private const val ODOMETER_LEAP_KM = 500
 
     /** The driver's own interval for its kind (added when the plan had none); emptied, the maker's may fill it in again. */
     fun setInterval(interval: UpkeepInterval) {
@@ -465,7 +479,8 @@ object Maintenance {
      */
     fun inspectionDueBy(deadline: Long) {
         val every = _state.value.plan.firstOrNull { it.kind == UpkeepKind.INSPECTION }?.everyMonths ?: INSPECTION_MONTHS
-        val done = UpkeepRules.inspectionBefore(deadline, every, _state.value.done[UpkeepKind.INSPECTION], System.currentTimeMillis()) ?: return
+        val now = appContext?.let { UnitClock.now(it) } ?: System.currentTimeMillis()
+        val done = UpkeepRules.inspectionBefore(deadline, every, _state.value.done[UpkeepKind.INSPECTION], now) ?: return
         setDone(UpkeepKind.INSPECTION, done)
     }
 
@@ -485,6 +500,17 @@ object Maintenance {
             drivenUnsaved = 0.0
             save()
         }
+    }
+
+    /** Ignition off: the part of a kilometre not saved yet is, before the unit kills the app. */
+    @Synchronized
+    fun carStopped() {
+        if (drivenUnsaved <= 0.0) return
+        val add = drivenUnpublished
+        _state.update { s -> s.odometer?.let { odo -> s.copy(odometer = odo.copy(drivenSince = odo.drivenSince + add)) } ?: s }
+        drivenUnpublished = 0.0
+        drivenUnsaved = 0.0
+        save()
     }
 
     /** Kilometres driven since the state last published them. */

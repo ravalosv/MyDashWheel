@@ -126,15 +126,19 @@ internal object UsbObd {
         chosen(context)?.let { return it }
         if (!anyDevice) return null
         val saved = savedKey(context)
-        // The tyre receiver chosen in Settings is on the same chip as OBD cables: not tried as one.
-        val all = attached(context).filter { it.key == saved || it.key != UsbTpms.device.value }
+        // The tyre receiver and the CAN adapter chosen in Settings are serial devices too: not tried as one.
+        val all = attached(context).filter { it.key == saved || (it.key != UsbTpms.device.value && it.key != UsbCan.device.value) }
         return all.firstOrNull { it.key == saved } ?: all.firstOrNull { permitted(context, it) } ?: all.firstOrNull()
     }
 
-    /** Android's dialog asking to let Dashwheel use [adapter]; true once allowed. */
+    /**
+     * Lets Dashwheel use [adapter]: through the privileged shell where there
+     * is one ([UsbGrant], no dialog), else Android's dialog; true once allowed.
+     */
     suspend fun allow(context: Context, adapter: UsbObdAdapter): Boolean {
         val manager = manager(context) ?: return false
         if (manager.hasPermission(adapter.device)) return true
+        if (UsbGrant.silently(context, adapter.device)) return true
         val app = context.applicationContext
         return withTimeoutOrNull(PERMISSION_TIMEOUT_MS) {
             suspendCancellableCoroutine { cont ->

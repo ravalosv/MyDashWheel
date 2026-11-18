@@ -63,6 +63,7 @@ import com.openauto.dash.link.TextSent
 import kotlinx.coroutines.CompletableDeferred
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 import com.openauto.dash.link.PairingOffer
 import com.openauto.dash.link.PairingStorage
@@ -79,6 +80,7 @@ import com.openauto.dash.link.TypeText
 import com.openauto.dash.link.PhonePointer
 import com.openauto.dash.link.UnknownPairingException
 import com.openauto.dash.link.RoadScene
+import com.openauto.dash.link.inPieces
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -115,11 +117,30 @@ import java.util.concurrent.atomic.AtomicReference
  * ([PhoneLists]), calls a favourite through the phone, and starts guidance to
  * a place shared on the phone ([Destination]).
  *
- * With no hotspot (the unit has its own SIM), the same link runs over
- * Bluetooth: the phone offers the link as an RFCOMM service, and this side dials
- * the phones the unit is Bluetooth-paired with. The channel, the pairing secret
- * and everything on top are the same; only the carrier differs.
+ * The same link also runs over Bluetooth: the phone offers the link as an
+ * RFCOMM service, and this side dials the phones the unit is Bluetooth-paired
+ * with. The channel, the pairing secret and everything on top are the same;
+ * only the carrier differs. Which one is looked for, and in which order, is the
+ * driver's choice ([LinkCarrier]): by default Bluetooth first, so no hotspot
+ * is needed, and the hotspot when Bluetooth finds nobody.
  */
+
+/** Which way the link reaches the phone (Settings, Phone, Connect over). */
+enum class LinkCarrier {
+    /** Bluetooth first; the phone's hotspot when Bluetooth finds nobody. */
+    AUTO,
+    BLUETOOTH,
+    /** The phone's Wi-Fi hotspot only. */
+    WIFI;
+
+    /** The carriers to look for the phone on, in order, [AUTO] spelt out. */
+    internal fun tries(): List<LinkCarrier> = if (this == AUTO) listOf(BLUETOOTH, WIFI) else listOf(this)
+
+    companion object {
+        /** A stored name back; an unknown or missing one is [AUTO]. */
+        internal fun parse(name: String?): LinkCarrier = entries.firstOrNull { it.name == name } ?: AUTO
+    }
+}
 
 /** A phone the driver paired by scanning the QR code with the companion app. */
 data class PairedPhone(
@@ -170,7 +191,7 @@ internal data class PhoneLists(
 sealed interface PhoneLinkState {
     /** No phone paired. */
     data object Unpaired : PhoneLinkState
-    /** Paired, waiting for the phone's hotspot and companion app. */
+    /** Paired, waiting for the phone (over Bluetooth or its hotspot) and its companion app. */
     data object Searching : PhoneLinkState
     data class Connected(val phoneName: String) : PhoneLinkState
 }
@@ -179,6 +200,7 @@ object PhoneLink {
     private const val TAG = "PhoneLink"
     private const val PREFS = "phone_link"
     private const val KEY_PHONES = "phones"
+    private const val KEY_CARRIER = "carrier"
     private const val CONNECT_TIMEOUT_MS = 3_000
     /** Bluetooth's connect() has no timeout of its own: a phone that is off or far away would hold it for ~20 s. */
     private const val BLUETOOTH_CONNECT_TIMEOUT_MS = 8_000L
@@ -194,6 +216,18 @@ object PhoneLink {
     private const val PING_EVERY_MS = 15_000L
     /** A send stuck this long is in a socket the phone no longer reads (Wi-Fi power save, out of range): the link is closed. */
     private const val SEND_STALL_MS = 5_000L
+    /**
+     * Over Bluetooth a send waits its turn on one slow radio, behind the phone's own first messages
+     * (its contacts with their photos) and the calls and music the same radio carries: 5 s there is
+     * a busy link, not a dead one, and closing it started the same wait again at the next link (#118).
+     * Under the phone's 45 s of patience, pings included.
+     */
+    private const val BLUETOOTH_SEND_STALL_MS = 20_000L
+    /**
+     * How long the phone has to say it is placing the call the car asked for ([DialResult], or the
+     * call itself showing): it answers at once when it heard, so past this the unit calls its own way.
+     */
+    private const val DIAL_ANSWER_MS = 8_000L
     /** How often to look for the phone: quickly while a pairing code is on screen. */
     private const val RETRY_MS = 10_000L
     /**
@@ -202,6 +236,11 @@ object PhoneLink {
      */
     private const val RETRY_MAX_MS = 2 * 60_000L
     private const val RETRY_PAIRING_MS = 2_000L
+    /**
+     * A link that just ended is looked for again this soon, not after [RETRY_MS]: the phone
+     * is usually still there, and the tiles went without it for 10 s at each drop (issue #118).
+     */
+    private const val RETRY_AFTER_DROP_MS = 1_500L
     /**
      * Any other driver's companion refuses a pairing it never saw, so one
      * refusal proves nothing: only this many, on occasions this far apart, with
@@ -219,6 +258,13 @@ object PhoneLink {
 
     private val _phones = MutableStateFlow<List<PairedPhone>>(emptyList())
     val phones: StateFlow<List<PairedPhone>> = _phones
+
+    private val _carrier = MutableStateFlow(LinkCarrier.AUTO)
+    /** Which way the phone is looked for ([LinkCarrier]). */
+    val carrier: StateFlow<LinkCarrier> = _carrier
+
+    /** The open link runs over Bluetooth (rather than the hotspot). */
+    @Volatile private var sessionOverBluetooth = false
 
     /** The pairing whose QR code is on screen, until a phone uses it. */
     private val _pending = MutableStateFlow<PairingOffer?>(null)
@@ -256,6 +302,8 @@ object PhoneLink {
     /** Bumped when the network changes or the phones change, to retry right away. */
     private val wake = MutableStateFlow(0)
     @Volatile private var session: LinkSession? = null
+    /** Links that came up since start, to tell a try that linked (and has since ended) from one that didn't. */
+    private val linksOpened = AtomicInteger()
     // Everything sent goes through one coroutine, so it reaches the phone in the order it was sent.
     private val outbox = Channel<Pair<LinkSession, LinkMessage>>(OUTBOX_SIZE)
 
@@ -285,6 +333,7 @@ object PhoneLink {
             started = true
         }
         _phones.value = readPhones(app)
+        _carrier.value = LinkCarrier.parse(app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_CARRIER, null))
         refreshIdleState()
         app.getSystemService(ConnectivityManager::class.java)?.registerDefaultNetworkCallback(
             object : ConnectivityManager.NetworkCallback() {
@@ -315,7 +364,8 @@ object PhoneLink {
             for ((link, message) in outbox) {
                 sending = link to android.os.SystemClock.elapsedRealtime()
                 try {
-                    link.sendOrClose(message)
+                    // Refused while the link is up: a message JSON can't hold (a NaN) or too big; which one, for the log (#118).
+                    if (!link.sendOrClose(message) && session === link) DebugLog.note(app, "Phone link: ${message::class.simpleName} not sent")
                 } finally {
                     sending = null
                 }
@@ -332,13 +382,31 @@ object PhoneLink {
         return offer
     }
 
+    /**
+     * Looks for the phone over [carrier] from now on. A link up over a carrier no
+     * longer allowed ends, and the phone is looked for again the new way at once.
+     */
+    fun setCarrier(context: Context, carrier: LinkCarrier) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY_CARRIER, carrier.name).apply()
+        _carrier.value = carrier
+        val current = session
+        val carriedBy = if (sessionOverBluetooth) LinkCarrier.BLUETOOTH else LinkCarrier.WIFI
+        if (current != null && carriedBy !in carrier.tries()) current.close()
+        wake.update { it + 1 }
+    }
+
     fun cancelPairing() {
         _pending.value = null
     }
 
     fun forget(context: Context, id: String) {
         updatePhones(context) { phones -> phones.filter { it.id != id } }
-        session?.takeIf { it.pairingId == id }?.close()
+        // The phone connected now goes with its contacts and its notifications; another's leave the connected one's alone.
+        if (session?.pairingId == id) {
+            session?.close()
+            editLists { PhoneLists() }
+            _notificationsOn.value = false
+        }
         refreshIdleState()
     }
 
@@ -353,8 +421,25 @@ object PhoneLink {
     fun dismiss(key: String) = send(Dismiss(NotificationFeed.phoneKey(key)))
     fun callCommand(action: CallCommand.Action) = send(CallCommand(action))
 
-    /** Has the phone call [number]; false when it can't be asked (no link, an older companion). */
-    fun dial(number: String): Boolean = phoneDials && send(CallCommand(CallCommand.Action.DIAL, number))
+    /** The call the phone was last asked to place, until it says it heard. */
+    @Volatile private var dialAsked: CompletableDeferred<Unit>? = null
+
+    /**
+     * Has the phone call [number]; false when it can't be asked (no link, an older companion).
+     * Asked is not heard: a link that is up but not carrying the car's messages took the call
+     * and nothing rang (#118). [onUnheard] runs, on the main thread, when the phone has not
+     * answered in [DIAL_ANSWER_MS]: the caller's other way to place the call.
+     */
+    fun dial(number: String, onUnheard: () -> Unit = {}): Boolean {
+        if (!phoneDials) return false
+        val heard = CompletableDeferred<Unit>()
+        dialAsked = heard
+        if (!send(CallCommand(CallCommand.Action.DIAL, number))) return false
+        scope.launch {
+            if (withTimeoutOrNull(DIAL_ANSWER_MS) { heard.await() } == null) main.post { onUnheard() }
+        }
+        return true
+    }
 
     private val _battery = MutableStateFlow<PhoneBattery?>(null)
     /** The linked phone's battery, exact and with its charging ([PhoneBattery]); null without a companion link. */
@@ -363,6 +448,10 @@ object PhoneLink {
     private val _textsOn = MutableStateFlow(false)
     /** The linked phone sends texts for the car ([PhoneAbilities]): "On my way". */
     val textsOn: StateFlow<Boolean> = _textsOn
+
+    private val _notificationsOn = MutableStateFlow(false)
+    /** The linked phone was granted Notification access, so its notifications reach the car ([PhoneAbilities]). */
+    val notificationsOn: StateFlow<Boolean> = _notificationsOn
 
     private val textIds = AtomicLong()
     private val textsWaiting = ConcurrentHashMap<Long, CompletableDeferred<Boolean>>()
@@ -426,26 +515,38 @@ object PhoneLink {
         // Tries in a row where no phone answered at the gateway.
         var misses = 0
         while (scope.isActive) {
+            val linkedBefore = linksOpened.get()
             handover.getAndSet(null)?.let { runSession(context, it.gateway, it.link, it.phone, isPending = true) }
             val pending = _pending.value
             // The ones marked forgotten too: three refusals can be another driver's
             // phone on three trips (its companion never saw this car), and the
             // pairing was then dropped for good while its own phone still held it.
             val candidates = listOfNotNull(pending?.let { PairedPhone(it.id, it.secret, "", 0) }) + _phones.value
-            val gateway = if (candidates.isEmpty()) null else hotspotGateway(context)
-            var answered = gateway != null && dial(context, gateway, candidates, pending?.id)
-            if (gateway == null && candidates.isNotEmpty()) note("no Wi-Fi gateway: not on a phone hotspot")
-            // No hotspot, or nobody on it: the phone may be reachable over Bluetooth.
+            var gateway: InetAddress? = null
             var bluetooth = Reach.UNAVAILABLE
-            if (!answered && candidates.isNotEmpty()) {
-                bluetooth = dialBluetooth(context, candidates, pending?.id)
-                answered = bluetooth == Reach.ANSWERED
+            var answered = false
+            // Each carrier the driver allows, in order, until a phone answers on one.
+            if (candidates.isNotEmpty()) for (way in _carrier.value.tries()) {
+                if (answered) break
+                if (way == LinkCarrier.BLUETOOTH) {
+                    bluetooth = dialBluetooth(context, candidates, pending?.id)
+                    answered = bluetooth == Reach.ANSWERED
+                } else {
+                    gateway = hotspotGateway(context)
+                    if (gateway != null) answered = dial(context, gateway, candidates, pending?.id)
+                    // After a Bluetooth try, its own line says more than this one: kept on screen.
+                    else if (bluetooth == Reach.UNAVAILABLE) note("no Wi-Fi gateway: not on a phone hotspot")
+                }
             }
             // Tries that cost nothing (no Wi-Fi gateway, Bluetooth off) stay quick; ones that reached out for nobody back off.
             val free = gateway == null && bluetooth == Reach.UNAVAILABLE
             misses = if (answered || free) 0 else misses + 1
             refreshIdleState()
-            val wait = if (_pending.value != null) RETRY_PAIRING_MS else retryDelay(misses)
+            val wait = when {
+                _pending.value != null -> RETRY_PAIRING_MS
+                linksOpened.get() != linkedBefore -> RETRY_AFTER_DROP_MS
+                else -> retryDelay(misses)
+            }
             // A network change or a new pairing code: look again at once, and quickly.
             if (withTimeoutOrNull(wait) { wake.first { it != last } } != null) misses = 0
             last = wake.value
@@ -568,7 +669,7 @@ object PhoneLink {
             guard.timeoutMs = HANDSHAKE_TIMEOUT_MS.toLong()
             guard.kick()
             val link = SecureChannel.client(
-                socket.inputStream, socket.outputStream, phone.id, phone.secret,
+                guard.hearing(socket.inputStream), inPieces(socket.outputStream), phone.id, phone.secret,
                 onClose = { guard.stop(); runCatching { socket.close() } }
             )
             // Bluetooth has no read timeout: from here the guard ends a link that went quiet.
@@ -615,7 +716,20 @@ object PhoneLink {
         context: Context, gateway: InetAddress?, link: LinkSession, phone: PairedPhone, isPending: Boolean, idle: IdleGuard? = null
     ) {
         if (!link.sendOrClose(Hello(unitName(context), BuildConfig.VERSION_NAME))) return
+        sessionOverBluetooth = gateway == null
         session = link
+        linksOpened.incrementAndGet()
+        // Each link's start and end go in the unit log, with why it ended: the drops testers see (issue #118)
+        // left nothing there, the system log's lines of this class being filtered out of the report.
+        val carried = if (gateway == null) "Bluetooth" else "Wi-Fi"
+        val stallMs = if (gateway == null) BLUETOOTH_SEND_STALL_MS else SEND_STALL_MS
+        val upAt = SystemClock.elapsedRealtime()
+        var lastHeardAt = upAt // the reader's own: written and read on this thread only
+        // Pongs answer the unit's pings: none at all means the phone never heard the car (#118, one-way Bluetooth).
+        var pongs = 0
+        var companion = "?"
+        val endedBy = AtomicReference<String?>(null)
+        DebugLog.note(context, "Phone link up over $carried")
         val pinger = scope.launch {
             while (isActive) {
                 delay(PING_EVERY_MS)
@@ -628,16 +742,17 @@ object PhoneLink {
             while (isActive) {
                 delay(1_000)
                 val (stuckIn, since) = sending ?: continue
-                if (stuckIn === link && android.os.SystemClock.elapsedRealtime() - since > SEND_STALL_MS) {
-                    Log.i(TAG, "link stalled: a send took over ${SEND_STALL_MS / 1000} s")
+                if (stuckIn === link && android.os.SystemClock.elapsedRealtime() - since > stallMs) {
+                    Log.i(TAG, "link stalled: a send took over ${stallMs / 1000} s")
+                    endedBy.compareAndSet(null, "a send to the phone stuck over ${stallMs / 1000} s")
                     link.close()
                     break
                 }
             }
         }
-        // While a pairing code is on screen, keep asking the phone whether it now knows it.
-        // (Over Bluetooth there is no second link to try the code on: a new phone waits for this one to end.)
-        val prober = if (isPending || gateway == null) null else scope.launch { probePending(gateway, link) }
+        // While a pairing code is on screen, keep asking the phone whether it now knows it. Over
+        // Bluetooth that is on the hotspot, when there is one; otherwise a new phone waits for this link to end.
+        val prober = if (isPending) null else scope.launch { probePending(context, gateway, link) }
         // Where the car stops, for the phone's "where's my car".
         val whereabouts = scope.launch { CarWhereabouts.report(context) { send(it) } }
         // The drives it logged, and the one under way, for the phone's drive journal.
@@ -646,13 +761,14 @@ object PhoneLink {
         val fuel = scope.launch { FuelLog.report { send(it) } }
         val news = scope.launch { CarNews.report { send(it) } }
         // A parking still running: the phone may have missed it, or lost its reminders to a restart.
-        ParkingClock.load(context)
-        ParkingClock.resend()
+        ParkingClock.resend(context)
         try {
             while (true) {
                 val received = link.receive()
                 idle?.kick()
+                lastHeardAt = SystemClock.elapsedRealtime()
                 val message = received ?: continue
+                if (message === Pong) pongs++ else if (message is Hello) companion = message.appVersion
                 // One message this build can't make sense of is skipped: thrown out of
                 // here, it ended the launcher (nothing above catches it).
                 try {
@@ -663,7 +779,12 @@ object PhoneLink {
             }
         } catch (e: IOException) {
             Log.i(TAG, "link ended: ${e.message}")
+            // A read timeout (Wi-Fi) or the idle guard (Bluetooth) both end the link after this long without a word.
+            val quiet = SystemClock.elapsedRealtime() - lastHeardAt >= READ_TIMEOUT_MS - 1_000
+            endedBy.compareAndSet(null, if (quiet) "nothing heard from the phone for ${READ_TIMEOUT_MS / 1000} s"
+                else "${e.javaClass.simpleName} ${e.message.orEmpty()}".trim())
         } finally {
+            DebugLog.note(context, "Phone link over $carried down after ${(SystemClock.elapsedRealtime() - upAt) / 1000} s: ${endedBy.get() ?: "closed here"} (companion $companion, $pongs pongs)")
             idle?.stop()
             pinger.cancel()
             watchdog.cancel()
@@ -676,12 +797,15 @@ object PhoneLink {
             if (session === link) session = null
             NotificationFeed.phoneClear()
             _call.value = null
-            // The tiles go back to this unit's own contacts and calendar.
             phoneDials = false
-            editLists { PhoneLists() }
+            // The phone's favourites and last calls stay on the tiles: the link drops and comes back
+            // now and then, and the Quick dial emptied each time (issue #118). The next link replaces them.
+            editLists { it.copy(agenda = null) }
             // An OBD link relayed by the phone ends with it; the unit's own Bluetooth takes over.
             PhoneObd.linkDown()
             _textsOn.value = false
+            // Kept: the phone says again as the next link comes up. Reset, the tile asked for the phone's
+            // Notification access for the moment between the link coming back and the phone saying so (#123).
             HeadUnitMedia.phoneGone()
             _battery.value = null
             PhoneGps.linkDown()
@@ -692,10 +816,16 @@ object PhoneLink {
      * Once the phone accepts the pending pairing, its link takes over from
      * [current] (the phone keeps one link at a time anyway).
      */
-    private suspend fun probePending(gateway: InetAddress, current: LinkSession) {
+    private suspend fun probePending(context: Context, knownGateway: InetAddress?, current: LinkSession) {
         while (true) {
             val offer = _pending.filterNotNull().first()
             val phone = PairedPhone(offer.id, offer.secret, "", 0)
+            // A link over Bluetooth has no second link to try the code on: the new phone may be on the hotspot.
+            val gateway = knownGateway ?: hotspotGateway(context)?.takeIf { LinkCarrier.WIFI in _carrier.value.tries() }
+            if (gateway == null) {
+                delay(RETRY_PAIRING_MS)
+                continue
+            }
             val link = try {
                 connect(gateway, phone)
             } catch (e: IOException) {
@@ -742,7 +872,11 @@ object PhoneLink {
             is NotificationPosted -> NotificationFeed.phonePosted(message.notification)
             is NotificationRemoved -> NotificationFeed.phoneRemoved(message.key)
             is ActionResult -> _results.tryEmit(message)
-            is CallState -> _call.value = toPhoneCall(context, message)
+            is CallState -> {
+                // The call the car asked for, under way on the phone: it heard.
+                if (message.phase != CallState.Phase.IDLE) dialAsked?.complete(Unit)
+                _call.value = toPhoneCall(context, message)
+            }
             is TypeText -> PhoneKeyboard.type(context, message) { send(it) }
             EnableTyping -> PhoneKeyboard.enable(context) { send(it) }
             // The phone's touchpad: the pointer on the car's screen, and its taps.
@@ -757,9 +891,12 @@ object PhoneLink {
                 editLists { it.copy(agenda = events) }
             }
             // Not allowed on the phone: the unit's own dialer, with the number in, as before the link; and why.
-            is DialResult -> if (!message.placed) main.post {
-                context.launchSafely(Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", message.number, null)))
-                HandsFree.say(context, R.string.phone_dial_not_allowed)
+            is DialResult -> {
+                dialAsked?.complete(Unit)
+                if (!message.placed) main.post {
+                    context.launchSafely(Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", message.number, null)))
+                    HandsFree.say(context, R.string.phone_dial_not_allowed)
+                }
             }
             // Toasts and the voice want the main thread.
             is Destination -> main.post { NavHandoff.fromPhone(context, message) }
@@ -768,7 +905,10 @@ object PhoneLink {
             is ObdRelayState -> PhoneObd.onState(message)
             is ObdRx -> PhoneObd.onRx(message)
             is FuelPrice -> main.post { FuelLog.setPrice(context, message.at, message.pricePerL) }
-            is PhoneAbilities -> _textsOn.value = message.sendsTexts
+            is PhoneAbilities -> {
+                _textsOn.value = message.sendsTexts
+                _notificationsOn.value = message.notifications
+            }
             is TextSent -> textsWaiting[message.id]?.complete(message.sent)
             is CarLogAck -> logsWaiting[message.id]?.complete(message.ok)
             is CarLookPart -> MyCarLook.receive(context, message) { send(it) }

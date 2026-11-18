@@ -32,19 +32,20 @@ import com.openauto.unitproto.UnitFamily
 import com.openauto.unitproto.fyt.FytProtocol
 import com.openauto.unitproto.hcn.HcnProtocol
 import com.openauto.unitproto.mtc.MtcProtocol
+import com.openauto.unitproto.nwd.NwdProtocol
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 /*
  * The families Dashwheel knows only a little about, each a [GenericAdapter]
- * with its few hooks: Topway and Allwinner (detection and the vendor
+ * with its few hooks: Topway (the vendor broadcasts, its MCU link: [TopwayBus]), Allwinner (detection and the vendor
  * broadcasts), Reglink (how to live through its sleep), NWD (its launcher
- * choice). And the plain unit nothing was recognised on, which still gets
+ * choice, its voltage and headlights: [NwdBus]). And the plain unit nothing was recognised on, which still gets
  * the broadcasts: they cost nothing and some generic unit may send them.
  */
 internal object PlainAdapters {
     /** The Topway TS firmware's own apps (TS10, TS18, TS7/TS8). */
-    val TOPWAY_PACKAGES = setOf("com.tw.car", "com.tw.carchoose", "com.tw.carapps", "com.tw.ac2", "com.tv.carinfoservice", "com.zjinnova.zlink")
+    val TOPWAY_PACKAGES = setOf("com.tw.car", "com.tw.carchoose", "com.tw.carapps", "com.tw.ac2", "com.tv.carinfoservice", "com.tw.carinfoservice", "com.zjinnova.zlink")
     /** Reglink's own: its services and launcher, and the 360 camera app its units ship. */
     val REGLINK_PACKAGES = setOf("com.reglink.services", "com.reglink.launcher4", "com.baony.avm360")
 
@@ -56,7 +57,7 @@ internal object PlainAdapters {
     /** Every family's broadcasts: what the Signal Finder's sniffer hears whatever the unit was taken for. */
     val ALL_BROADCASTS: Set<String>
         get() = AccBroadcasts.ALL + KeyBroadcasts.ACTIONS + MtcProtocol.BROADCASTS +
-            setOf(FytProtocol.ACTION_ACC_ON, FytProtocol.ACTION_ACC_OFF, FytProtocol.ACTION_EXTERNAL_COMMAND) + QfAdapter.BROADCASTS + HcnProtocol.BROADCASTS
+            setOf(FytProtocol.ACTION_ACC_ON, FytProtocol.ACTION_ACC_OFF, FytProtocol.ACTION_EXTERNAL_COMMAND) + QfAdapter.BROADCASTS + HcnProtocol.BROADCASTS + NwdProtocol.BROADCASTS
 
     private val plainCatalogue = SignalCatalogue(broadcasts = AccBroadcasts.ALL + KeyBroadcasts.ACTIONS)
 
@@ -71,9 +72,16 @@ internal object PlainAdapters {
             )
             UnitFamily.NWD -> GenericAdapter(
                 family, emulator, AccBroadcastIgnition, KeyBroadcastSource, launcher = NwdLauncher,
-                catalogue = plainCatalogue.copy(propPrefixes = setOf("persist.nwd.", "ro.nwd."))
+                bus = NwdBus, busCaps = setOf(Cap.VOLTS, Cap.HEADLIGHTS, Cap.OUTSIDE_TEMP),
+                // The MCU's input bits (headlights) and the CAN SDK's own table (CanSettingTableKey) live in Settings.System.
+                catalogue = plainCatalogue.copy(broadcasts = plainCatalogue.broadcasts + NwdProtocol.BROADCASTS, propPrefixes = setOf("persist.nwd.", "ro.nwd."), settingsSystem = true)
             )
-            UnitFamily.TOPWAY -> GenericAdapter(family, emulator, AccBroadcastIgnition, KeyBroadcastSource, catalogue = plainCatalogue, vendorPackages = TOPWAY_PACKAGES)
+            UnitFamily.TOPWAY -> GenericAdapter(
+                family, emulator, AccBroadcastIgnition, KeyBroadcastSource,
+                // The MCU's reverse and the canbox's frames through the framework's TWUtil ([TopwayBus]).
+                bus = TopwayBus, busCaps = setOf(Cap.REVERSE),
+                catalogue = plainCatalogue, vendorPackages = TOPWAY_PACKAGES
+            )
             else -> GenericAdapter(family, emulator, AccBroadcastIgnition, KeyBroadcastSource, catalogue = plainCatalogue)
         }
     }
@@ -99,23 +107,28 @@ internal object KeyBroadcastSource : KeySource {
     private val _listening = MutableStateFlow(false)
     override val listening: StateFlow<Boolean> = _listening
     private var onKey: ((UnitKeyPress) -> Unit)? = null
+    private var app: Context? = null
 
     override fun start(context: Context, onKey: (UnitKeyPress) -> Unit) {
         if (this.onKey != null) return
         this.onKey = onKey
         val filter = IntentFilter().apply { KeyBroadcasts.ACTIONS.forEach(::addAction) }
-        ContextCompat.registerReceiver(context.applicationContext, receiver, filter, ContextCompat.RECEIVER_EXPORTED)
+        app = context.applicationContext.also { ContextCompat.registerReceiver(it, receiver, filter, ContextCompat.RECEIVER_EXPORTED) }
         _listening.value = true
     }
 
     override fun stop() {
         onKey = null
+        // Left registered, the next start would register a second one and hear each key twice.
+        app?.let { runCatching { it.unregisterReceiver(receiver) } }
+        app = null
         _listening.value = false
     }
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            val extras = intent.extras?.let { b -> b.keySet().associateWith { @Suppress("DEPRECATION") b.get(it) } }.orEmpty()
+            // Guarded: a vendor's own Parcelable in the extras throws on unparcelling.
+            val extras = runCatching { intent.extras?.let { b -> b.keySet().associateWith { @Suppress("DEPRECATION") b.get(it) } } }.getOrNull().orEmpty()
             val key = KeyBroadcasts.decode(intent.action, extras) ?: return
             if (key.down) UnitPlatform.markUsed(Cap.UNIT_KEYS)
             Log.d(TAG, "${key.vendor} key ${key.code} ${if (key.down) "down" else "up"}")

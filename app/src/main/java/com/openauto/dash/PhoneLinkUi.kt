@@ -70,6 +70,7 @@ import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
 import com.openauto.dash.link.ActionResult
 import com.openauto.dash.link.ConversationLine
+import com.openauto.dash.link.PairingOffer
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.DateFormat
@@ -254,13 +255,14 @@ internal fun PhonePane() {
     val context = LocalContext.current
     val state by PhoneLink.state.collectAsState()
     val phones by PhoneLink.phones.collectAsState()
+    val carrier by PhoneLink.carrier.collectAsState()
     var pairing by remember { mutableStateOf(false) }
     var forgetting by remember { mutableStateOf<PairedPhone?>(null) }
 
     SettingsSection(stringResource(R.string.settings_section_phone))
     val (title, detail) = when (val s = state) {
         is PhoneLinkState.Connected -> stringResource(R.string.phone_status_connected, s.phoneName) to stringResource(R.string.phone_status_connected_detail)
-        PhoneLinkState.Searching -> stringResource(R.string.phone_status_searching) to stringResource(R.string.phone_status_searching_detail)
+        PhoneLinkState.Searching -> stringResource(R.string.phone_status_searching) to stringResource(searchingDetail(carrier))
         PhoneLinkState.Unpaired -> stringResource(R.string.phone_status_unpaired) to stringResource(R.string.phone_status_unpaired_detail)
     }
     // A status, not a setting: on a panel of its own, so it is not taken for a row to tap.
@@ -311,6 +313,22 @@ internal fun PhonePane() {
 
     SettingsRow(Icons.Filled.AddLink, stringResource(R.string.phone_pair), stringResource(R.string.phone_pair_detail)) { pairing = true }
 
+    // Bluetooth, the hotspot, or Bluetooth first and the hotspot after ([LinkCarrier]).
+    Text(
+        stringResource(R.string.phone_carrier) + " · " + stringResource(carrierDetail(carrier)),
+        color = DashColors.TextSecondary, style = MaterialTheme.typography.bodyMedium,
+        modifier = Modifier.padding(start = 12.dp, top = 8.dp)
+    )
+    ChoiceRow(
+        options = listOf(
+            LinkCarrier.AUTO to stringResource(R.string.phone_carrier_auto),
+            LinkCarrier.BLUETOOTH to stringResource(R.string.phone_carrier_bluetooth),
+            LinkCarrier.WIFI to stringResource(R.string.phone_carrier_wifi)
+        ),
+        selected = { it == carrier },
+        onPick = { PhoneLink.setCarrier(context, it) }
+    )
+
     // The phone's GPS in place of this unit's ([PhoneGps]).
     if (phones.isNotEmpty()) {
         val useGps by PhoneGps.enabled.collectAsState()
@@ -324,6 +342,12 @@ internal fun PhonePane() {
             else -> stringResource(R.string.phone_gps_detail)
         }
         SettingsToggle(Icons.Filled.MyLocation, stringResource(R.string.phone_gps), gpsDetail, useGps) { PhoneGps.setEnabled(context, it) }
+        // The unit's own notifications next to the phone's, or the phone's only (#123).
+        var unitNotifs by remember { mutableStateOf(NotificationFeed.showsUnit(context)) }
+        SettingsToggle(Icons.Filled.Notifications, stringResource(R.string.phone_unit_notifs), stringResource(R.string.phone_unit_notifs_detail), unitNotifs) {
+            unitNotifs = it
+            NotificationFeed.setShowsUnit(context, it)
+        }
     }
 
     // Calls show in their own window over other apps; without that, only over the launcher.
@@ -358,6 +382,25 @@ internal fun PhonePane() {
     }
 }
 
+/** How to let the head unit reach the phone, for the way it looks for it. */
+private fun searchingDetail(carrier: LinkCarrier) = when (carrier) {
+    LinkCarrier.AUTO -> R.string.phone_status_searching_detail
+    LinkCarrier.BLUETOOTH -> R.string.phone_status_searching_bluetooth_detail
+    LinkCarrier.WIFI -> R.string.phone_status_searching_wifi_detail
+}
+
+private fun pairStep2(carrier: LinkCarrier) = when (carrier) {
+    LinkCarrier.AUTO -> R.string.phone_pair_step2
+    LinkCarrier.BLUETOOTH -> R.string.phone_pair_step2_bluetooth
+    LinkCarrier.WIFI -> R.string.phone_pair_step2_wifi
+}
+
+private fun carrierDetail(carrier: LinkCarrier) = when (carrier) {
+    LinkCarrier.AUTO -> R.string.phone_carrier_auto_detail
+    LinkCarrier.BLUETOOTH -> R.string.phone_carrier_bluetooth_detail
+    LinkCarrier.WIFI -> R.string.phone_carrier_wifi_detail
+}
+
 /** The companion's Play edition package (companion/build.gradle.kts): its Google Play listing. */
 private const val COMPANION_PACKAGE = "com.dashwheel.companion"
 
@@ -368,12 +411,18 @@ private const val COMPANION_PACKAGE = "com.dashwheel.companion"
 @Composable
 internal fun PhonePairingDialog(onDismiss: () -> Unit) {
     val context = LocalContext.current
-    val offer = remember { PhoneLink.beginPairing(context) }
-    val phones by PhoneLink.phones.collectAsState()
-    val paired = phones.firstOrNull { it.id == offer.id }
-    DisposableEffect(offer) {
-        onDispose { if (PhoneLink.pending.value?.id == offer.id) PhoneLink.cancelPairing() }
+    // Begun once the dialog is on screen, not while it is composed: a composition thrown away
+    // before it applied would leave a code pending that nothing cancels.
+    var offer by remember { mutableStateOf<PairingOffer?>(null) }
+    DisposableEffect(Unit) {
+        val begun = PhoneLink.beginPairing(context)
+        offer = begun
+        onDispose { if (PhoneLink.pending.value?.id == begun.id) PhoneLink.cancelPairing() }
     }
+    val phones by PhoneLink.phones.collectAsState()
+    val carrier by PhoneLink.carrier.collectAsState()
+    val current = offer ?: return
+    val paired = phones.firstOrNull { it.id == current.id }
     // Where the phone gets the companion app: the GitHub release's APK, or
     // the Play edition's companion on Google Play (same package name, see
     // companion/build.gradle.kts).
@@ -405,9 +454,9 @@ internal fun PhonePairingDialog(onDismiss: () -> Unit) {
                         QrCaption(stringResource(R.string.phone_pair_qr_download), primary = false)
                     }
                     Column(Modifier.weight(1.2f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text(stringResource(R.string.phone_pair_step2), color = DashColors.TextSecondary, style = MaterialTheme.typography.bodyMedium)
+                        Text(stringResource(pairStep2(carrier)), color = DashColors.TextSecondary, style = MaterialTheme.typography.bodyMedium)
                         Text(stringResource(R.string.phone_pair_step3), color = DashColors.TextSecondary, style = MaterialTheme.typography.bodyMedium)
-                        QrCode(offer.toUri(), Modifier.fillMaxWidth())
+                        QrCode(current.toUri(), Modifier.fillMaxWidth())
                         QrCaption(stringResource(R.string.phone_pair_qr_pair), primary = true)
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             CircularProgressIndicator(color = DashColors.Accent, modifier = Modifier.size(18.dp))

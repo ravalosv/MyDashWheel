@@ -17,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.runtime.DisposableEffect
@@ -189,14 +190,22 @@ internal fun GradientRoundButton(
 }
 
 /**
+ * True inside a tile the driver set to show without its background
+ * ([TileFrame.bare]): its card, its design's material and the skin's panel
+ * are left out, so its content sits straight on what lies behind it.
+ */
+internal val LocalTileBare = staticCompositionLocalOf { false }
+
+/**
  * Rounded elevated card. Solid themes use a flat surface matching the Android
  * Auto content cards; glass themes use a translucent gradient panel that lets
- * the aurora background show through; bare themes draw no panel at all.
+ * the aurora background show through; bare themes, and a tile without its
+ * background ([LocalTileBare]), draw no panel at all.
  */
 @Composable
 internal fun Card(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     val shape = DashShape.Large
-    if (DashColors.Bare) {
+    if (DashColors.Bare || LocalTileBare.current) {
         // Unclipped: with no panel edge to hide it, a clip would cut glows off in a hard line.
         Box(modifier = modifier) { content() }
     } else if (DashColors.Glass) {
@@ -354,6 +363,18 @@ internal val isEmulator: Boolean by lazy {
         product.contains("sdk") || product.startsWith("emu") ||
         hw.contains("goldfish") || hw.contains("ranchu") || hw.contains("cutf")
 }
+
+/** OpenGL ES 3.0 or later, from `ro.opengles.version` (major in the high 16 bits); a unit that does not say is taken to have it. */
+internal fun gles3(version: String?): Boolean = (version?.trim()?.toIntOrNull() ?: 0x30000) >= 0x30000
+
+/**
+ * Whether the map and the 3D car can be drawn: MapLibre and Filament need
+ * OpenGL ES 3.0 and abort natively without it, which nothing can catch.
+ * Never in safe mode ([SafeMode]): one of them may be what took the last starts down.
+ */
+internal val gpuOk: Boolean get() = !SafeMode.on && gpuCapable
+
+private val gpuCapable: Boolean by lazy { !isEmulator && gles3(SysProps.getOrNull("ro.opengles.version")) }
 
 /**
  * Grab bar between the Maps dock and the dashboard pages. Drags report pixel

@@ -124,11 +124,7 @@ internal fun ObdDtcCard(
         (diagnosis?.codes?.firstOrNull { it.code == c }?.meaning?.ifBlank { null } ?: ObdCodes.describe(c).localizedTitle()) + " · " + c
     }
     val mapProblems = remember(carMessages, messageTexts, codes, diagnosis, codeNames) {
-        carMessages.mapIndexedNotNull { i, m ->
-            CarProblemMap.spotOf(m.code)?.let { spot -> MapProblem(spot, m.serious, messageTexts[i], number = i + 1) }
-        } + codes.orEmpty().mapIndexedNotNull { i, code ->
-            CarProblemMap.spotOfCode(code)?.let { spot -> MapProblem(spot, codeSerious, codeNames[i], number = carMessages.size + i + 1) }
-        }
+        numberedMapProblems(carMessages, messageTexts, codes.orEmpty(), codeNames, codeSerious)
     }
     val lamp by ObdBluetoothManager.lamp.collectAsState()
     val verdict = carVerdict(carMessages.map { it.level }, codes, diagnosis?.severity, lamp?.on == true)
@@ -505,12 +501,31 @@ internal fun carVerdict(levels: List<PsaWarnings.Level?>, codes: List<String>?, 
 }
 
 @Composable
-private fun CarVerdict.colour(): Color = when (this) {
+internal fun CarVerdict.colour(): Color = when (this) {
     CarVerdict.STOP -> DashColors.Critical
     CarVerdict.DRIVE -> DashColors.Warning
     CarVerdict.FINE -> DashColors.Good
     CarVerdict.UNREAD -> DashColors.TextSecondary
 }
+
+/**
+ * The problems that have a place on the car, numbered as the Car problems
+ * list numbers them: the car's own messages first, then the engine's codes.
+ * Shared by the tile and the 3D car widget (Car3DStatusTile.kt) so a number
+ * means the same problem on both.
+ */
+internal fun numberedMapProblems(
+    carMessages: List<CarMessage>,
+    messageTexts: List<String>,
+    codes: List<String>,
+    codeNames: List<String>,
+    codeSerious: Int
+): List<MapProblem> =
+    carMessages.mapIndexedNotNull { i, m ->
+        CarProblemMap.spotOf(m.code)?.let { spot -> MapProblem(spot, m.serious, messageTexts[i], number = i + 1) }
+    } + codes.mapIndexedNotNull { i, code ->
+        CarProblemMap.spotOfCode(code)?.let { spot -> MapProblem(spot, codeSerious, codeNames[i], number = carMessages.size + i + 1) }
+    }
 
 /** How serious one of the car's messages is, as the map and the list count it (2 stop, 1 garage, 0 good to know). */
 internal val CarMessage.serious: Int
@@ -727,9 +742,11 @@ private fun FaultDetailSheet(
 ) {
     val context = LocalContext.current
     val ask by AskMechanic.state.collectAsState()
-    val askQuestion = rememberAskQuestion { AskMechanic.listen(context, code, codes, diagnosis) }
+    // Only a question asked from this sheet: one asked from the tile's header goes on when the sheet closes.
+    var askedHere by remember { mutableStateOf(false) }
+    val askQuestion = rememberAskQuestion { askedHere = true; AskMechanic.listen(context, code, codes, diagnosis) }
     // Leaving the sheet stops listening, and the answer shown goes with it.
-    DisposableEffect(Unit) { onDispose { AskMechanic.cancel() } }
+    DisposableEffect(Unit) { onDispose { if (askedHere) AskMechanic.cancel() } }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Surface(
             shape = DashShape.Large,
@@ -1013,3 +1030,27 @@ private fun CheckFirstBox(text: String, aiText: Resources) {
     }
 }
 
+/**
+ * The bar's OBD mark while the link is up (issue #121): the Car problems tile
+ * and the Car data tile side by side, as big as the screen allows.
+ */
+@Composable
+internal fun ObdDialog(connection: ObdConnectionState, onConnect: () -> Unit, onPickDevice: () -> Unit, onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        Surface(
+            shape = DashShape.Large,
+            color = DashColors.Card.copy(alpha = 1f),
+            // Docked app windows are drawn above dialogs on this unit; the ones under it step aside.
+            modifier = Modifier.widthIn(max = 960.dp).fillMaxWidth(0.94f).fillMaxHeight(0.94f).keepClearOfWindows()
+        ) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                Row(modifier = Modifier.weight(1f)) {
+                    ObdDtcCard(connection, onConnect, Modifier.weight(1f).fillMaxHeight(), onPickDevice)
+                    Spacer(Modifier.width(12.dp))
+                    ObdAllCard(connection, onConnect, Modifier.weight(1f).fillMaxHeight(), onPickDevice)
+                }
+                TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) { Text(stringResource(R.string.dash_close), color = DashColors.AccentInk) }
+            }
+        }
+    }
+}

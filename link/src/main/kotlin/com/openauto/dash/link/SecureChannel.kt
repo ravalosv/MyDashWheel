@@ -67,10 +67,15 @@ class LinkSession internal constructor(
 
     /**
      * Sends [message]. False, with nothing sent, when it is too big for one
-     * frame: the other side would refuse the frame and drop the whole link.
+     * frame (the other side would refuse the frame and drop the whole link),
+     * or when JSON can't hold it (a NaN): thrown, it ended the caller's writer.
      */
     fun send(message: LinkMessage): Boolean {
-        val plain = LinkCodec.encode(message)
+        val plain = try {
+            LinkCodec.encode(message)
+        } catch (_: IllegalArgumentException) { // kotlinx SerializationException is one
+            return false
+        }
         if (plain.size > MAX_MESSAGE) return false
         seal(plain)
         return true
@@ -308,4 +313,22 @@ internal fun readFrame(input: DataInputStream, max: Int): ByteArray {
     val size = input.readInt()
     if (size < 0 || size > max) throw IOException("frame of $size bytes refused")
     return ByteArray(size).also(input::readFully)
+}
+
+/**
+ * [output] written [size] bytes at a time. One write of a whole message (tens of kB)
+ * to a head unit's RFCOMM socket left the phone hearing nothing after the handshake,
+ * whose frames are small, while Wi-Fi carried the same bytes (#118). Pieces under
+ * the usual RFCOMM packet size go the way the handshake did.
+ * shortcut: a fix by reading, not seen on the unit; drop it if the unit log shows pongs before the drop.
+ */
+fun inPieces(output: OutputStream, size: Int = 512): OutputStream = object : java.io.FilterOutputStream(output) {
+    override fun write(b: ByteArray, off: Int, len: Int) {
+        var at = off
+        while (at < off + len) {
+            val n = minOf(size, off + len - at)
+            out.write(b, at, n)
+            at += n
+        }
+    }
 }

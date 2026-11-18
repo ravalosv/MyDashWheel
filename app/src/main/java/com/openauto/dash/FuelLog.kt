@@ -1,5 +1,6 @@
 package com.openauto.dash
 
+import android.os.SystemClock
 import com.openauto.dash.vehicle.fuelInfoNow
 import com.openauto.dash.vehicle.Vehicle
 import com.openauto.dash.vehicle.K
@@ -42,15 +43,20 @@ internal object FuelLogRules {
 
     /**
      * [baseline]: the last settled level; [candidate]: the level being read
-     * now, since [since], [reads] times.
+     * now, since [since], [reads] times; [source]: where the level comes from.
      */
-    data class Gauge(val baseline: Int? = null, val candidate: Int? = null, val since: Long = 0, val reads: Int = 0)
+    data class Gauge(val baseline: Int? = null, val candidate: Int? = null, val since: Long = 0, val reads: Int = 0, val source: String? = null)
 
     /** A refuel: the level went from [from] to [to] percent. */
     data class Rise(val from: Int, val to: Int)
 
-    /** One reading of the level ([percent]) at [now]: the gauge after it, and a refuel when this settled level is one. */
-    fun step(g: Gauge, percent: Int, now: Long): Pair<Gauge, Rise?> {
+    /**
+     * One reading of the level ([percent]) at [now]: the gauge after it, and a refuel when this settled level is one.
+     * A level from another [source] (the adapter's after one worked back from the range) starts the gauge again:
+     * the two don't agree, and the jump between them was logged as a refuel.
+     */
+    fun step(g0: Gauge, percent: Int, now: Long, source: String? = null): Pair<Gauge, Rise?> {
+        val g = if (g0.source != null && source != null && source != g0.source) Gauge(source = source) else g0.copy(source = source ?: g0.source)
         val same = g.candidate != null && abs(percent - g.candidate) <= SAME_PCT
         val next = if (same) g.copy(reads = g.reads + 1) else g.copy(candidate = percent, since = now, reads = 1)
         val settled = next.candidate ?: return next to null
@@ -97,7 +103,7 @@ internal object FuelLog {
         val p = prefs(app)
         _fills.value = p.getString("fills", null)?.let { FuelFills.decode(it) }.orEmpty()
         // The level before the unit slept: the refuel happens with the engine off.
-        gauge = FuelLogRules.Gauge(baseline = p.getInt("baseline", -1).takeIf { it >= 0 })
+        gauge = FuelLogRules.Gauge(baseline = p.getInt("baseline", -1).takeIf { it >= 0 }, source = p.getString("baseline_source", null))
         scope.launch { follow() }
     }
 
@@ -132,10 +138,13 @@ internal object FuelLog {
                 delay(TICK_MS)
                 if (DemoMode.isOn) continue
                 val info = fuelInfoNow() ?: continue
-                val before = gauge.baseline
-                val (next, rise) = FuelLogRules.step(gauge, info.percent, System.currentTimeMillis())
+                val before = gauge
+                // The settle time is a difference between reads: a clock GPS sets mid-drive would cut it or stretch it.
+                val (next, rise) = FuelLogRules.step(gauge, info.percent, SystemClock.elapsedRealtime(), if (info.percentEstimated) "range" else info.source)
                 gauge = next
-                if (next.baseline != before) appContext?.let { prefs(it).edit().putInt("baseline", next.baseline ?: -1).apply() }
+                if (next.baseline != before.baseline || next.source != before.source) {
+                    appContext?.let { prefs(it).edit().putInt("baseline", next.baseline ?: -1).putString("baseline_source", next.source).apply() }
+                }
                 if (rise != null) logRise(rise, info)
             }
         } finally {
@@ -153,7 +162,7 @@ internal object FuelLog {
         // Away from a station the feed knows, prices change too often for a fixed
         // figure: the last price paid stands in until the driver gives this one.
         val fill = FuelFill(
-            at = System.currentTimeMillis(),
+            at = UnitClock.now(app),
             liters = liters,
             pricePerL = station?.second ?: price(car),
             currency = if (station != null) FuelPrices.CURRENCY else car.currency,
@@ -171,7 +180,7 @@ internal object FuelLog {
         record(
             context.applicationContext,
             FuelFill(
-                at = System.currentTimeMillis(),
+                at = UnitClock.now(context),
                 liters = liters,
                 pricePerL = pricePerL,
                 currency = car.currency,

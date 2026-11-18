@@ -147,7 +147,6 @@ import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import com.openauto.dash.link.DisplayPair
 import com.openauto.dash.link.PairingOffer
-import com.openauto.dash.link.PhoneAbilities
 import com.openauto.dash.link.TypeText
 import java.text.DateFormat
 import java.util.Date
@@ -292,6 +291,12 @@ private fun CompanionScreen(resumes: Int, offer: PairingOffer?, onScanned: (Stri
     // What "Type on the car" holds, kept here so a rotation, another tab or the link dropping
     // doesn't empty it while the car's field still shows the text.
     var typed by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue("")) }
+    // Paired, the screen splits in tabs; before that there is only the pairing. Settings and
+    // a tool open over the tabs. Remembered before the full screens below return early, or
+    // they would be forgotten while one is open: Car from photos closed from Tools landed on Home.
+    var tab by rememberSaveable { mutableStateOf(Tab.HOME) }
+    var settings by rememberSaveable { mutableStateOf(false) }
+    var tool by rememberSaveable { mutableStateOf<Tool?>(null) }
     // The car from three photos takes the whole screen while open.
     var fromPhotos by rememberSaveable { mutableStateOf(false) }
     if (fromPhotos) {
@@ -314,12 +319,8 @@ private fun CompanionScreen(resumes: Int, offer: PairingOffer?, onScanned: (Stri
         return
     }
 
-    // Paired, the screen splits in tabs; before that there is only the pairing.
-    var tab by rememberSaveable { mutableStateOf(Tab.HOME) }
     val shown = if (paired) tab else Tab.HOME
-    // Settings and a tool open over the tabs; Back closes them.
-    var settings by rememberSaveable { mutableStateOf(false) }
-    var tool by rememberSaveable { mutableStateOf<Tool?>(null) }
+    // Back closes the settings or the tool.
     // MINE: #41 Open a full-screen detail without nesting the map in the tab's scrolling column.
     var driveDetail by remember { mutableStateOf<DriveSummary?>(null) }
     val opened = tool?.takeIf { paired }
@@ -1069,12 +1070,14 @@ private fun CarSpotCard() {
     val context = LocalContext.current
     val spot by CarSpot.spot.collectAsState()
     val s = spot
+    // "Left 50 min ago" moves on by itself; read once, it stayed at the minute the card was composed.
+    val now = rememberWallClock(DateUtils.MINUTE_IN_MILLIS).longValue
     Panel {
         Column(Modifier.padding(18.dp)) {
             val line = when {
                 s == null -> stringResource(R.string.car_spot_none)
-                s.saved -> stringResource(R.string.car_spot_saved, agoText(s.at))
-                else -> stringResource(R.string.car_spot_left, agoText(s.at))
+                s.saved -> stringResource(R.string.car_spot_saved, agoText(s.at, now))
+                else -> stringResource(R.string.car_spot_left, agoText(s.at, now))
             }
             CardHeading(Icons.Filled.LocalParking, stringResource(R.string.car_spot_title), line)
             if (s != null) {
@@ -1279,9 +1282,9 @@ private fun HintCard(text: String) {
     }
 }
 
-/** "50 minutes ago", "Yesterday"... in the phone's language. */
-private fun agoText(at: Long): String =
-    DateUtils.getRelativeTimeSpanString(at, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString()
+/** "50 minutes ago", "Yesterday"... in the phone's language, as of [now]. */
+private fun agoText(at: Long, now: Long): String =
+    DateUtils.getRelativeTimeSpanString(at, now, DateUtils.MINUTE_IN_MILLIS).toString()
 
 /** Walking directions in Google Maps (the app when installed, else the browser). */
 private fun walkingDirections(s: CarSpotInfo): Uri =
@@ -1305,15 +1308,18 @@ private class SetupChecks(
     /** The phone's GPS for the car: location allowed all the time ([PhoneGpsShare]). */
     val location: Boolean,
     val battery: Boolean,
+    /** "Nearby devices", without which the car can't reach this phone over Bluetooth; null below Android 12. */
+    val bluetooth: Boolean?,
     /** "On my way" texts: optional, so not counted as left to do. */
     val texts: Boolean,
     val askPost: () -> Unit,
     val askCalls: () -> Unit,
     val askAgenda: () -> Unit,
     val askLocation: () -> Unit,
-    val askTexts: () -> Unit
+    val askTexts: () -> Unit,
+    val askBluetooth: () -> Unit
 ) {
-    private val checks: List<Boolean> get() = listOfNotNull(listener, post, calls, agenda, location, battery)
+    private val checks: List<Boolean> get() = listOfNotNull(bluetooth, listener, post, calls, agenda, location, battery)
 
     /** The steps that can be checked from here and are not done (the hotspot can't be). */
     val missing: Int get() = checks.count { !it }
@@ -1342,8 +1348,11 @@ private fun rememberSetupChecks(resumes: Int): SetupChecks {
     val askTexts = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         textsGranted = TextSender.canSend(context)
         // The car learns it can now ask for "On my way" texts.
-        LinkServer.send(PhoneAbilities(sendsTexts = textsGranted))
+        LinkServer.send(LinkServer.abilities(context))
     }
+    var bluetoothGranted by remember(resumes) { mutableStateOf(CarBluetooth.hasPermission(context)) }
+    // Once given, the link starts listening over Bluetooth on its own (it looks again every 15 s).
+    val askBluetooth = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { bluetoothGranted = it }
     var agendaGranted by remember(resumes) { mutableStateOf(granted(context, Manifest.permission.READ_CALENDAR)) }
     val askAgenda = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         agendaGranted = it
@@ -1367,7 +1376,9 @@ private fun rememberSetupChecks(resumes: Int): SetupChecks {
         agenda = agendaGranted,
         location = locationGranted,
         battery = battery,
+        bluetooth = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) bluetoothGranted else null,
         texts = textsGranted,
+        askBluetooth = { ask(context, arrayOf(Manifest.permission.BLUETOOTH_CONNECT)) { askBluetooth.launch(it.single()) } },
         askTexts = { ask(context, arrayOf(Manifest.permission.SEND_SMS)) { askTexts.launch(it.single()) } },
         askPost = { ask(context, arrayOf(Manifest.permission.POST_NOTIFICATIONS)) { askPost.launch(it.single()) } },
         askCalls = { ask(context, CALL_PERMISSIONS) { askCalls.launch(it) } },
@@ -1434,6 +1445,8 @@ private fun SetupPanel(setup: SetupChecks) {
                 drawStopIndicator = {}
             )
             val steps = buildList {
+                // The car reaches the phone over Bluetooth first; the hotspot is only the other way.
+                setup.bluetooth?.let { add(StepInfo(Icons.Filled.Bluetooth, R.string.step_bluetooth, R.string.step_bluetooth_detail, it, onFix = setup.askBluetooth)) }
                 add(StepInfo(Icons.Filled.Notifications, R.string.step_notifications, R.string.step_notifications_detail, setup.listener) {
                     open(context, Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                 })
@@ -1444,7 +1457,7 @@ private fun SetupPanel(setup: SetupChecks) {
                 add(StepInfo(Icons.Filled.BatteryFull, R.string.step_battery, R.string.step_battery_detail, setup.battery) {
                     open(context, Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${context.packageName}")))
                 })
-                add(StepInfo(Icons.Filled.Wifi, R.string.step_hotspot, R.string.step_hotspot_detail, null) {
+                add(StepInfo(Icons.Filled.Wifi, R.string.step_hotspot, R.string.step_hotspot_detail, null, optional = true) {
                     if (!open(context, Intent("android.settings.TETHER_SETTINGS"))) open(context, Intent(Settings.ACTION_WIRELESS_SETTINGS))
                 })
                 if (TextSender.hasMessaging(context)) {

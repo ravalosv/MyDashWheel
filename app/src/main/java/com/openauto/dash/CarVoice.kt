@@ -38,6 +38,8 @@ object CarVoice {
     private var ready = false
     // When the engine last failed to start (uptime), so the next try waits.
     private var failedAt = 0L
+    /** The engine was rebuilt after refusing a sentence, and has not said one since ([utter]). */
+    private var rebuilt = false
     private val queued = mutableListOf<Pair<String, Locale>>()
     private var focus: AudioFocusRequest? = null
     private var nextId = 0
@@ -73,8 +75,9 @@ object CarVoice {
     fun holdForCall(on: Boolean) = setHold { onCall = on }
 
     /**
-     * And while the driver talks with Dashwheel's own Gemini ([GeminiLive]):
-     * the car's voice would speak over it, and into its open microphone.
+     * And while the driver talks with Gemini ([GeminiLive]): the car's voice
+     * would speak over it, and into its open microphone. Turns too; only what
+     * can't wait is still said.
      */
     fun holdForLive(on: Boolean) = setHold { inLive = on }
 
@@ -155,7 +158,7 @@ object CarVoice {
     /**
      * A turn instruction, which is only true for a few seconds: said ahead of
      * what is being said or waiting (those waiting are said after it), and
-     * dropped rather than said late when a call or a reverse held it back.
+     * dropped rather than said late when a call, a conversation or a reverse held it back.
      */
     fun guide(text: String, locale: Locale) = ask(text, locale, urgent = false, guidance = true)
 
@@ -168,8 +171,7 @@ object CarVoice {
         }
         main.post {
             if (text.isBlank()) return@post
-            // A turn goes through a conversation with Gemini, which leaves it out of what it hears.
-            if (reversing || onCall && !urgent || inLive && !urgent && !guidance) {
+            if (reversing || (onCall || inLive) && !urgent) {
                 val at = SystemClock.elapsedRealtime()
                 // Stale lines would be dropped at release anyway: a hold stuck on (a call
                 // state that never cleared) no longer piles them up for days.
@@ -220,10 +222,13 @@ object CarVoice {
         created = TextToSpeech(context) { status ->
             main.post {
                 if (tts !== created) return@post
+                // Taken out first: a sentence the engine refuses is queued again for the next one ([utter]).
+                val lines = queued.toList()
+                queued.clear()
                 if (status == TextToSpeech.SUCCESS) {
                     ready = true
                     failedAt = 0L
-                    queued.forEach { (t, l) -> say(created, t, l) }
+                    lines.forEach { (t, l) -> say(created, t, l) }
                 } else {
                     Log.w(TAG, "Text-to-speech failed to start ($status)")
                     // Shut down, or each failed try leaves its service connection behind.
@@ -231,7 +236,6 @@ object CarVoice {
                     tts = null
                     failedAt = SystemClock.elapsedRealtime()
                 }
-                queued.clear()
             }
         }
         created.setAudioAttributes(attributes)
@@ -281,7 +285,25 @@ object CarVoice {
         val voice = voiceFor(engine, line.locale) ?: return
         if (engine.setLanguage(voice) < TextToSpeech.LANG_AVAILABLE) return
         val id = "carvoice-${nextId++}"
-        if (engine.speak(line.text, mode, null, id) == TextToSpeech.SUCCESS) pending[id] = line
+        if (engine.speak(line.text, mode, null, id) == TextToSpeech.SUCCESS) {
+            pending[id] = line
+            rebuilt = false
+            return
+        }
+        // Refused: the engine's process died (the unit kills it while it sleeps) and this
+        // object never speaks again. A new one is made and the sentence goes to it, once:
+        // one that refuses too waits [RETRY_MS] like an engine that did not start.
+        if (tts !== engine) return
+        Log.w(TAG, "Text-to-speech refused a sentence; engine rebuilt")
+        engine.shutdown()
+        tts = null
+        ready = false
+        if (rebuilt) {
+            failedAt = SystemClock.elapsedRealtime()
+            return
+        }
+        rebuilt = true
+        speakNow(line.text, line.locale, line.urgent, line.guidance)
     }
 
     private fun inCall(): Boolean {

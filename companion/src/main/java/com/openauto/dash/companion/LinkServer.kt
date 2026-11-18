@@ -183,6 +183,12 @@ object LinkServer {
         if (current.pairingId == id) current.close()
     }
 
+    /** What this phone can do for the car right now ([PhoneAbilities]); sent on link up and whenever one changes. */
+    fun abilities(context: Context) = PhoneAbilities(
+        sendsTexts = TextSender.canSend(context),
+        notifications = PhoneNotificationListener.granted(context)
+    )
+
     /** Sends to the connected head unit, if any. Safe from any thread. */
     fun send(message: LinkMessage) {
         val current = session ?: return
@@ -316,7 +322,8 @@ object LinkServer {
         val link = try {
             conn.setReadTimeout?.invoke(HANDSHAKE_TIMEOUT_MS)
             SecureChannel.server(
-                conn.input, conn.output,
+                // Every byte heard counts, not only whole messages: a long one over a slow Bluetooth link is not silence.
+                guard?.hearing(conn.input) ?: conn.input, conn.output,
                 secretFor = { PairedUnits.secretFor(context, it) },
                 onClose = { guard?.stop(); conn.close() }
             )
@@ -352,13 +359,17 @@ object LinkServer {
         replaced?.close()
 
         send(Hello(deviceName(context), appVersion(context)))
+        // A listener Android let go of meanwhile is asked back; its sync follows once it is (onListenerConnected).
+        PhoneNotificationListener.rebind(context)
         send(PhoneNotificationListener.syncMessage())
         send(PhoneCalls.snapshot())
         send(ObdRelay.offer(context))
-        send(PhoneAbilities(sendsTexts = TextSender.canSend(context)))
+        send(abilities(context))
         PhoneLists.linked()
         PhoneMedia.linked(context)
         PhoneBatteryWatch.current(context)?.let(::send)
+        val linkedAt = System.currentTimeMillis()
+        var ended = "replaced or closed here"
         try {
             while (true) {
                 val received = link.receive()
@@ -373,11 +384,14 @@ object LinkServer {
             }
         } catch (e: IOException) {
             // Link gone: the head unit left the hotspot, stopped, or went quiet.
+            ended = "${e.javaClass.simpleName} ${e.message.orEmpty()}".trim()
         } finally {
             guard?.stop()
             link.close()
             synchronized(this) {
                 if (session === link) {
+                    // Shown under the status: why the car went, for a link that keeps dropping (issue #118).
+                    note("${conn.label}: link ended after ${(System.currentTimeMillis() - linkedAt) / 1000} s: $ended")
                     session = null
                     if (running) _state.value = LinkState.Waiting
                     // No head unit to relay to: the OBD adapter is let go for the next start.

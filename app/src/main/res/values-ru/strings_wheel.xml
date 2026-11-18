@@ -37,6 +37,8 @@
     <string name="wheel_action_toggle_split">Разделённый экран вкл. / выкл.</string>
     <string name="wheel_action_screenshot">Снимок экрана</string>
     <string name="wheel_action_play_pause">Пуск/пауза</string>
+    <string name="wheel_action_play">Пуск</string>
+    <string name="wheel_action_pause">Пауза</string>
     <string name="wheel_action_next">Следующий трек</string>
     <string name="wheel_action_previous">Предыдущий трек</string>
     <string name="wheel_action_volume_up">Громче</string>
@@ -126,4 +128,19 @@
     <string name="wheel_reset_body">Все кнопки уберутся со схемы и потеряют свои действия. Руль снова будет работать так, как задано в магнитоле.</string>
     <string name="wheel_reset_confirm">Сбросить</string>
     <string name="wheel_action_stop_guidance">Остановить навигацию</string>
+    <string name="wheel_unit_keys_off">Прошивка этой магнитолы оставляет кнопки руля себе. Позвольте Dashwheel забрать их: её собственные приложения на это время их теряют.</string>
+    <string name="wheel_unit_keys_take">Забрать</string>
+    <string name="wheel_unit_keys_waiting">Dashwheel запросил кнопки руля у прошивки и пока их не получил. Для этого нужен root, Shizuku или ADB магнитолы.</string>
+    <string name="wheel_unit_keys_live">Слушает кнопки руля магнитолы</string>
+    <string name="wheel_monitor_no_root">Без root здесь видны только клавиши Android и собственные кнопки магнитолы. Сырой ввод и журнал требуют root.</string>
+    <string name="wheel_log_match_label">Строка журнала содержит</string>
+    <string name="wheel_log_hint">Срабатывает каждый раз, когда в журнале магнитолы появляется строка с этим текстом. Сократите его до части, которая называет кнопку.</string>
+    <string name="wheel_unit_muted">Без звука: вкл.</string>
+    <string name="wheel_unit_unmuted">Без звука: выкл.</string>
+    <string name="wheel_action_stop_audio">Остановить музыку / радио</string>
+    <string name="wheel_action_fast_forward">Перемотка вперёд</string>
+    <string name="wheel_action_rewind">Перемотка назад</string>
+    <string name="wheel_action_screen_off">Выключить экран</string>
+    <string name="wheel_action_brightness_up">Ярче экран</string>
+    <string name="wheel_action_brightness_down">Темнее экран</string>
 </resources>

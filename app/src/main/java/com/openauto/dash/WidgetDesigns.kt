@@ -6,6 +6,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -25,7 +26,7 @@ import androidx.compose.ui.unit.dp
 internal enum class FaceLayout { HERO, ARC, RING, BARS, STATS, TERMINAL, DIAL, FLAP, ORB, LIQUID, DOTS, POSTER, DUO, ISLAND, COCKPIT, TRIANGLES, BLADE, LIGHT_BAR, LANE, TREND, PULSE, CONTOUR }
 
 /** The material a design is drawn in. THEME follows the dashboard theme; the rest bring their own colours. */
-internal enum class FaceLookKind { THEME, LCD, AMBER, NEON, PAPER, GLASS, CARBON, CHROME, FLAP, DOTS, COPPER, PETROL, NAVY_GOLD, SAGE, CRIMSON, GRAPHITE }
+internal enum class FaceLookKind { THEME, OPEN, LCD, AMBER, NEON, PAPER, GLASS, CARBON, CHROME, FLAP, DOTS, COPPER, PETROL, NAVY_GOLD, SAGE, CRIMSON, GRAPHITE }
 
 /**
  * A tile's design. Names are persisted with the tile, so never rename an
@@ -63,6 +64,8 @@ enum class WidgetDesign(
     POSTER(R.string.design_poster, R.string.design_poster_desc, FaceLayout.POSTER, FaceLookKind.THEME, glanceable = false),
     DUO(R.string.design_duo, R.string.design_duo_desc, FaceLayout.DUO, FaceLookKind.THEME),
     ISLAND(R.string.design_island, R.string.design_island_desc, FaceLayout.ISLAND, FaceLookKind.THEME),
+    // No panel and no rim: the reading sits on the page, what the Open look puts on every widget.
+    OPEN(R.string.design_open, R.string.design_open_desc, FaceLayout.HERO, FaceLookKind.OPEN),
     // The copper set, after the latest Cupra cars (WidgetFacesCopper.kt).
     COPPER_COCKPIT(R.string.design_copper_cockpit, R.string.design_copper_cockpit_desc, FaceLayout.COCKPIT, FaceLookKind.COPPER),
     TRI_LED(R.string.design_tri_led, R.string.design_tri_led_desc, FaceLayout.TRIANGLES, FaceLookKind.PETROL),
@@ -76,7 +79,7 @@ enum class WidgetDesign(
 
     // Made for particular widgets: the shape comes from what the widget shows.
     THERMOMETER(R.string.design_thermometer, R.string.design_thermometer_desc, null, FaceLookKind.THEME, setOf(BuiltinKind.WARMUP, BuiltinKind.WEATHER, BuiltinKind.ENGINE_TEMPS)),
-    FUEL_TANK(R.string.design_fuel_tank, R.string.design_fuel_tank_desc, null, FaceLookKind.THEME, setOf(BuiltinKind.RANGE, BuiltinKind.FUEL_TO_DEST, BuiltinKind.FUEL_PRICES, BuiltinKind.FUEL_LOG, BuiltinKind.LPG_TANK)),
+    FUEL_TANK(R.string.design_fuel_tank, R.string.design_fuel_tank_desc, null, FaceLookKind.THEME, setOf(BuiltinKind.RANGE, BuiltinKind.FUEL_TO_DEST, BuiltinKind.FUEL_PRICES, BuiltinKind.FUEL_LOG, BuiltinKind.LPG_TANK, BuiltinKind.CONSUMPTION)),
     BATTERY_CELL(R.string.design_battery_cell, R.string.design_battery_cell_desc, null, FaceLookKind.THEME, setOf(BuiltinKind.BATTERY)),
     FADER(R.string.design_fader, R.string.design_fader_desc, null, FaceLookKind.THEME, setOf(BuiltinKind.AUDIO, BuiltinKind.BATTERY, BuiltinKind.WARMUP, BuiltinKind.RANGE, BuiltinKind.BREAK_TIMER, BuiltinKind.SCREEN_LIGHT, BuiltinKind.UNIT_LIGHT)),
     SPEED_TAPE(R.string.design_speed_tape, R.string.design_speed_tape_desc, null, FaceLookKind.THEME, setOf(BuiltinKind.SPEED_HUD, BuiltinKind.TELEMETRY, BuiltinKind.SPEED_LIMIT)),
@@ -94,7 +97,7 @@ enum class WidgetDesign(
     ROAD_AHEAD(R.string.design_road_ahead, R.string.design_road_ahead_desc, null, FaceLookKind.THEME, setOf(BuiltinKind.NAVIGATION, BuiltinKind.TRIP, BuiltinKind.FUEL_TO_DEST)),
     RADAR(R.string.design_radar, R.string.design_radar_desc, null, FaceLookKind.THEME, setOf(BuiltinKind.PARKING, BuiltinKind.GPS_STATUS)),
     ODOMETER(R.string.design_odometer, R.string.design_odometer_desc, null, FaceLookKind.THEME, setOf(BuiltinKind.TRIP, BuiltinKind.RANGE, BuiltinKind.SERVICE, BuiltinKind.CAR_STATUS, BuiltinKind.PERF_TIMER, BuiltinKind.COMMUTE, BuiltinKind.DRIVE_HISTORY), glanceable = false),
-    PRINTOUT(R.string.design_printout, R.string.design_printout_desc, null, FaceLookKind.THEME, setOf(BuiltinKind.TRIP, BuiltinKind.ECO_DRIVE, BuiltinKind.OBD_DTC, BuiltinKind.CAN_MON, BuiltinKind.SERVICE, BuiltinKind.FUEL_PRICES, BuiltinKind.CAR_STATUS, BuiltinKind.TYRES, BuiltinKind.HEAD_UNIT, BuiltinKind.RADIOS, BuiltinKind.PERF_TIMER, BuiltinKind.FUEL_LOG, BuiltinKind.COMMUTE, BuiltinKind.LPG_TANK, BuiltinKind.DRIVE_HISTORY, BuiltinKind.MY_READINGS)),
+    PRINTOUT(R.string.design_printout, R.string.design_printout_desc, null, FaceLookKind.THEME, setOf(BuiltinKind.TRIP, BuiltinKind.ECO_DRIVE, BuiltinKind.OBD_DTC, BuiltinKind.CAN_MON, BuiltinKind.SERVICE, BuiltinKind.FUEL_PRICES, BuiltinKind.CAR_STATUS, BuiltinKind.TYRES, BuiltinKind.HEAD_UNIT, BuiltinKind.RADIOS, BuiltinKind.PERF_TIMER, BuiltinKind.FUEL_LOG, BuiltinKind.COMMUTE, BuiltinKind.LPG_TANK, BuiltinKind.DRIVE_HISTORY, BuiltinKind.MY_READINGS, BuiltinKind.CONSUMPTION)),
     WARNING_LAMP(R.string.design_warning_lamp, R.string.design_warning_lamp_desc, null, FaceLookKind.THEME, setOf(BuiltinKind.OBD_DTC, BuiltinKind.FILTER_CARE, BuiltinKind.BATTERY, BuiltinKind.WARMUP, BuiltinKind.DOORS, BuiltinKind.RANGE, BuiltinKind.FUEL_TO_DEST, BuiltinKind.SERVICE, BuiltinKind.TYRES, BuiltinKind.SPEED_CAMERAS, BuiltinKind.WEATHER_ALERTS)),
     TRAFFIC_LIGHT(R.string.design_traffic_light, R.string.design_traffic_light_desc, null, FaceLookKind.THEME, setOf(BuiltinKind.OBD_DTC, BuiltinKind.BATTERY, BuiltinKind.ECO_DRIVE, BuiltinKind.BREAK_TIMER, BuiltinKind.FILTER_CARE, BuiltinKind.DOORS, BuiltinKind.FUEL_TO_DEST, BuiltinKind.HEAD_UNIT, BuiltinKind.QUICK_SWITCHES, BuiltinKind.WEATHER_ALERTS, BuiltinKind.NOW)),
     GAUGE_BANK(R.string.design_gauge_bank, R.string.design_gauge_bank_desc, null, FaceLookKind.THEME, setOf(BuiltinKind.OBD_ALL, BuiltinKind.TELEMETRY, BuiltinKind.HEAD_UNIT, BuiltinKind.ENGINE_TEMPS, BuiltinKind.MY_READINGS)),
@@ -114,7 +117,8 @@ enum class WidgetDesign(
     VOLUME_KNOB(R.string.design_volume_knob, R.string.design_volume_knob_desc, null, FaceLookKind.THEME, setOf(BuiltinKind.AUDIO, BuiltinKind.SCREEN_LIGHT, BuiltinKind.UNIT_LIGHT)),
     LEVEL_METER(R.string.design_level_meter, R.string.design_level_meter_desc, null, FaceLookKind.THEME, setOf(BuiltinKind.AUDIO, BuiltinKind.GPS_STATUS, BuiltinKind.WIFI_NETWORKS)),
     FILTER_CELLS(R.string.design_filter_cells, R.string.design_filter_cells_desc, null, FaceLookKind.THEME, setOf(BuiltinKind.FILTER_CARE)),
-    HOURGLASS(R.string.design_hourglass, R.string.design_hourglass_desc, null, FaceLookKind.THEME, setOf(BuiltinKind.BREAK_TIMER, BuiltinKind.PARKING_TIMER)),
+    // Not the parking timer: it has no fraction (the set time is not kept), so the sand never ran.
+    HOURGLASS(R.string.design_hourglass, R.string.design_hourglass_desc, null, FaceLookKind.THEME, setOf(BuiltinKind.BREAK_TIMER)),
     LEAF(R.string.design_leaf, R.string.design_leaf_desc, null, FaceLookKind.THEME, setOf(BuiltinKind.ECO_DRIVE)),
     TYRE_MAP(R.string.design_tyre_map, R.string.design_tyre_map_desc, null, FaceLookKind.THEME, setOf(BuiltinKind.TYRES)),
     CAR_OUTLINE(R.string.design_car_outline, R.string.design_car_outline_desc, null, FaceLookKind.THEME, setOf(BuiltinKind.CAR_STATUS, BuiltinKind.OBD_ALL, BuiltinKind.TELEMETRY, BuiltinKind.DOORS)),
@@ -355,6 +359,9 @@ internal fun faceLook(kind: FaceLookKind): FaceLook = when (kind) {
         fill = if (DashColors.Glass) DashColors.haze(0.07f) else DashColors.CardHi, onAccent = DashColors.OnAccent,
         border = null, radius = 24.dp, font = Sans, numFont = Sans, numWeight = FontWeight.Bold,
         glow = if (DashColors.Glow > 0f) DashColors.Accent.copy(alpha = 0.35f * DashColors.Glow) else null
+    )
+    FaceLookKind.OPEN -> faceLook(FaceLookKind.THEME).copy(
+        kind = kind, background = SolidColor(Color.Transparent), fill = Color.Transparent, border = null
     )
     FaceLookKind.LCD -> FaceLook(
         kind, background = Brush.verticalGradient(listOf(Color(0xFF122010), Color(0xFF0B1509))),

@@ -7,6 +7,7 @@
     <string name="dash_add">Adicionar</string>
     <string name="dash_selected">Selecionado</string>
     <string name="dash_dismiss">Ignorar</string>
+    <string name="dash_safe_mode">Modo de segurança. Mapas, carro 3D e widgets Android desligados após dois arranques falhados.</string>
     <string name="dash_got_it">Entendido</string>
 
     <!-- Top bar -->
@@ -56,6 +57,7 @@
     <string name="dash_notice_no_space">Este painel não tem espaço para esse bloco. Remover ou redimensionar blocos, ou usar outro painel.</string>
     <string name="dash_notice_no_room_to_move">Não há espaço para afastar os outros blocos. Libertar algum espaço primeiro.</string>
     <string name="dash_notice_resize_overlap">Esse tamanho sobrepõe-se a outro bloco. Abrir espaço antes de redimensionar.</string>
+    <string name="dash_notice_no_grid_spot">Não há lugar livre na grelha para este bloco. Abra espaço, ou deixe-o sobre os outros.</string>
     <string name="dash_full_title">Este painel está cheio</string>
     <string name="dash_full_body">Remover um bloco ou reduzir um para adicionar outro.</string>
 
@@ -122,6 +124,10 @@
     <string name="dash_theme_sporty_desc">Cockpit desportivo vermelho</string>
     <string name="dash_theme_floating">Flutuante</string>
     <string name="dash_theme_floating_desc">Sem fundo nos blocos: widgets e ícones sobre o fundo</string>
+    <string name="dash_theme_open">Aberto</string>
+    <string name="dash_theme_open_desc">Cada widget redesenhado sem fundo nem contorno, diretamente sobre o fundo</string>
+    <string name="dash_theme_heads_up">Head-up</string>
+    <string name="dash_theme_heads_up_desc">O mapa ocupa o ecrã e cada widget fica sobre ele sem painel, como um mostrador no para-brisas. A música torna-se um disco.</string>
     <string name="dash_theme_orbit">Órbita</string>
     <string name="dash_theme_orbit_desc">Tudo redondo: um disco a girar, indicadores em anel, bolhas</string>
     <string name="dash_theme_cockpit">Cockpit</string>
@@ -163,9 +169,13 @@
     <string name="dash_effects_none_hint">Cartões opacos, algarismos simples, sem brilho: lê-se em pleno sol</string>
     <string name="dash_effects_reduced_hint">Brilho suavizado, vidro mantido</string>
     <string name="dash_effects_full_hint">Cada tema com todo o seu brilho e vidro</string>
+    <string name="dash_motion_driving">Animações a conduzir</string>
+    <string name="dash_motion_driving_detail">As animações do visual continuam com o carro em movimento; caso contrário param</string>
     <string name="dash_bar_title">Barra inferior</string>
     <string name="dash_bar_auto_hide">Ocultar a barra automaticamente</string>
     <string name="dash_bar_auto_hide_detail">Recolhe-se quando não está em uso, para dar mais espaço aos painéis</string>
+    <string name="dash_bar_nav_keys">Voltar e Apps recentes</string>
+    <string name="dash_bar_nav_keys_detail">Mais dois botões nas pontas da barra, para um ecrã sem essas teclas</string>
     <string name="dash_bar_hide_after">Ocultar após %1$d s</string>
     <string name="dash_bar_hide_now">Ocultar de imediato</string>
     <string name="dash_bar_swipe_up_detail">Quando estiver oculta, deslize para cima a partir da borda inferior para trazê-la de volta</string>
@@ -200,7 +210,6 @@
     <string name="dash_dashboard_options">Opções do painel</string>
     <string name="dash_remove_dashboard_title">Remover %1$s?</string>
     <string name="dash_remove_dashboard_body">Esvaziar, ou tirar dos deslizes com os seus mosaicos. Anular repõe-nos.</string>
-    <string name="dash_tile_move">Mover para outro painel</string>
     <string name="dash_tile_remove">Remover</string>
     <string name="dash_tile_restart_app">Reiniciar a app</string>
     <string name="dash_apps">Apps</string>
@@ -220,11 +229,6 @@
     <string name="dash_dashboard_removed">%1$s removido</string>
     <string name="dash_remove_empty">Esvaziar</string>
     <string name="dash_remove_take_out">Tirar dos deslizes</string>
-    <string name="dash_bring_back_title">Repor %1$s?</string>
-    <string name="dash_bring_back_body">O mosaico vai para lá e o painel volta aos deslizes.</string>
-    <string name="dash_bring_back">Repor</string>
-    <string name="dash_moved_to">Movido para %1$s</string>
-    <string name="dash_page_removed">%1$s, fora dos deslizes</string>
     <string name="dash_way_home_up">Deslize para cima para o Início</string>
     <string name="dash_way_home_down">Deslize para baixo para o Início</string>
     <string name="dash_add_tile">Adicionar um mosaico</string>

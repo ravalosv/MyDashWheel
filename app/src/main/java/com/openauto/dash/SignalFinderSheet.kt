@@ -136,7 +136,7 @@ private fun SignalList(onDismiss: () -> Unit, onFind: (CarSignal) -> Unit, onSni
 
         SettingsSection(stringResource(R.string.signals_sources))
         // The CAN box stream is read through root (the Play edition does not list it); the FYT module is FYT units' alone.
-        for (source in sourcesHere()) {
+        for (source in sourcesHere(values)) {
             val count = values.keys.count { it.startsWith(source.prefix + ":") }
             val detail = when {
                 source == SignalSource.CAN && !canReadable -> stringResource(R.string.signals_needs_root)
@@ -405,7 +405,8 @@ private fun SignalAssign(target: CarSignal, candidate: SignalCandidate, onBack: 
 private fun SignalSniffer(onBack: () -> Unit, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var source by remember { mutableStateOf(SignalSource.CAN) }
+    // The car box first where the unit has one; elsewhere the first source it does have.
+    var source by remember { mutableStateOf(sourcesHere(SignalSources.values.value).first()) }
     var onlyChanges by remember { mutableStateOf(true) }
     var paused by remember { mutableStateOf(false) }
     var shown by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
@@ -455,7 +456,7 @@ private fun SignalSniffer(onBack: () -> Unit, onDismiss: () -> Unit) {
         }
     ) {
         SegmentedSwitch(
-            options = sourcesHere(),
+            options = sourcesHere(shown),
             chosen = source,
             icon = ::sourceIcon,
             title = { stringResource(sourceShort(it)) },
@@ -518,7 +519,7 @@ internal fun describe(context: Context, probe: SignalProbe): String {
     val where = when (SignalSource.of(probe.key)) {
         SignalSource.CAN -> context.getString(R.string.signals_probe_can, name)
         // The FYT module's values are the car app's data too, under the module's own numbering.
-        SignalSource.SHARED, SignalSource.FYT -> context.getString(R.string.signals_probe_shared, name)
+        SignalSource.SHARED, SignalSource.FYT, SignalSource.TOPWAY -> context.getString(R.string.signals_probe_shared, name)
         SignalSource.FLAG -> context.getString(R.string.signals_probe_flag, name)
         SignalSource.SETTING, SignalSource.SYSTEM, SignalSource.SECURE -> context.getString(R.string.signals_probe_setting, name)
         SignalSource.BROADCAST, null -> context.getString(R.string.signals_probe_message, name)
@@ -537,6 +538,7 @@ private fun sourceTitle(s: SignalSource): Int = when (s) {
     SignalSource.SETTING -> R.string.signals_source_settings
     SignalSource.BROADCAST -> R.string.signals_source_messages
     SignalSource.FYT -> R.string.signals_source_fyt
+    SignalSource.TOPWAY -> R.string.signals_source_topway
     SignalSource.SYSTEM -> R.string.signals_source_system
     SignalSource.SECURE -> R.string.signals_source_secure
 }
@@ -544,15 +546,20 @@ private fun sourceTitle(s: SignalSource): Int = when (s) {
 /**
  * The sources this unit's firmware can have at all: the FYT module only on
  * FYT units, the settings tables only where the family keeps car state in
- * them, the car box's log never on Play.
+ * them. The car box's log (the MCU service's, root or not) and the car app's
+ * shared data are QF firmware's: elsewhere root would not bring them, so they
+ * are not offered (#96), unless something was heard there all the same.
  */
-private fun sourcesHere(): List<SignalSource> = SignalSource.entries.filter {
+private fun sourcesHere(values: Map<String, String>): List<SignalSource> = SignalSource.entries.filter {
     val catalogue = UnitPlatform.adapter.catalogue
+    val qf = UnitPlatform.adapter.family == UnitFamily.QF
     when (it) {
         SignalSource.FYT -> UnitPlatform.adapter.family == UnitFamily.FYT
+        SignalSource.TOPWAY -> UnitPlatform.adapter.family == UnitFamily.TOPWAY
         SignalSource.SYSTEM -> catalogue.settingsSystem
         SignalSource.SECURE -> catalogue.settingsSecure
-        SignalSource.CAN -> !Edition.play
+        SignalSource.CAN -> !Edition.play && (qf || values.keys.any { k -> k.startsWith(it.prefix + ":") })
+        SignalSource.SHARED -> qf || values.keys.any { k -> k.startsWith(it.prefix + ":") }
         else -> true
     }
 }
@@ -564,6 +571,7 @@ private fun sourceShort(s: SignalSource): Int = when (s) {
     SignalSource.SETTING -> R.string.signals_tab_settings
     SignalSource.BROADCAST -> R.string.signals_tab_messages
     SignalSource.FYT -> R.string.signals_tab_fyt
+    SignalSource.TOPWAY -> R.string.signals_tab_topway
     SignalSource.SYSTEM -> R.string.signals_tab_system
     SignalSource.SECURE -> R.string.signals_tab_secure
 }
@@ -574,7 +582,7 @@ private fun sourceIcon(s: SignalSource): ImageVector = when (s) {
     SignalSource.FLAG -> Icons.Filled.Flag
     SignalSource.SETTING -> Icons.Filled.Tune
     SignalSource.BROADCAST -> Icons.Filled.Campaign
-    SignalSource.FYT -> Icons.Filled.DirectionsCar
+    SignalSource.FYT, SignalSource.TOPWAY -> Icons.Filled.DirectionsCar
     SignalSource.SYSTEM, SignalSource.SECURE -> Icons.Filled.Tune
 }
 

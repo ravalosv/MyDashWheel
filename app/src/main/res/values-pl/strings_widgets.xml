@@ -30,6 +30,7 @@
     <string name="widgets_light_manual">%1$d %%</string>
     <string name="widgets_cam_none">Brak przed tobą</string>
     <string name="widgets_osm_down">Serwer danych mapy nie odpowiada</string>
+    <string name="widgets_cam_none_kept">Brak przed tobą, według fotoradarów na radiu</string>
     <string name="widgets_cam_speak">Alerty głosowe</string>
     <string name="widgets_cam_speaking">Alerty głosowe wł.</string>
     <string name="widgets_cam_silent">W niektórych krajach zakazane, m.in. we Francji</string>
@@ -175,4 +176,6 @@
     <string name="widgets_switch_bluetooth_detail">Włącza lub wyłącza Bluetooth</string>
     <string name="widgets_switch_mobile_data_detail">Włącza lub wyłącza dane karty SIM</string>
     <string name="widgets_switch_screen_off_detail">Wyłącza ekran jak przycisk radia</string>
+    <string name="widgets_consumption">Spalanie</string>
+    <string name="widgets_consumption_blurb">Ile auto pali teraz, od ostatniego tankowania i średnio</string>
 </resources>

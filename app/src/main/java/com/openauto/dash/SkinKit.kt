@@ -128,8 +128,9 @@ internal fun rememberBlink(halfPeriodMs: Long = 500L): State<Boolean> {
 @Composable
 internal fun rememberDateFormat(pattern: String, best: Boolean = false): SimpleDateFormat {
     val locale = Locale.getDefault()
-    return remember(pattern, best, locale) {
-        SimpleDateFormat(if (best) android.text.format.DateFormat.getBestDateTimePattern(locale, pattern) else pattern, locale)
+    val zone = rememberZone()
+    return remember(pattern, best, locale, zone) {
+        SimpleDateFormat(if (best) android.text.format.DateFormat.getBestDateTimePattern(locale, pattern) else pattern, locale).inZone(zone)
     }
 }
 
@@ -337,7 +338,14 @@ internal fun KeepWeatherFresh() {
 internal fun rememberWeather(): Weather? {
     KeepWeatherFresh()
     val weather by WeatherRepo.weather.collectAsState()
-    return weather
+    return withCarTemp(weather)
+}
+
+/** [weather] with the car's own outside sensor as its temperature when the car sends one, as the bar shows it (#122). */
+@Composable
+internal fun withCarTemp(weather: Weather?): Weather? {
+    val car = rememberVehicle(K.OUTSIDE_TEMP)
+    return if (weather != null && car != null) weather.copy(tempC = car) else weather
 }
 
 /**

@@ -63,6 +63,11 @@
     <string name="alert_enlarge">Rodyti</string>
     <string name="alert_speak">Įgarsinti</string>
     <string name="alert_also_spoken">Taip pat įgarsinama</string>
+    <string name="alert_at">Kur rodyti</string>
+    <string name="alert_at_top">Viršuje</string>
+    <string name="alert_at_start">Kairėje</string>
+    <string name="alert_at_end">Dešinėje</string>
+    <string name="alert_at_bottom">Apačioje</string>
     <string name="alert_show">Rodyti šį įspėjimą</string>
     <string name="alert_speak_call_detail">Pasako, kas skambina, kai telefonas skamba</string>
     <string name="alert_speak_doors_detail">Pasako, kurios durys atidarytos, jei jos atsidaro važiuojant arba pajudate su atidarytomis</string>
@@ -170,6 +175,8 @@
     <string name="bar_items_left">Anksčiau juostoje</string>
     <string name="bar_items_right">Vėliau juostoje</string>
     <string name="bar_items_reset">Atkurti pradinį rinkinį</string>
+    <string name="bar_items_no_room">Kai kurie rodmenys netelpa juostoje net be užrašų: perkelkite juos aukščiau arba išimkite kitą.</string>
+    <string name="bar_items_left_out">Netelpa: juostoje nerodomas</string>
     <string name="bar_item_fuel">Degalai</string>
     <string name="bar_item_speed">Greitis</string>
     <string name="bar_item_revs">Apsukos</string>
@@ -212,6 +219,8 @@
     <string name="about_tip_thanks">Ačiū, tai tikrai padeda.</string>
     <string name="about_project">Projekto puslapis</string>
     <string name="about_project_detail">Išeities kodas, versijos ir klaidų pranešimai</string>
+    <string name="about_telegram">Telegram grupė</string>
+    <string name="about_telegram_detail">Klausimai, naujienos ir kiti vairuotojai: t.me/Dashwheel</string>
     <string name="help_title">Pagalba</string>
     <string name="help_row_detail">Kiekviena funkcija paaiškinta wiki</string>
     <string name="help_detail">Kiekviena funkcija paaiškinta wiki. Nuskenuokite telefonu arba atidarykite čia.</string>
@@ -343,6 +352,7 @@
     <string name="report_crash_intro">Nusiųskite klaidą, kad ją būtų galima ištaisyti. Ataskaitoje yra klaida ir magnetolos modelis bei programinė įranga, nieko asmeniško.</string>
     <string name="report_scan">Nuskenuokite telefonu ir nusiųskite</string>
     <string name="report_open">Atidaryti čia</string>
+    <string name="report_send_phone">Siųsti į telefoną</string>
     <string name="report_delete">Ištrinti</string>
     <string name="report_later">Ne dabar</string>
     <string name="report_works">Veikia</string>
@@ -383,11 +393,11 @@
     <string name="settings_section_region">Kalba ir vienetai</string>
     <string name="settings_sum_sound">Garsumas, palietimai ir muzika</string>
     <string name="settings_sum_dashboard">Juosta, šoninė juosta ir skirtukai</string>
-    <string name="settings_sum_expert">Laboratorija, API raktai, serveriai</string>
     <string name="alerts_say">Sakyti</string>
     <string name="alerts_show">Rodyti</string>
     <string name="alerts_intro">Sakyti perskaito garsiai, Rodyti parodo Dashwheel langą ekrane. Palieskite langą, kad pasirinktumėte jo išvaizdą.</string>
     <string name="alerts_group_car">Iš automobilio</string>
     <string name="alerts_group_road">Kelyje</string>
     <string name="alerts_group_start">Pradedant kelionę</string>
+    <string name="settings_system_app_on">Įdiegta. Android valdikliai pridedami be klausimo.</string>
 </resources>

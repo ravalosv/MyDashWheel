@@ -7,6 +7,7 @@
     <string name="dash_add">Añadir</string>
     <string name="dash_selected">Seleccionado</string>
     <string name="dash_dismiss">Descartar</string>
+    <string name="dash_safe_mode">Modo seguro. Mapas, coche 3D y widgets de Android desactivados tras dos inicios fallidos.</string>
     <string name="dash_got_it">Entendido</string>
 
     <!-- Top bar -->
@@ -56,6 +57,7 @@
     <string name="dash_notice_no_space">Este panel no tiene espacio para esa tarjeta. Quita o redimensiona tarjetas, o usa otro panel.</string>
     <string name="dash_notice_no_room_to_move">No hay sitio para apartar las otras tarjetas. Libera espacio primero.</string>
     <string name="dash_notice_resize_overlap">Ese tamaño se superpone a otra tarjeta. Haz sitio antes de cambiar el tamaño.</string>
+    <string name="dash_notice_no_grid_spot">No hay sitio libre en la cuadrícula para esta tarjeta. Haz sitio, o déjala sobre las demás.</string>
     <string name="dash_full_title">Este panel está lleno</string>
     <string name="dash_full_body">Quita una tarjeta o reduce una para añadir otra.</string>
 
@@ -122,6 +124,10 @@
     <string name="dash_theme_sporty_desc">Cabina deportiva roja</string>
     <string name="dash_theme_floating">Flotante</string>
     <string name="dash_theme_floating_desc">Sin fondo en las tarjetas: widgets e iconos sobre el fondo</string>
+    <string name="dash_theme_open">Abierto</string>
+    <string name="dash_theme_open_desc">Cada widget redibujado sin fondo ni borde, directamente sobre el fondo</string>
+    <string name="dash_theme_heads_up">Head-up</string>
+    <string name="dash_theme_heads_up_desc">El mapa llena la pantalla y cada widget va encima sin panel, como un visor en el parabrisas. La música se convierte en un disco.</string>
     <string name="dash_theme_orbit">Órbita</string>
     <string name="dash_theme_orbit_desc">Todo redondo: un disco girando, indicadores en anillo, burbujas</string>
     <string name="dash_theme_cockpit">Cabina</string>
@@ -163,9 +169,13 @@
     <string name="dash_effects_none_hint">Tarjetas opacas, números sencillos, sin brillo: se lee a pleno sol</string>
     <string name="dash_effects_reduced_hint">Halos suavizados, cristal conservado</string>
     <string name="dash_effects_full_hint">Cada tema con todos sus halos y su cristal</string>
+    <string name="dash_motion_driving">Animaciones al conducir</string>
+    <string name="dash_motion_driving_detail">Las animaciones del aspecto siguen cuando el coche se mueve; si no, se detienen</string>
     <string name="dash_bar_title">Barra inferior</string>
     <string name="dash_bar_auto_hide">Ocultar la barra automáticamente</string>
     <string name="dash_bar_auto_hide_detail">Se retira cuando no se usa, para dejar más espacio a los paneles</string>
+    <string name="dash_bar_nav_keys">Atrás y Apps recientes</string>
+    <string name="dash_bar_nav_keys_detail">Dos botones más en los extremos de la barra, para pantallas sin esas teclas</string>
     <string name="dash_bar_hide_after">Ocultar tras %1$d s</string>
     <string name="dash_bar_hide_now">Ocultar enseguida</string>
     <string name="dash_bar_swipe_up_detail">Cuando esté oculta, desliza hacia arriba desde el borde inferior para que vuelva</string>
@@ -200,7 +210,6 @@
     <string name="dash_dashboard_options">Opciones del panel</string>
     <string name="dash_remove_dashboard_title">¿Quitar %1$s?</string>
     <string name="dash_remove_dashboard_body">Vaciarlo, o quitarlo de los deslizamientos con sus fichas. Deshacer las recupera.</string>
-    <string name="dash_tile_move">Mover a otro panel</string>
     <string name="dash_tile_remove">Quitar</string>
     <string name="dash_tile_restart_app">Reiniciar la app</string>
     <string name="dash_apps">Apps</string>
@@ -220,11 +229,6 @@
     <string name="dash_dashboard_removed">%1$s quitado</string>
     <string name="dash_remove_empty">Vaciarlo</string>
     <string name="dash_remove_take_out">Quitarlo de los deslizamientos</string>
-    <string name="dash_bring_back_title">¿Recuperar %1$s?</string>
-    <string name="dash_bring_back_body">La ficha va allí y el panel vuelve a los deslizamientos.</string>
-    <string name="dash_bring_back">Recuperar</string>
-    <string name="dash_moved_to">Movido a %1$s</string>
-    <string name="dash_page_removed">%1$s, fuera de los deslizamientos</string>
     <string name="dash_way_home_up">Desliza hacia arriba para Inicio</string>
     <string name="dash_way_home_down">Desliza hacia abajo para Inicio</string>
     <string name="dash_add_tile">Añadir una ficha</string>

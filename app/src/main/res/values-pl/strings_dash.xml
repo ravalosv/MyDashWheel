@@ -7,6 +7,7 @@
     <string name="dash_add">Dodaj</string>
     <string name="dash_selected">Wybrano</string>
     <string name="dash_dismiss">Odrzuć</string>
+    <string name="dash_safe_mode">Tryb awaryjny. Mapy, auto 3D i widżety Androida wyłączone po dwóch nieudanych startach.</string>
     <string name="dash_got_it">Rozumiem</string>
 
     <!-- Top bar -->
@@ -56,6 +57,7 @@
     <string name="dash_notice_no_space">Na tym pulpicie brakuje miejsca na ten kafelek. Usuń lub zmniejsz kafelki albo użyj innego pulpitu.</string>
     <string name="dash_notice_no_room_to_move">Brak miejsca, by odsunąć pozostałe kafelki. Najpierw zwolnij trochę miejsca.</string>
     <string name="dash_notice_resize_overlap">Ten rozmiar nachodzi na inny kafelek. Zrób miejsce przed zmianą rozmiaru.</string>
+    <string name="dash_notice_no_grid_spot">Brak wolnego miejsca w siatce dla tego kafelka. Zrób miejsce lub zostaw go nad innymi.</string>
     <string name="dash_full_title">Ten pulpit jest pełny</string>
     <string name="dash_full_body">Usuń kafelek lub zmniejsz jeden, aby dodać kolejny.</string>
 
@@ -122,6 +124,10 @@
     <string name="dash_theme_sporty_desc">Czerwony sportowy kokpit</string>
     <string name="dash_theme_floating">Pływający</string>
     <string name="dash_theme_floating_desc">Bez tła kafelków: widżety i ikony leżą na tle</string>
+    <string name="dash_theme_open">Otwarty</string>
+    <string name="dash_theme_open_desc">Każdy widżet bez tła i bez ramki, wprost na tle</string>
+    <string name="dash_theme_heads_up">Head-up</string>
+    <string name="dash_theme_heads_up_desc">Mapa wypełnia ekran, a każdy widżet leży na niej bez panelu, jak wyświetlacz na przedniej szybie. Muzyka staje się płytą.</string>
     <string name="dash_theme_orbit">Orbita</string>
     <string name="dash_theme_orbit_desc">Wszystko okrągłe: kręcąca się płyta, wskaźniki pierścieniowe, bąbelki</string>
     <string name="dash_theme_cockpit">Kokpit</string>
@@ -163,9 +169,13 @@
     <string name="dash_effects_none_hint">Kryjące karty, proste cyfry, bez poświaty: czytelny w pełnym słońcu</string>
     <string name="dash_effects_reduced_hint">Łagodniejsza poświata, szkło zostaje</string>
     <string name="dash_effects_full_hint">Każdy motyw z pełną poświatą i szkłem</string>
+    <string name="dash_motion_driving">Animacje podczas jazdy</string>
+    <string name="dash_motion_driving_detail">Animacje wyglądu działają także w czasie jazdy; inaczej się zatrzymują</string>
     <string name="dash_bar_title">Dolny pasek</string>
     <string name="dash_bar_auto_hide">Automatycznie ukrywaj pasek</string>
     <string name="dash_bar_auto_hide_detail">Chowa się, gdy nie jest używany, zostawiając pulpitom więcej miejsca</string>
+    <string name="dash_bar_nav_keys">Wstecz i Ostatnie aplikacje</string>
+    <string name="dash_bar_nav_keys_detail">Dwa dodatkowe przyciski na końcach paska, dla ekranu bez takich klawiszy</string>
     <string name="dash_bar_hide_after">Ukryj po %1$d s</string>
     <string name="dash_bar_hide_now">Ukryj od razu</string>
     <string name="dash_bar_swipe_up_detail">Gdy jest ukryty, przesuń w górę od dolnej krawędzi, aby go przywrócić</string>
@@ -200,7 +210,6 @@
     <string name="dash_dashboard_options">Opcje pulpitu</string>
     <string name="dash_remove_dashboard_title">Usunąć %1$s?</string>
     <string name="dash_remove_dashboard_body">Opróżnij go lub usuń z przesuwania razem z kafelkami. Cofnij je przywraca.</string>
-    <string name="dash_tile_move">Przenieś na inny pulpit</string>
     <string name="dash_tile_remove">Usuń</string>
     <string name="dash_tile_restart_app">Uruchom aplikację ponownie</string>
     <string name="dash_apps">Aplikacje</string>
@@ -221,11 +230,6 @@
     <string name="dash_dashboard_removed">Usunięto: %1$s</string>
     <string name="dash_remove_empty">Opróżnij</string>
     <string name="dash_remove_take_out">Usuń z przesuwania</string>
-    <string name="dash_bring_back_title">Przywrócić %1$s?</string>
-    <string name="dash_bring_back_body">Kafelek trafia tam, a pulpit wraca do przesuwania.</string>
-    <string name="dash_bring_back">Przywróć</string>
-    <string name="dash_moved_to">Przeniesiono do %1$s</string>
-    <string name="dash_page_removed">%1$s, poza przesuwaniem</string>
     <string name="dash_way_home_up">Przesuń w górę do Startu</string>
     <string name="dash_way_home_down">Przesuń w dół do Startu</string>
     <string name="dash_add_tile">Dodaj kafelek</string>

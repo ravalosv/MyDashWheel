@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.json.JSONObject
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /*
@@ -42,17 +43,29 @@ internal object DriveLogRules {
     const val MIN_KM = 0.5
     const val MAX_ITEMS = 50
 
-    /** The car hasn't moved for [STOP_MS]. */
-    fun isOver(trip: TripState, now: Long): Boolean = now - trip.updatedAt >= STOP_MS
+    /**
+     * The car hasn't moved for [STOP_MS]. [stoppedMs] is how long it has stood,
+     * by the time since start while the app runs (a clock set mid-drive neither
+     * ends nor extends the trip); by the clock across a restart, where a clock
+     * behind the trip's last move is not set yet and nothing says the stop was short.
+     */
+    fun isOver(trip: TripState, now: Long, stoppedMs: Long = now - trip.updatedAt): Boolean = stoppedMs !in 0 until STOP_MS
 
     fun isWorthLogging(trip: TripState): Boolean = trip.distanceM >= MIN_KM * 1000
 
     /**
-     * The car moves again after standing still: a trip that went nowhere
-     * starts afresh from now, so it says when the drive began. While parked it
+     * The car moves again after standing still for [STOP_MS]: the trip starts
+     * afresh from now, so it says when the drive began. A drive is normally
+     * closed by the tick before that, but a unit that slept instead of
+     * switching off runs no tick while parked, and the morning's drive was
+     * added to last night's (hours long, both distances in one); the drive log
+     * sees the new start and logs the old trip as it was. While parked the trip
      * is left alone rather than restarted every ten minutes.
      */
-    fun startsAfresh(trip: TripState, now: Long): Boolean = !isWorthLogging(trip) && isOver(trip, now)
+    fun startsAfresh(trip: TripState, now: Long, stoppedMs: Long = now - trip.updatedAt): Boolean =
+        isOver(trip, now, stoppedMs) ||
+            // An empty trip stamped before the clock was set begins now, at the real time.
+            (trip.distanceM == 0.0 && abs(now - trip.updatedAt - stoppedMs) >= STOP_MS)
 
     /**
      * The eco-driving card just closed [ended]: the trip is over too when the
@@ -140,11 +153,14 @@ internal object DriveLog {
             val savedTrail = p.getString("trip_route", null) // MINE: #41
             if (saved == null) p.edit().remove("trip_route").apply() // MINE: #41
             if (saved != null) {
-                if (DriveLogRules.isOver(saved, System.currentTimeMillis())) {
+                // The clock as it reads, not [UnitClock]: one behind the trip is not set yet (a cold boot), and
+                // the last switch-off standing in for today would carry yesterday's trip on.
+                val now = System.currentTimeMillis()
+                if (DriveLogRules.isOver(saved, now)) {
                     if (DriveLogRules.isWorthLogging(saved)) log(summary(saved, ongoing = false, polyline = savedTrail)) // MINE: #41
                     p.edit().remove("trip").remove("trip_route").apply() // MINE: #41
                 } else {
-                    LocationFeed.restoreTrip(saved)
+                    LocationFeed.restoreTrip(saved, stoppedMs = now - saved.updatedAt)
                     // MINE: #41 Resume the route with its saved trip; never reuse unrelated GPS fixes.
                     LocationFeed.restoreTrail(saved.startedAt, savedTrail)
                 }
@@ -165,7 +181,7 @@ internal object DriveLog {
         reports.collect { send(DriveReport(it)) }
     }
 
-    /** The driver reset the trip computer: the trip it showed is over. */
+    /** The trip computer started a new trip (the driver reset it, or the car moved again after standing still): the one it showed is over. */
     private suspend fun followTrip() {
         LocationFeed.trip.collect { trip ->
             if (DemoMode.isOn) return@collect
@@ -197,7 +213,7 @@ internal object DriveLog {
             val app = appContext ?: continue
             if (!gps) gps = LocationFeed.acquire(app)
             val trip = LocationFeed.trip.value
-            if (DriveLogRules.isOver(trip, System.currentTimeMillis())) {
+            if (DriveLogRules.isOver(trip, trip.updatedAt, LocationFeed.stoppedMs())) {
                 // An empty trip waits for the car to move ([DriveLogRules.startsAfresh]).
                 if (DriveLogRules.isWorthLogging(trip)) close(trip, restart = true)
             } else if (trip.updatedAt != savedAt) {

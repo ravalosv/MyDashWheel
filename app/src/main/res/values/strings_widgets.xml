@@ -31,6 +31,7 @@
     <string name="widgets_light_manual">%1$d %%</string>
     <string name="widgets_cam_none">None ahead</string>
     <string name="widgets_osm_down">Map data server not answering</string>
+    <string name="widgets_cam_none_kept">None ahead, from the cameras on the unit</string>
     <string name="widgets_cam_speak">Spoken alerts</string>
     <string name="widgets_cam_speaking">Spoken alerts on</string>
     <string name="widgets_cam_silent">Not allowed in some countries, France among them</string>
@@ -172,4 +173,6 @@
     <string name="widgets_switch_bluetooth_detail">Turns Bluetooth on or off</string>
     <string name="widgets_switch_mobile_data_detail">Turns the SIM card\'s data on or off</string>
     <string name="widgets_switch_screen_off_detail">Turns the screen off like the unit\'s own key</string>
+    <string name="widgets_consumption">Consumption</string>
+    <string name="widgets_consumption_blurb">What the car burns now, since the last fill-up and on average</string>
 </resources>

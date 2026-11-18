@@ -63,6 +63,11 @@
     <string name="alert_enlarge">Mutasd</string>
     <string name="alert_speak">Felolvasás</string>
     <string name="alert_also_spoken">Felolvasva is</string>
+    <string name="alert_at">Hol jelenjen meg</string>
+    <string name="alert_at_top">Fent</string>
+    <string name="alert_at_start">Balra</string>
+    <string name="alert_at_end">Jobbra</string>
+    <string name="alert_at_bottom">Lent</string>
     <string name="alert_show">Riasztás megjelenítése</string>
     <string name="alert_speak_call_detail">Csengetéskor bemondja, ki hív</string>
     <string name="alert_speak_doors_detail">Bemondja, melyik ajtó van nyitva, ha menet közben kinyílik egy, vagy nyitott ajtóval indul el</string>
@@ -170,6 +175,8 @@
     <string name="bar_items_left">Előrébb a sávban</string>
     <string name="bar_items_right">Hátrébb a sávban</string>
     <string name="bar_items_reset">Alapkészlet visszaállítása</string>
+    <string name="bar_items_no_room">Néhány kijelzés nem fér el a sávon, felirat nélkül sem: vidd feljebb, vagy vegyél ki egy másikat.</string>
+    <string name="bar_items_left_out">Nem fér el: nincs a sávon</string>
     <string name="bar_item_fuel">Üzemanyag</string>
     <string name="bar_item_speed">Sebesség</string>
     <string name="bar_item_revs">Fordulat</string>
@@ -212,6 +219,8 @@
     <string name="about_tip_thanks">Köszönöm, sokat segít.</string>
     <string name="about_project">Projektoldal</string>
     <string name="about_project_detail">Forráskód, kiadások és hibajelentések</string>
+    <string name="about_telegram">Telegram-csoport</string>
+    <string name="about_telegram_detail">Kérdések, hírek és más sofőrök: t.me/Dashwheel</string>
     <string name="help_title">Súgó</string>
     <string name="help_row_detail">Minden funkció elmagyarázva, a wikin</string>
     <string name="help_detail">Minden funkció elmagyarázva a wikin. Olvassa be a telefonjával, vagy nyissa meg itt.</string>
@@ -334,6 +343,7 @@
     <string name="report_crash_intro">Küldje el a hibát, hogy javítani lehessen. A jelentés a hibát és a fejegység típusát és firmware-ét tartalmazza, semmi személyeset.</string>
     <string name="report_scan">Olvassa be a telefonjával a küldéshez</string>
     <string name="report_open">Megnyitás itt</string>
+    <string name="report_send_phone">Küldés a telefonra</string>
     <string name="report_delete">Törlés</string>
     <string name="report_later">Most nem</string>
     <string name="report_works">Működik</string>
@@ -374,11 +384,11 @@
     <string name="settings_section_region">Nyelv és mértékegységek</string>
     <string name="settings_sum_sound">Hangerő, érintések és zene</string>
     <string name="settings_sum_dashboard">Sáv, oldalsáv és lapok</string>
-    <string name="settings_sum_expert">Labor, API-kulcsok, szerverek</string>
     <string name="alerts_say">Mondja</string>
     <string name="alerts_show">Mutassa</string>
     <string name="alerts_intro">A Mondja felolvassa, a Mutassa megjeleníti a Dashwheel ablakát. Koppintson egy ablakra a kinézetéért.</string>
     <string name="alerts_group_car">Az autóból</string>
     <string name="alerts_group_road">Útközben</string>
     <string name="alerts_group_start">Induláskor</string>
+    <string name="settings_system_app_on">Telepítve. Az Android-widgetek kérdés nélkül hozzáadhatók.</string>
 </resources>

@@ -43,6 +43,16 @@ class CarPowerTest {
     }
 
     @Test
+    fun aLostSleepSaysHowLongTheCarWasOffOrThatTheClockIsNotSetYet() {
+        val off = 1_000 * min
+        assertTrue(lostSleepNote(lastBoot = 5, boot = 6, offAt = off, now = off + 12 * min, uptimeS = 30).contains("12 min later"))
+        // The unit came back with its clock at a date before the switch-off: no wait can be told.
+        val note = lostSleepNote(lastBoot = 5, boot = 6, offAt = off, now = off - 600_000 * min, uptimeS = 30)
+        assertTrue(note, note.contains("clock not set yet"))
+        assertFalse(note, Regex("""-\d+ min""").containsMatchIn(note))
+    }
+
+    @Test
     fun aPowerUpIsTheSwitchOnOrTheUnitsStartNotAnAppRestart() {
         // The unit started a minute ago.
         assertTrue(poweredUpRecently(now = 1 * min, switchedOnAt = 0))
@@ -51,5 +61,18 @@ class CarPowerTest {
         // The app restarted an hour into the drive, or parked: no power-up.
         assertFalse(poweredUpRecently(now = 600 * min, switchedOnAt = 540 * min))
         assertFalse(poweredUpRecently(now = 600 * min, switchedOnAt = 0))
+    }
+
+    @Test
+    fun theScreenBackOnIsTheCarBackOn_onlyWhereTheIgnitionCantBeReadAndReadsOff() {
+        // MTC: "power off" was announced, nothing says "on" again.
+        assertTrue(wakeIsSwitchOn(readable = false, ignition = false, sinceOffMs = 5 * min))
+        // The firmware closing the app in front right at the switch-off brings the dashboard back: not a wake-up.
+        assertFalse(wakeIsSwitchOn(readable = false, ignition = false, sinceOffMs = 3_000))
+        // Already on, or never told: nothing to do.
+        assertFalse(wakeIsSwitchOn(readable = false, ignition = true, sinceOffMs = 5 * min))
+        assertFalse(wakeIsSwitchOn(readable = false, ignition = null, sinceOffMs = 5 * min))
+        // A unit that can be asked is asked instead (CarPower.refresh).
+        assertFalse(wakeIsSwitchOn(readable = true, ignition = false, sinceOffMs = 5 * min))
     }
 }

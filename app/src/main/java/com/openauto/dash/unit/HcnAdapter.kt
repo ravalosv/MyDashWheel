@@ -4,11 +4,13 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.content.ContextCompat
 import com.openauto.dash.CameraControl
 import com.openauto.dash.Cap
 import com.openauto.dash.CapClaim
+import com.openauto.dash.DockShell
 import com.openauto.dash.IgnitionEvent
 import com.openauto.dash.IgnitionSource
 import com.openauto.dash.KeySource
@@ -17,6 +19,7 @@ import com.openauto.dash.McuReader
 import com.openauto.dash.MediaBridge
 import com.openauto.dash.PhoneBridge
 import com.openauto.dash.PopupTakeover
+import com.openauto.dash.PrivilegedShell
 import com.openauto.dash.SignalCatalogue
 import com.openauto.dash.SleepSurvival
 import com.openauto.dash.SysProps
@@ -108,6 +111,13 @@ internal object HcnIgnition : IgnitionSource {
 internal object HcnBus : VehicleBusSource {
     private const val TAG = "HcnBus"
     private const val POLL_MS = 300L
+    /** A shell round trip a poll is enough: a door is not opened three times a second. */
+    private const val SHELL_POLL_MS = 1_000L
+    /** The shell answering nothing: every 5 s after a minute of it, every 30 s after five. */
+    private const val SHELL_BACK_OFF_AFTER_MS = 60_000L
+    private const val SHELL_BACK_OFF_MS = 5_000L
+    private const val SHELL_SLOW_AFTER_MS = 5 * 60_000L
+    private const val SHELL_SLOW_MS = 30_000L
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val _listening = MutableStateFlow(false)
@@ -116,6 +126,7 @@ internal object HcnBus : VehicleBusSource {
 
     private var out: Publisher? = null
     private var job: Job? = null
+    private var app: Context? = null
 
     override fun start(context: Context, publisher: Publisher, raw: (String, String) -> Unit) {
         if (out != null) return
@@ -124,12 +135,31 @@ internal object HcnBus : VehicleBusSource {
             addAction(HcnProtocol.ACTION_REVERSE)
             addAction(HcnProtocol.ACTION_OUTSIDE_TEMP)
         }
-        ContextCompat.registerReceiver(context.applicationContext, receiver, filter, ContextCompat.RECEIVER_EXPORTED)
+        val app = context.applicationContext
+        this.app = app
+        ContextCompat.registerReceiver(app, receiver, filter, ContextCompat.RECEIVER_EXPORTED)
         _listening.value = true
         job = scope.launch {
             var seen = false
+            var path: String? = null
+            // When the shell started answering nothing: with no CarInfo app it never will, and a fork a second for the life of
+            // the process is not worth it, so the shell is asked less and less often until a value shows.
+            var shellQuietSince = 0L
             while (isActive) {
-                val doors = HcnProtocol.doors(SysProps::getOrNull)
+                var doors = HcnProtocol.doors(SysProps::getOrNull)
+                var viaShell = false
+                var shellAsked = false
+                if (doors == null && PrivilegedShell.access.value.shell) {
+                    val props = shellProps(app)
+                    doors = HcnProtocol.doors { props[it]?.takeIf(String::isNotBlank) }
+                    viaShell = doors != null
+                    shellAsked = true
+                }
+                val now = if (doors == null) "neither" else if (viaShell) "shell" else "direct"
+                if (now != path) {
+                    path = now
+                    Log.i(TAG, "door properties: $now (direct read, else the privileged shell)")
+                }
                 if (doors != null) {
                     if (!seen) {
                         seen = true
@@ -139,14 +169,40 @@ internal object HcnBus : VehicleBusSource {
                     }
                     publisher.put(K.DOORS, McuReader.DoorState(doors[0], doors[1], doors[2], doors[3], doors[4]))
                 }
-                delay(POLL_MS)
+                val wait = when {
+                    doors != null -> { shellQuietSince = 0L; if (viaShell) SHELL_POLL_MS else POLL_MS }
+                    !shellAsked -> POLL_MS
+                    else -> {
+                        val now = SystemClock.elapsedRealtime()
+                        if (shellQuietSince == 0L) shellQuietSince = now
+                        val quiet = now - shellQuietSince
+                        if (quiet < SHELL_BACK_OFF_AFTER_MS) SHELL_POLL_MS else if (quiet < SHELL_SLOW_AFTER_MS) SHELL_BACK_OFF_MS else SHELL_SLOW_MS
+                    }
+                }
+                delay(wait)
             }
         }
     }
 
+    /**
+     * The door properties through the privileged shell, one `getprop` a poll: on Android 12 and later a vendor
+     * property SELinux keeps from apps reads as unset in the app itself, while root, Shizuku and ADB see it.
+     */
+    private suspend fun shellProps(context: Context): Map<String, String> =
+        runCatching { DockShell.shell(context, "getprop | grep -F persist.vendor.cem.cardoor") }
+            .getOrDefault("").lines()
+            .mapNotNull { line -> PROP_LINE.find(line)?.let { it.groupValues[1] to it.groupValues[2] } }
+            .toMap()
+
+    private val PROP_LINE = Regex("""^\[([^\]]+)]: \[(.*)]$""")
+
     override fun stop() {
         job?.cancel()
         job = null
+        // Cleared so a later start registers and polls again rather than returning at once.
+        app?.let { runCatching { it.unregisterReceiver(receiver) } }
+        app = null
+        out = null
         _listening.value = false
     }
 
