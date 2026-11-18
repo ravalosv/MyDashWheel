@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="drive_history_all_time">Tüm sürüşler</string>
+    <string name="drive_stopped_label">Durdu</string>
+    <string name="drive_period">%1$s – %2$s</string>
+    <string name="drive_route_unavailable">Bu sürüş için rota kaydedilmedi.</string>
+    <string name="drive_detail_title">Sürüş ayrıntıları</string>
+    <string name="drive_delete">Sil</string>
+    <string name="drive_delete_confirm_title">Bu sürüş silinsin mi?</string>
+    <string name="drive_delete_confirm_body">Geçmişten silinecek. Bu işlem geri alınamaz.</string>
+    <string name="drives_clear_all">Tüm sürüşleri sil</string>
+    <string name="mine_update_beta">Beta güncellemelerini al</string>
+    <string name="mine_update_beta_detail">MyDashwheel test sürümlerini de al. Hatalar içerebilirler.</string>
+</resources>

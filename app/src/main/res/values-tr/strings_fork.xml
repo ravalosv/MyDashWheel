@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="places_custom_title">Özel yerler</string>
+    <string name="places_custom_empty">Henüz yok. Gittiğiniz yerleri ekleyin.</string>
+    <string name="places_name">Ad</string>
+    <string name="places_custom_rename">Yeniden adlandır</string>
+    <string name="places_custom_location_set">Konum ayarlandı</string>
+    <string name="places_custom_location_missing">Henüz konum yok: bir adres arayın veya aracın konumunu kullanın</string>
+    <string name="places_custom_widget_title">Harita bileşeninde</string>
+    <string name="places_custom_widget_hint">En fazla %1$d yer seçin</string>
+    <string name="places_custom_widget_empty">Önce ev, iş veya özel bir yer ayarlayın</string>
+    <string name="places_custom_add">Özel yer ekle</string>
+    <string name="places_custom_edit">Yeri düzenle</string>
+    <string name="places_custom_delete">Sil</string>
+    <string name="places_custom_category">Kategori</string>
+    <string name="places_custom_category_generic">Genel</string>
+    <string name="places_custom_category_gym">Spor salonu</string>
+    <string name="places_custom_category_school">Okul</string>
+    <string name="places_custom_category_hospital">Hastane</string>
+    <string name="places_custom_category_restaurant">Restoran</string>
+    <string name="places_custom_category_store">Mağaza</string>
+    <string name="places_custom_max_reached">En fazla 4 özel yere ulaşıldı</string>
+    <string name="places_custom_confirm_delete">Bu yer silinsin mi?</string>
+    <string name="places_custom_save">Kaydet</string>
+    <string name="places_custom_cancel">İptal</string>
+    <string name="about_custom_version">Özel sürüm — %1$s tarafından değiştirildi</string>
+</resources>
